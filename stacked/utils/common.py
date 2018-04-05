@@ -7,6 +7,9 @@ from torch.nn import Parameter
 import math
 
 
+SCOPE_DICTIONARY = dict()
+
+
 def get_cuda(param, dtype='float'):
     return getattr(param.cuda(), dtype)()
 
