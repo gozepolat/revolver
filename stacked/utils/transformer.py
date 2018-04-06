@@ -7,10 +7,11 @@ from torch.autograd import Variable
 from torch.nn import Parameter
 from common import get_cuda
 import torchnet as tnt
+from six import string_types
 
 
 def image_to_numpy(image):
-    if isinstance(image, basestring):
+    if isinstance(image, string_types):
         image = Image.open(image)
     return np.asarray(image)
 
@@ -20,7 +21,7 @@ def image_numpy_to_unsqueezed_cuda_tensor(data):
 
 
 def image_to_unsqueezed_cuda_variable(image, requires_grad=False):
-    if isinstance(image, basestring) or isinstance(image, Image.Image):
+    if isinstance(image, string_types) or isinstance(image, Image.Image):
         image = image_to_numpy(image)
     if isinstance(image, np.ndarray):
         image = np.rollaxis(image, 2, 0)
@@ -29,7 +30,7 @@ def image_to_unsqueezed_cuda_variable(image, requires_grad=False):
 
 
 def image_to_variable(image):
-    if isinstance(image, basestring):
+    if isinstance(image, string_types):
         image = Image.open(image)
     return T.ToTensor()(image)
 
@@ -39,7 +40,7 @@ def variable_to_image(tensor):
 
 
 def normalize(image, mean=None, std=None):
-    if isinstance(image, basestring):
+    if isinstance(image, string_types):
         image = image_to_variable(image)
     if mean is None:
         image = image - torch.min(image).expand_as(image)

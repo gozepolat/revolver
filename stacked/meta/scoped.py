@@ -1,15 +1,19 @@
 # -*- coding: utf-8 -*-
 import uuid
-from future.utils import raise_with_traceback
 from stacked.utils import common
+from six import string_types
+from six import reraise as raise_
+import sys
 
 
 def validate_scope(scope):
-    if isinstance(scope, basestring):
+    if isinstance(scope, string_types):
         if len(scope) < 1:
-            raise_with_traceback(ValueError("Scope string can not be empty"))
+            traceback = sys.exc_info()[2]
+            raise_(ValueError, "Scope string can not be empty", traceback)
     else:
-        raise_with_traceback(TypeError("Scope must be a string"))
+        traceback = sys.exc_info()[2]
+        raise_(TypeError, "Scope must be a string", traceback)
 
 
 class _Scoped(type):
@@ -35,8 +39,9 @@ class _Scoped(type):
         scoped_type = type(scoped_instance)
 
         if scoped_type != cls:
-            raise_with_traceback(TypeError(
-                "Same scope, different types: {}! Current: {}, registered type: {}".format(scope, cls, scoped_type)))
+            traceback = sys.exc_info()[2]
+            error = "Same scope, different types: {}! Current: {}, registered type: {}".format(scope, cls, scoped_type)
+            raise_(TypeError, error, traceback)
 
         return scoped_instance
 

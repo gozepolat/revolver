@@ -82,6 +82,14 @@ class TestScopedChildDescendants(TestCase):
         with self.assertRaises(TypeError):
             ScopedChild('5', None, 3)
 
+    def test_invalid_scope(self):
+        with self.assertRaises(TypeError):
+            ScopedGrandchild(5, None, 3, 4, 5)
+        with self.assertRaises(TypeError):
+            ScopedChild(None, None, 3)
+        with self.assertRaises(ValueError):
+            ScopedChild("", None, 3)
+
 
 if __name__ == '__main__':
     main()
