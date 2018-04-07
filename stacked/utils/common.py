@@ -7,6 +7,7 @@ from torch.nn import Parameter
 import math
 
 
+DEBUG_DOMAIN = True
 SCOPE_DICTIONARY = dict()
 
 

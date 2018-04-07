@@ -8,6 +8,53 @@ from torch.nn import Parameter
 from common import get_cuda
 import torchnet as tnt
 from six import string_types
+from math import ceil
+
+
+def normalize_index(index, num, mapper=None):
+    """ Return the normalized index given an integer index
+
+    e.g. num = 5 would behave similar to np.linspace(0.0, 1.0, 5)
+    index:            0   1    2    3    4
+    normalized index: 0.0 0.25 0.50 0.75 1.0   # =
+    """
+    if mapper is not None:
+        return mapper.forward(index, num)
+    assert (num > 0)
+    if num == 1:
+        return 0.0
+    return float(index) / (num - 1)
+
+
+def denormalize_index(normalized_float_index, num, mapper=None):
+    """ Return the integer index, given a normalized index """
+    if mapper is not None:
+        return mapper.backward(normalized_float_index, num)
+    return int(ceil(normalized_float_index * (num - 1)))
+
+
+def normalize_float(value, low, high, mapper=None):
+    """ Return the normalized value, given an interval
+
+    e.g. low = 2, high = 6
+    float value:            2.0   3.0   4.0  5.0   6.0
+    normalized_float value: 0.0   0.25  0.5  0.75  1.0
+    """
+    if mapper is not None:
+        return mapper.forward(value, low, high)
+    assert (high > low and high >= value >= low)
+    width = (high - low)
+    return float(value - low) / width
+
+
+def denormalize_float(normalized_float, low, high, mapper=None):
+    """ Return the real value in an interval, given the normalized one """
+    if mapper is None:
+        value = normalized_float * (high - low) + low
+    else:
+        value = mapper.backward(normalized_float, low, high)
+    assert (high > low and high >= value >= low)
+    return value
 
 
 def image_to_numpy(image):
