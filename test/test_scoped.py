@@ -29,6 +29,9 @@ class TestScopedChildDescendants(TestCase):
         child2 = ScopedChild('scope2', None, 5)
         self.assertNotEqual(child1.m1, child2.m1)
 
+        self.assertEqual(child1.scope, 'scope1')
+        self.assertNotEqual(child1.scope, child2.scope)
+
         child1 = ScopedGrandchild('grand_scope1', None, 4, 6, 8)
         child2 = ScopedGrandchild('grand_scope2', None, 5, 7, 9)
         self.assertNotEqual(child1.m1, child2.m1)
