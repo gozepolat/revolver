@@ -24,7 +24,7 @@ def is_element(value, domain):
     """ Check if a value belongs to the given domain """
     if type(domain) == type:
         if domain == complex:  # subset
-            if isinstance(value, int) or isinstance(value, float):
+            if isinstance(value, int) or isinstance(value, float) or isinstance(value, complex):
                 return True
             log(warning, "{} type is not supported for complex".format(type(value)))
             return False
@@ -62,6 +62,18 @@ class ClosedList(Domain):
         self.cardinality = len(elements)
         assert (self.cardinality > 0)
 
+    def __len__(self):
+        return len(self.elements)
+
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            return self.elements[index]
+        index = denormalize_index(index, self.__len__())
+        return self.elements[index]
+
+    def __contains__(self, item):
+        return is_element(item, self.elements)
+
     def _pick_within_distance(self, normalized_float, diameter):
         """ Pick a random neighbor no further away than the diameter
 
@@ -84,9 +96,6 @@ class ClosedList(Domain):
             return normalize_index(index, num, self.mapper), self.elements[index]
         log(warning, "{} not in domain, index {} too large, picking random".format(normalized_float, index))
         return self.pick_random()
-
-    def __contains__(self, item):
-        return is_element(item, self.elements)
 
     def pick_random(self):
         """ Pick a random element from the domain (discrete uniform distribution)
@@ -131,10 +140,24 @@ class ClosedInterval(Domain):
     def __contains__(self, item):
         return is_element(item, self.element_type) and self.lower_bound <= item <= self.upper_bound
 
+    def __len__(self):
+        return self.upper_bound - self.lower_bound
+
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            if index + self.lower_bound > self.upper_bound:
+                raise IndexError("Interval integer index out of range")
+            if index < 0:
+                index = self.__len__() + index + 1
+            return index + self.lower_bound
+        if not 1.0 >= index >= 0.0:
+            raise IndexError("Interval float index out of range (not normalized properly)")
+        return denormalize_float(index, self.lower_bound, self.upper_bound, self.mapper)
+
     def _pick_random_int_neighbor(self, center, diameter):
         assert (self.element_type == int)
-        lower_index = denormalize_index(center - diameter, self.upper_bound - self.lower_bound, self.mapper)
-        upper_index = denormalize_index(center + diameter, self.upper_bound - self.lower_bound, self.mapper)
+        lower_index = denormalize_index(center - diameter, self.__len__(), self.mapper)
+        upper_index = denormalize_index(center + diameter, self.__len__(), self.mapper)
         if lower_index < upper_index:
             index = np.random.randint(lower_index, upper_index)
         else:
@@ -163,7 +186,6 @@ class ClosedInterval(Domain):
         if self.element_type == float:
             center = np.random.uniform(center - diameter,
                                        center + diameter)
-            return center, denormalize_float(center, self.lower_bound, self.upper_bound,
-                                             self.mapper)
+            return center, denormalize_float(center, self.lower_bound, self.upper_bound, self.mapper)
         return self._pick_random_int_neighbor(center, diameter)
 

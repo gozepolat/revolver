@@ -11,7 +11,7 @@ from six import string_types
 from math import ceil
 
 
-def normalize_index(index, num, mapper=None):
+def normalize_index(index, length, mapper=None):
     """ Return the normalized index given an integer index
 
     e.g. num = 5 would behave similar to np.linspace(0.0, 1.0, 5)
@@ -19,18 +19,18 @@ def normalize_index(index, num, mapper=None):
     normalized index: 0.0 0.25 0.50 0.75 1.0   # =
     """
     if mapper is not None:
-        return mapper.forward(index, num)
-    assert (num > 0)
-    if num == 1:
+        return mapper.forward(index, length)
+    assert (length > 0)
+    if length == 1:
         return 0.0
-    return float(index) / (num - 1)
+    return float(index) / (length - 1)
 
 
-def denormalize_index(normalized_float_index, num, mapper=None):
+def denormalize_index(normalized_float_index, length, mapper=None):
     """ Return the integer index, given a normalized index """
     if mapper is not None:
-        return mapper.backward(normalized_float_index, num)
-    return int(ceil(normalized_float_index * (num - 1)))
+        return mapper.backward(normalized_float_index, length)
+    return int(ceil(normalized_float_index * (length - 1)))
 
 
 def normalize_float(value, low, high, mapper=None):
