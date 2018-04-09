@@ -8,6 +8,7 @@ import math
 
 
 DEBUG_DOMAIN = True
+DEBUG_SCOPE = True
 SCOPE_DICTIONARY = dict()
 
 

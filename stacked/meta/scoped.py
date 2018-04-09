@@ -3,7 +3,14 @@ import uuid
 from stacked.utils import common
 from six import string_types
 from six import reraise as raise_
+from six import add_metaclass
 import sys
+from logging import warning
+
+
+def log(log_func, msg):
+    if common.DEBUG_SCOPE:
+        log_func(msg)
 
 
 def validate_scope(scope):
@@ -16,13 +23,13 @@ def validate_scope(scope):
         raise_(TypeError, "Scope must be a string", traceback)
 
 
-class _Scoped(type):
+class ScopedMeta(type):
     """A metaclass that creates a base Scoped class when called.
 
     '_random' is reserved for generating a random scope that will not be shared
     All instances will be stored in the common.SCOPE_DICTIONARY"""
 
-    def __call__(cls, scope, meta, *args, **kwargs):
+    def __call__(cls, scope, *args, **kwargs):
         validate_scope(scope)
         if scope not in common.SCOPE_DICTIONARY:
             if scope == "_random":
@@ -31,25 +38,28 @@ class _Scoped(type):
                     scope = generate_random_scope(scope)
 
             # uniquely associate the scope with the generated instance
-            common.SCOPE_DICTIONARY[scope] = {'meta': meta,
-                                       'instance': super(_Scoped, cls).__call__(scope, meta, *args, **kwargs)}
+            instance = super(ScopedMeta, cls).__call__(scope, *args, **kwargs)
+            common.SCOPE_DICTIONARY[scope] = {'meta': dict(), 'instance': instance}
+        else:
+            log(warning, "Scope {} already exists, "
+            "ignoring the constructor arguments".format(scope))
 
         scoped = common.SCOPE_DICTIONARY[scope]
         scoped_instance = scoped['instance']
         scoped_type = type(scoped_instance)
-
         if scoped_type != cls:
             traceback = sys.exc_info()[2]
-            error = "Same scope, different types: {}! Current: {}, registered type: {}".format(scope, cls, scoped_type)
+            error = "Same scope, different types: "
+            "{}! Current: {}, registered type: {}".format(scope, cls, scoped_type)
             raise_(TypeError, error, traceback)
 
         return scoped_instance
 
 
-class Scoped(_Scoped('ScopedMeta', (object,), {})):
-    def __init__(self, scope, meta, *args, **kwargs):
+@add_metaclass(ScopedMeta)
+class Scoped(object):
+    def __init__(self, scope, *args, **kwargs):
         self.scope = scope
-        self.meta = meta
 
 
 def get_instance(scope, *args, **kwargs):
@@ -60,13 +70,22 @@ def get_instance(scope, *args, **kwargs):
 
     def _make_element(element_scope, op, *args_tail, **rest):
         scoped_op = op(*args_tail, **rest)
-        meta = None
+        meta = dict()
         if hasattr(scoped_op, 'meta'):
             meta = scoped_op.meta
         common.SCOPE_DICTIONARY[element_scope] = {'meta': meta, 'instance': scoped_op}
         return scoped_op
 
     return _make_element(scope, *args, **kwargs)
+
+
+def get_meta(scope):
+    """Get meta information about the scope"""
+    validate_scope(scope)
+    if scope in common.SCOPE_DICTIONARY:
+        return common.SCOPE_DICTIONARY[scope]['instance']
+    else:
+        raise_(KeyError, "scope {} not recorded".format(scope))
 
 
 def get_elements():

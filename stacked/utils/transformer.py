@@ -11,6 +11,24 @@ from six import string_types
 from math import ceil
 
 
+def type_to_str(cls):
+    """Convert the given type into a path like string form
+
+    e.g. given the type <class 'nn.conv.Conv2d'>
+    this will return: "class/nn/conv/Conv2d"
+    """
+    str_cls = str(cls)
+    chars = []
+    for c in str_cls:
+        if c == "\'" or c == '<' or c == '>':
+            continue
+        if c == '.' or c == ' ':
+            chars.append('/')
+        else:
+            chars.append(c)
+    return ''.join(chars)
+
+
 def normalize_index(index, length, mapper=None):
     """ Return the normalized index given an integer index
 
