@@ -14,16 +14,19 @@ class Conv3d2d(Module):
         self.conv = Conv3d(ni, no, kernel_size, stride, padding, dilation, groups)
 
     def forward(self, x):
-        if x.dim() == 4:  # convert x into a single channel 3d input
+        if x.dim() == 4:
+            # convert x into a single channel 3d input
             x = x.unsqueeze(0).permute(1, 0, 2, 3, 4)
 
-            if self.ni > 1:  # divide the 2d channels
+            if self.ni > 1:
+                # divide the 2d channels
                 assert(x.size(2) % self.ni == 0)
                 x = x.view(x.size(0), x.size(1) * self.ni, x.size(2) // self.ni, x.size(3), x.size(4))
 
             x = self.conv(x)
 
-            if self.no > 1:  # merge the 3d channels
+            if self.no > 1:
+                # merge the 3d channels
                 assert(x.size(1) % self.no == 0)
                 x = x.view(x.size(0), x.size(1) // self.no, x.size(2) * self.no, x.size(3), x.size(4))
 

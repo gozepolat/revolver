@@ -2,7 +2,7 @@
 from torch.nn import Parameter
 from torch.autograd import Variable
 import numpy as np
-from common import get_cuda
+from stacked.utils.common import get_cuda
 import torch
 
 

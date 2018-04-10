@@ -9,6 +9,7 @@ import math
 
 DEBUG_DOMAIN = True
 DEBUG_SCOPE = True
+DEBUG_SCOPED_RESNET = True
 SCOPE_DICTIONARY = dict()
 
 

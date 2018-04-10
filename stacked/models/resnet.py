@@ -68,17 +68,17 @@ class ResNet(Module):
         num_classes (int): Number of categories for supervised learning
         blueprint (iterable): the smallest possible widths per group
     """
-    def __init__(self, depth, width, num_classes, blueprint=(16, 32, 64), conv_module=Conv2d):
+    def __init__(self, depth, width, num_classes, skeleton=(16, 32, 64), conv_module=Conv2d):
         super(ResNet, self).__init__()
-        self.blueprint = blueprint
+        self.skeleton = skeleton
         self.num_blocks = (depth - 4) // 6
-        self.widths = [i * width for i in blueprint]
-        self.conv0 = Conv2d(3, blueprint[0], 3, 1, padding=1)
+        self.widths = [i * width for i in skeleton]
+        self.conv0 = Conv2d(3, skeleton[0], 3, 1, padding=1)
         self.group_list = torch.nn.ModuleList()
         self.bn = BatchNorm2d(self.widths[2])
         self.linear = torch.nn.Linear(self.widths[2], num_classes)
 
-        ni = blueprint[0]
+        ni = skeleton[0]
         stride = 1
         for width in self.widths:
             no = width
