@@ -49,8 +49,8 @@ class ScopedMeta(type):
         scoped_type = type(scoped_instance)
         if scoped_type != cls:
             traceback = sys.exc_info()[2]
-            error = "Same scope, different types: "
-            "{}! Current: {}, registered type: {}".format(scope, cls, scoped_type)
+            error = "Same scope, different types: {}! \
+            Current: {}, registered type: {}".format(scope, cls, scoped_type)
             raise_(TypeError, error, traceback)
 
         return scoped_instance
