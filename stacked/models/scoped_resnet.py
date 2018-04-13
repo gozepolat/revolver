@@ -334,7 +334,6 @@ class ResNet(Module):
 
     @staticmethod
     def get_scopes_and_suffixes(prefix, blueprint):
-        #print("prefix", prefix)
         conv0, conv0_suffix = get_scope_and_suffix(prefix, 'conv0', blueprint)
         bn, bn_suffix = get_scope_and_suffix(prefix, 'bn', blueprint)
         linear, linear_suffix = get_scope_and_suffix(prefix, 'linear', blueprint)
