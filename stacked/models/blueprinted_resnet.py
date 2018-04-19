@@ -4,7 +4,7 @@ from torch.nn import Module
 from stacked.modules.scoped_nn import ScopedConv2d, \
     ScopedBatchNorm2d, ScopedLinear, ScopedModuleList, ScopedReLU
 from stacked.meta.scoped import ScopedMeta
-from stacked.meta.blueprint import Blueprint
+from stacked.meta.blueprint import Blueprint, make_module
 from stacked.utils.transformer import all_to_none
 from six import add_metaclass
 
@@ -31,13 +31,13 @@ class ScopedResBlock(Module):
 
         for unit in blueprint['children']:
             act, bn, conv = unit
-            self.act.append(act['type'](act['name'], *act['args']))
-            self.conv.append(conv['type'](conv['name'], *conv['args']))
-            self.bn.append(bn['type'](bn['name'], *bn['args']))
+            self.act.append(make_module(act))
+            self.conv.append(make_module(conv))
+            self.bn.append(make_module(bn))
 
         # 1x1 conv to correct the number of channels for summation
         convdim = blueprint['convdim']
-        self.convdim = convdim['type'](convdim['name'], *convdim['args'])
+        self.convdim = make_module(convdim)
 
     def forward(self, x):
         o1 = self.act[0](self.bn[0](x))
@@ -185,14 +185,14 @@ class ScopedResNet(Module):
         self.scope = scope
 
         act = blueprint['act']
-        self.act = act['type'](act['name'], *act['args'])
+        self.act = make_module(act)
         conv0 = blueprint['conv0']
-        self.conv0 = conv0['type'](conv0['name'], *conv0['args'])
+        self.conv0 = make_module(conv0)
         self.group_container = ScopedModuleList(blueprint['group_container']['name'])
         bn = blueprint['bn']
-        self.bn = bn['type'](bn['name'], *bn['args'])
+        self.bn = make_module(bn)
         linear = blueprint['linear']
-        self.linear = linear['type'](linear['name'], *linear['args'])
+        self.linear = make_module(linear)
         for group in blueprint['children']:
             self.group_container.append(ScopedResGroup(group['name'], group))
 

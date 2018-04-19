@@ -17,7 +17,8 @@ class Blueprint(dict):
     """
 
     def __init__(self, prefix='None', unique=False,
-                 module_type=all_to_none, args=[], children=[], description={}):
+                 module_type=all_to_none, args=[],
+                 children=[], description={}, kwargs={}):
         super(Blueprint, self).__init__(description)
 
         # set from args if not in description
@@ -25,6 +26,8 @@ class Blueprint(dict):
             self['name'] = prefix
         if 'args' not in self:
             self['args'] = args
+        if 'kwargs' not in self:
+            self['kwargs'] = kwargs
         if 'type' not in self:
             self['type'] = module_type
         if 'unique' not in self:
@@ -40,3 +43,8 @@ class Blueprint(dict):
     def make_unique(self):
         self['unique'] = True
         self['name'] = "%s-%s" % (self['prefix'], generate_random_scope())
+
+
+def make_module(blueprint):
+    return blueprint['type'](blueprint['name'], *blueprint['args'],
+                             **blueprint['kwargs'])

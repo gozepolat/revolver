@@ -66,7 +66,7 @@ class ResNet(Module):
         depth (int): Overall depth of the network
         width (int): scalar that will be multiplied with blueprint to get the width per group
         num_classes (int): Number of categories for supervised learning
-        blueprint (iterable): the smallest possible widths per group
+        skeleton (iterable): the smallest possible widths per group
     """
     def __init__(self, depth, width, num_classes, skeleton=(16, 32, 64), conv_module=Conv2d):
         super(ResNet, self).__init__()
