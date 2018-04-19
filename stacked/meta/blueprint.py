@@ -2,7 +2,7 @@
 from stacked.meta.scoped import generate_random_scope
 from stacked.utils.transformer import all_to_none
 from torch.nn import Module
-from tkinter import ttk, StringVar
+import tkinter as tk
 from stacked.utils import common
 from logging import warning
 
@@ -22,6 +22,7 @@ class Blueprint(dict):
         module_type (type): Type that will be used as constructor;
                             if not given, the constructor will return None
         args (iterable): Arguments that will be used in the constructor
+        kwargs (dict): Key, value arguments for the constructor
         children (iterable): Member module descriptions
         description (dict): Dictionary form of the whole description
     """
@@ -52,10 +53,16 @@ class Blueprint(dict):
         if self['unique']:
             self.make_unique()
 
+        # gui related
         if common.BLUEPRINT_GUI:
-            # gui related
-            self.button_text = StringVar()
+            self.button_text = tk.StringVar()
+            self.button_text_color = tk.StringVar()
             self.button_text.set(self['name'])
+            self.button = None
+            if self['unique']:
+                self.button_text_color.set('#FFAAAA')
+            else:
+                self.button_text_color.set('#BBDDBB')
 
     def has_unique_elements(self):
         if self['unique']:
@@ -89,6 +96,10 @@ class Blueprint(dict):
             self['name'] = self['name'][0:index]
             if common.BLUEPRINT_GUI:
                 self.button_text.set(self['name'])
+                self.button_text_color.set('#BBDDBB')
+                self.button.configure(bg=self.button_text_color.get())
+
+        self['parent'].make_common()
 
     def make_unique(self):
         """Make the blueprint and all parents unique"""
@@ -96,7 +107,10 @@ class Blueprint(dict):
         if '~' not in self['name']:
             self['name'] = generate_random_scope(self['prefix'])
             if common.BLUEPRINT_GUI:
+                self.button_text_color.set('#FFAAAA')
                 self.button_text.set(self['name'])
+                if self.button is not None:
+                    self.button.configure(bg=self.button_text_color.get())
 
         if self['parent'] is not None:
             self['parent'].make_unique()
@@ -122,7 +136,11 @@ class Blueprint(dict):
             else:
                 blueprint.make_unique()
 
-        return ttk.Button(master, textvariable=self.button_text, command=callback)
+        self.button = tk.Button(master,
+                          textvariable=self.button_text,
+                          command=callback
+                          , bg=self.button_text_color.get())
+        return self.button
 
 
 def make_module(blueprint):
@@ -143,27 +161,39 @@ def summarize(blueprint):
 
 
 def visualize(blueprint):
+    r"""Visualize module names, and toggle uniqueness"""
     master = common.GUI
     buttons = []
+
+    frame = master
+    text = tk.Text(frame, wrap="none")
+    vsb = tk.Scrollbar(orient="vertical", command=text.yview)
+    text.configure(yscrollcommand=vsb.set)
+    vsb.pack(side="right", fill="y")
+    text.tag_configure("center", justify=tk.CENTER)
+    text.pack(fill="both", expand=True)
+
     visit_modules(blueprint, master, buttons)
     for b in buttons:
-        b.pack()
+        text.window_create("end", window=b)
+        text.insert("end", "\n")
 
+    text.configure(state="disabled")
     master.mainloop()
 
 
-def visit_modules(blueprint, master, elements=[],
+def visit_modules(blueprint, main_input, outputs=[],
                   fn=lambda x, k: x.get_scope_button(k)):
     r"""Recursively add named buttons to the module set"""
     if issubclass(blueprint['type'], Module):
-        elements.append(fn(blueprint, master))
+        outputs.append(fn(blueprint, main_input))
 
     for b in blueprint['children']:
         if type(b) == Blueprint:
-            visit_modules(b, master, elements)
+            visit_modules(b, main_input, outputs)
         else:
             for i in b:
-                visit_modules(i, master, elements)
+                visit_modules(i, main_input, outputs)
 
 
 def get_module_names(blueprint, module_set=set()):

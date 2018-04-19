@@ -6,7 +6,6 @@ from stacked.models import resnet
 from stacked.models import scoped_resnet
 from stacked.models import blueprinted_resnet
 from stacked.meta.blueprint import visualize, get_module_names
-from stacked.utils import common
 import glob
 import copy
 
@@ -23,7 +22,7 @@ class TestResNet(unittest.TestCase):
         cls.vanilla_model = resnet.ResNet(depth=16, width=1, num_classes=100).cuda()
         cls.scoped_model = scoped_resnet.ResNet("ResNet16", None, None,
                                                 depth=16, width=1, num_classes=100).cuda()
-        cls.blueprint = blueprinted_resnet.ScopedResNet.describe_default(depth=16, width=1, num_classes=100)
+        cls.blueprint = blueprinted_resnet.ScopedResNet.describe_default(depth=28, width=1, num_classes=100)
         cls.blueprinted_model = blueprinted_resnet.ScopedResNet(cls.blueprint['name'], cls.blueprint).cuda()
 
     def test_unique_group_scoped(self):
