@@ -5,6 +5,8 @@ from stacked.utils import transformer
 from stacked.models import resnet
 from stacked.models import scoped_resnet
 from stacked.models import blueprinted_resnet
+from stacked.meta.blueprint import visualize, get_module_names
+from stacked.utils import common
 import glob
 import copy
 
@@ -21,8 +23,8 @@ class TestResNet(unittest.TestCase):
         cls.vanilla_model = resnet.ResNet(depth=16, width=1, num_classes=100).cuda()
         cls.scoped_model = scoped_resnet.ResNet("ResNet16", None, None,
                                                 depth=16, width=1, num_classes=100).cuda()
-        blueprint = blueprinted_resnet.ScopedResNet.describe_default(depth=16, width=1, num_classes=100)
-        cls.blueprinted_model = blueprinted_resnet.ScopedResNet(blueprint['name'], blueprint).cuda()
+        cls.blueprint = blueprinted_resnet.ScopedResNet.describe_default(depth=16, width=1, num_classes=100)
+        cls.blueprinted_model = blueprinted_resnet.ScopedResNet(cls.blueprint['name'], cls.blueprint).cuda()
 
     def test_unique_group_scoped(self):
         new_blueprint = copy.deepcopy(self.scoped_model.blueprint)
@@ -62,6 +64,25 @@ class TestResNet(unittest.TestCase):
             x = transformer.image_to_unsqueezed_cuda_variable(im)
             out = self.blueprinted_model(x)
             self.assertEqual(out.size(), self.out_size)
+
+    def test_module_names_blueprinted(self):
+        # ResNet -> group16_16
+        group = self.blueprint.get_child(0)
+        # group16_16 -> block16_16
+        block = group.get_child(0)
+        # block16_16 -> conv16_16_3
+        child = block.get_child((1, 2))
+        self.assertEqual(child['name'], 'ResNet/group16_16/block16_16/conv16_16_3')
+        child.make_unique()
+        self.assertNotEqual(child['name'], 'ResNet/group16_16/block16_16/conv16_16_3')
+        print(child['name'])
+        module_list = set()
+        get_module_names(self.blueprint, module_list)
+        self.assertTrue(child['name'] in module_list)
+
+    @unittest.skip("GUI test for uniqueness skipped")
+    def test_visualize_blueprinted(self):
+        visualize(self.blueprint)
 
 
 if __name__ == '__main__':

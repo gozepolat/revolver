@@ -93,5 +93,5 @@ def get_elements():
 
 
 def generate_random_scope(prefix=""):
-    return '/'.join([prefix, uuid.uuid4().hex])
+    return '~'.join([prefix, uuid.uuid4().hex])
 

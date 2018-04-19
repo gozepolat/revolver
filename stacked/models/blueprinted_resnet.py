@@ -2,7 +2,7 @@
 import torch.nn.functional as F
 from torch.nn import Module
 from stacked.modules.scoped_nn import ScopedConv2d, \
-    ScopedBatchNorm2d, ScopedLinear, ScopedModuleList, ScopedReLU
+    ScopedBatchNorm2d, ScopedLinear, ModuleList, ScopedReLU
 from stacked.meta.scoped import ScopedMeta
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.utils.transformer import all_to_none
@@ -23,9 +23,9 @@ class ScopedResBlock(Module):
         self.scope = scope
 
         # containers for the units
-        self.act = ScopedModuleList(blueprint['act_container']['name'])
-        self.conv = ScopedModuleList(blueprint['conv_container']['name'])
-        self.bn = ScopedModuleList(blueprint['bn_container']['name'])
+        self.act = ModuleList()
+        self.conv = ModuleList()
+        self.bn = ModuleList()
 
         self.depth = len(blueprint['children'])
 
@@ -54,12 +54,13 @@ class ScopedResBlock(Module):
             return z + x
 
     @staticmethod
-    def describe_default(prefix, depth, conv_module, bn_module, act_module,
+    def describe_default(prefix, parent, depth, conv_module, bn_module, act_module,
                          ni, no, kernel_size, stride, padding):
         """Create a default ResBlock blueprint
 
         Args:
             prefix (str): Prefix from which the member scopes will be created
+            parent (Blueprint): None or the instance of the parent blueprint
             depth: Number of conv/act/bn units in the block
             conv_module (type): CNN module to use in forward. e.g. ScopedConv2d
             bn_module (type): Batch normalization module. e.g. ScopedBatchNorm2d
@@ -73,33 +74,29 @@ class ScopedResBlock(Module):
         def scope(suffix):
             return '%s/%s_%d' % (prefix, suffix, kernel_size)
 
-        convdim_type = conv_module if ni != no else all_to_none
-        convdim = Blueprint(scope('convdim%d_%d' % (ni, no)), False, convdim_type,
-                            args=[ni, no, 1, stride])
         children = []
-
+        default = Blueprint(prefix, parent, False, ScopedResBlock)
+        convdim_type = conv_module if ni != no else all_to_none
+        convdim = Blueprint(scope('convdim%d_%d' % (ni, no)), default, False, convdim_type,
+                            args=[ni, no, 1, stride])
+        default['convdim'] = convdim
         # default: after ni = no, everything is the same
         for i in range(depth):
-            act = Blueprint(scope('act%d_%d' % (ni, no)), False,
+            act = Blueprint(scope('act%d_%d' % (ni, no)), default, False,
                             act_module, args=[True])
-            bn = Blueprint(scope('bn%d_%d' % (ni, no)), False,
+            bn = Blueprint(scope('bn%d_%d' % (ni, no)), default, False,
                            bn_module, args=[ni])
-            conv = Blueprint(scope('conv%d_%d' % (ni, no)), False, conv_module,
+            conv = Blueprint(scope('conv%d_%d' % (ni, no)), default, False, conv_module,
                              args=[ni, no, kernel_size, stride, padding])
             unit = (act, bn, conv)
             children.append(unit)
             padding = 1
             stride = 1
             ni = no
+        default['children'] = children
 
-        description = {'children': children, 'convdim': convdim,
-                       'act_container': Blueprint(scope('act_container%d_%d' % (ni, no))),
-                       'conv_container': Blueprint(scope('conv_container%d_%d' % (ni, no))),
-                       'bn_container': Blueprint(scope('bn_container%d_%d' % (ni, no)))}
-
-        default = Blueprint(prefix, False, ScopedResBlock, description=description)
-        # the only argument required for the ScopedResBlock is the blueprint itself
-        default['args'] = [default]
+        # the only arg for ScopedResBlock is the blueprint itself (would be already known)
+        # default['args'] = [default] - unnecessary
         return default
 
 
@@ -120,7 +117,7 @@ class ScopedResGroup(Module):
     def __init__(self, scope, blueprint):
         super(ScopedResGroup, self).__init__()
         self.scope = scope
-        self.block_container = ScopedModuleList(blueprint['block_container']['name'])
+        self.block_container = ModuleList()
         for block in blueprint['children']:
             self.block_container.append(ScopedResBlock(block['name'], block))
 
@@ -130,12 +127,13 @@ class ScopedResGroup(Module):
         return x
 
     @staticmethod
-    def describe_default(prefix, group_depth, block_depth, conv_module, bn_module,
+    def describe_default(prefix, parent, group_depth, block_depth, conv_module, bn_module,
                          act_module, ni, no, kernel_size, stride, padding):
         """Create a default ResGroup blueprint
 
         Args:
             prefix (str): Prefix from which the member scopes will be created
+            parent (Blueprint): None or the instance of the parent blueprint
             group_depth: Number of blocks in the group
             block_depth: Number of [conv/act/bn] units in the block
             conv_module (type): CNN module to use in forward. e.g. ScopedConv2d
@@ -148,13 +146,11 @@ class ScopedResGroup(Module):
             padding (int or tuple, optional): Padding for the first convolution
         """
 
-        def scope(suffix):
-            return '%s/%s_%d' % (prefix, suffix, kernel_size)
-
+        default = Blueprint(prefix, parent, False, ScopedResGroup)
         children = []
         for i in range(group_depth):
-            block_name = scope('block%d_%d' % (ni, no))
-            block = ScopedResBlock.describe_default(block_name, block_depth,
+            block_name = '%s/block%d_%d' % (prefix, ni, no)
+            block = ScopedResBlock.describe_default(block_name, default, block_depth,
                                                     conv_module, bn_module, act_module,
                                                     ni, no, kernel_size, stride, padding)
             children.append(block)
@@ -162,13 +158,7 @@ class ScopedResGroup(Module):
             stride = 1
             ni = no
 
-        container_name = scope('block_container%d_%d' % (ni, no))
-        description = {'children': children,
-                       'block_container': Blueprint(container_name)}
-
-        default = Blueprint(prefix, False, ScopedResGroup, description=description)
-        # the only argument required (blueprint=default)
-        default['args'] = [default]
+        default['children'] = children
         return default
 
 
@@ -188,7 +178,7 @@ class ScopedResNet(Module):
         self.act = make_module(act)
         conv0 = blueprint['conv0']
         self.conv0 = make_module(conv0)
-        self.group_container = ScopedModuleList(blueprint['group_container']['name'])
+        self.group_container = ModuleList()
         bn = blueprint['bn']
         self.bn = make_module(bn)
         linear = blueprint['linear']
@@ -211,7 +201,7 @@ class ScopedResNet(Module):
         return (depth - 4) // (num_groups * block_depth)
 
     @staticmethod
-    def describe_default(prefix='ResNet', skeleton=(16, 32, 64),
+    def describe_default(prefix='ResNet', parent=None, skeleton=(16, 32, 64),
                          num_classes=10, depth=28, width=1,
                          block_depth=2, conv_module=ScopedConv2d,
                          bn_module=ScopedBatchNorm2d, linear_module=ScopedLinear,
@@ -220,6 +210,7 @@ class ScopedResNet(Module):
 
         Args:
             prefix (str): Prefix from which the member scopes will be created
+            parent (Blueprint): None or the instance of the parent blueprint
             skeleton (iterable): Smallest possible widths per group
             num_classes (int): Number of categories for supervised learning
             depth (int): Overall depth of the network
@@ -234,19 +225,27 @@ class ScopedResNet(Module):
         """
 
         def scope(suffix):
-            return '%s/%s_%d' % (prefix, suffix, kernel_size)
+            return '%s/%s' % (prefix, suffix)
 
         widths = [i * width for i in skeleton]
-        ni = skeleton[0]
         stride = 1
         children = []
 
         num_groups = len(skeleton)
-        group_depth = ScopedResNet.get_num_blocks_per_group(depth, num_groups,
-                                                            block_depth)
+        group_depth = ScopedResNet.get_num_blocks_per_group(depth, num_groups, block_depth)
+        ni = skeleton[0]
+        no = widths[-1]
+
+        default = Blueprint(prefix, parent, False, ScopedResNet)
+        default['bn'] = Blueprint(scope('bn_%d' % no), default, False, bn_module, args=[no])
+        default['act'] = Blueprint(scope('act%d' % no), default, False, act_module, args=[True])
+        default['conv0'] = Blueprint(scope('conv03_%d' % ni), default, False,
+                                     conv_module, args=[3, ni, 3, 1, 1])
+        default['linear'] = Blueprint(scope('linear%d_%d' % (no, num_classes)), default, False,
+                                      linear_module, args=[no, num_classes])
         for width in widths:
             no = width
-            block = ScopedResGroup.describe_default(scope('group%d_%d' % (ni, no)),
+            block = ScopedResGroup.describe_default(scope('group%d_%d' % (ni, no)), default,
                                                     group_depth, block_depth,
                                                     conv_module, bn_module, act_module,
                                                     ni, no, kernel_size, stride, padding)
@@ -254,22 +253,9 @@ class ScopedResNet(Module):
             padding = 1
             stride = 2
             ni = no
-
-        container_name = scope('group_container%d_%d' % (ni, no))
-        description = {'children': children,
-                       'bn': Blueprint(scope('bn%d_%d' % (ni, no)), False, bn_module,
-                                       args=[widths[2]]),
-                       'act': Blueprint(scope('act%d_%d' % (ni, no)), False, act_module,
-                                        args=[True]),
-                       'conv0': Blueprint(scope('conv0%d_%d' % (ni, no)), False,
-                                          conv_module, args=[3, skeleton[0], 3, 1, 1]),
-                       'linear': Blueprint(scope('linear%d_%d' % (ni, no)), False,
-                                           linear_module, args=[widths[2], num_classes]),
-                       'group_container': Blueprint(container_name)}
-
-        default = Blueprint(prefix, False, ScopedResNet, description=description)
-        # the only argument required (blueprint=default)
-        default['args'] = [default]
+        default['children'] = children
+        # the only argument required (blueprint=default), and it will be already available
+        # default['args'] = [default]
         return default
 
 
