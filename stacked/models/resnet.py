@@ -90,7 +90,7 @@ class ResNet(Module):
         x = self.conv0(x)
         for i, _ in enumerate(self.widths):
             x = self.group_list[i](x)
-        o = F.relu(self.bn(x))
+        o = F.relu(self.bn(x), inplace=True)
         o = F.avg_pool2d(o, o.size()[2], 1, 0)
         o = o.view(o.size(0), -1)
         o = self.linear(o)

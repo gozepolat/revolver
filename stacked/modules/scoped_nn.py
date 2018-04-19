@@ -2,7 +2,7 @@ from six import add_metaclass
 from stacked.meta.scoped import ScopedMeta
 from torch.nn import Conv2d, Conv3d, BatchNorm2d, \
     BatchNorm3d, Linear, Module, ModuleList, Parameter, \
-    ParameterList
+    ParameterList, ReLU
 from stacked.modules.conv3d2d import Conv3d2d
 
 
@@ -83,4 +83,11 @@ class ScopedParameterList(ParameterList):
 class ScopedParameter(Parameter):
     def __init__(self, scope, *args, **kwargs):
         super(ScopedParameter, self).__init__(*args, **kwargs)
+        self.scope = scope
+
+
+@add_metaclass(ScopedMeta)
+class ScopedReLU(ReLU):
+    def __init__(self, scope, *args, **kwargs):
+        super(ScopedReLU, self).__init__(*args, **kwargs)
         self.scope = scope

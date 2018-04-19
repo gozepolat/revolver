@@ -11,6 +11,11 @@ from six import string_types
 from math import ceil
 
 
+def all_to_none(*_, **__):
+    """Ignore everything and return None"""
+    return None
+
+
 def type_to_str(cls):
     """Convert the given type into a path like string form
 

@@ -4,6 +4,7 @@ from PIL import Image
 from stacked.utils import transformer
 from stacked.models import resnet
 from stacked.models import scoped_resnet
+from stacked.models import blueprinted_resnet
 import glob
 import copy
 
@@ -20,8 +21,10 @@ class TestResNet(unittest.TestCase):
         cls.vanilla_model = resnet.ResNet(depth=16, width=1, num_classes=100).cuda()
         cls.scoped_model = scoped_resnet.ResNet("ResNet16", None, None,
                                                 depth=16, width=1, num_classes=100).cuda()
+        blueprint = blueprinted_resnet.ScopedResNet.describe_default(depth=16, width=1, num_classes=100)
+        cls.blueprinted_model = blueprinted_resnet.ScopedResNet(blueprint['name'], blueprint).cuda()
 
-    def test_unique_group(self):
+    def test_unique_group_scoped(self):
         new_blueprint = copy.deepcopy(self.scoped_model.blueprint)
         same_model = scoped_resnet.ResNet("ResNet16", None, None,
                                           depth=16, width=1, num_classes=100).cuda()
@@ -33,7 +36,7 @@ class TestResNet(unittest.TestCase):
         self.assertEqual(same_model.group_container, self.scoped_model.group_container)
         self.assertNotEqual(new_model.group_container, self.scoped_model.group_container)
 
-    def test_unique_block(self):
+    def test_unique_block_scoped(self):
         new_blueprint = copy.deepcopy(self.scoped_model.blueprint)
         dref = dict(dict(new_blueprint['group_elements'])['group0']['block_elements'])
         dref['block0']['uniques'].add('conv1')
@@ -52,6 +55,12 @@ class TestResNet(unittest.TestCase):
         for path, im in self.test_images:
             x = transformer.image_to_unsqueezed_cuda_variable(im)
             out = self.scoped_model(x)
+            self.assertEqual(out.size(), self.out_size)
+
+    def test_forward_blueprinted(self):
+        for path, im in self.test_images:
+            x = transformer.image_to_unsqueezed_cuda_variable(im)
+            out = self.blueprinted_model(x)
             self.assertEqual(out.size(), self.out_size)
 
 
