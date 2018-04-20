@@ -177,7 +177,6 @@ class Blueprint(dict):
                                 bg=self.button_text_color.get())
 
         def onEnter(button):
-            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> onEnter {}".format(blueprint))
             info.delete('1.0', "end")
             info.insert("end", "{}".format(blueprint))
 

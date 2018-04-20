@@ -6,6 +6,8 @@ from stacked.models import resnet
 from stacked.models import scoped_resnet
 from stacked.models import blueprinted_resnet
 from stacked.meta.blueprint import visualize, get_module_names
+from torch.nn import Conv2d
+from stacked.modules.scoped_nn import ScopedEnsemble
 import glob
 import copy
 
@@ -74,12 +76,11 @@ class TestResNet(unittest.TestCase):
         self.assertEqual(child['name'], 'ResNet/group16_16/block16_16/conv16_16_3')
         child.make_unique()
         self.assertNotEqual(child['name'], 'ResNet/group16_16/block16_16/conv16_16_3')
-        print(child['name'])
         module_list = set()
         get_module_names(self.blueprint, module_list)
         self.assertTrue(child['name'] in module_list)
 
-    #@unittest.skip("GUI test for uniqueness skipped")
+    @unittest.skip("GUI test for uniqueness skipped")
     def test_visual_change_blueprinted(self):
         # group[0] -> block[0] -> unit[1 -> conv] (0: act, 1: bn, 2: conv)
         self.blueprint.get_child((0, 0, 1, 2)).make_unique()
@@ -89,6 +90,26 @@ class TestResNet(unittest.TestCase):
         self.assertEqual(self.blueprinted_model.group_container[1], new_model.group_container[1])
         self.assertNotEqual(self.blueprinted_model.group_container[0], new_model.group_container[0])
         self.assertNotEqual(self.blueprinted_model.group_container, new_model.group_container)
+        for path, im in self.test_images:
+            x = transformer.image_to_unsqueezed_cuda_variable(im)
+            out = new_model(x)
+            self.assertEqual(out.size(), self.out_size)
+
+    def test_ensemble_instead_of_conv(self):
+        in_channels = 3
+        out_channels = 16
+        kernel_size = 3
+        stride = 1
+        args = (in_channels, out_channels, kernel_size, stride)
+        kwargs = {'padding': 1}
+        args = [(Conv2d, args, kwargs)] * 5
+        input_shape = transformer.image_to_unsqueezed_cuda_variable(self.test_images[0][1]).size()
+        conv0 = self.blueprint['conv0']
+        conv0['prefix'] = 'ResNet/stacked0'
+        conv0['type'] = ScopedEnsemble
+        conv0['args'] = [args, input_shape]
+        conv0.make_unique()
+        new_model = blueprinted_resnet.ScopedResNet(self.blueprint['name'], self.blueprint).cuda()
         for path, im in self.test_images:
             x = transformer.image_to_unsqueezed_cuda_variable(im)
             out = new_model(x)

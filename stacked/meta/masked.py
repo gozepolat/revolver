@@ -9,7 +9,7 @@ class Ensemble(nn.Module):
         Note that this assumes all modules have the same output size, given the input size
     Arguments:
         iterable_args: an iterable that consists of elements in the form: (module, module_args, module_kwargs)
-        in_size: the input size that will be used for deducing the mask size
+        inp_shape: the input size that will be used for deducing the mask size
         mask_with_grad: True if mask is learnable
         mask_func: lambda function to run with conv_out and mask"""
 

@@ -27,7 +27,7 @@ class ScopedMeta(type):
     """A metaclass that creates a base Scoped class when called.
 
     '_random' is reserved for generating a random scope that will not be shared
-    the character '~' is reserved for denoting the beginning of random string
+    '~' is reserved for denoting the beginning of uuid, if instance is unique
     All instances will be stored in the common.SCOPE_DICTIONARY"""
 
     def __call__(cls, scope, *args, **kwargs):
