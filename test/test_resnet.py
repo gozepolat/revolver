@@ -79,9 +79,15 @@ class TestResNet(unittest.TestCase):
         get_module_names(self.blueprint, module_list)
         self.assertTrue(child['name'] in module_list)
 
-    @unittest.skip("GUI test for uniqueness skipped")
-    def test_visualize_blueprinted(self):
+    #@unittest.skip("GUI test for uniqueness skipped")
+    def test_visual_change_blueprinted(self):
         visualize(self.blueprint)
+        new_model = blueprinted_resnet.ScopedResNet(self.blueprint['name'], self.blueprint).cuda()
+        self.assertEqual(new_model.conv0, self.blueprinted_model.conv0)
+        for path, im in self.test_images:
+            x = transformer.image_to_unsqueezed_cuda_variable(im)
+            out = new_model(x)
+            self.assertEqual(out.size(), self.out_size)
 
 
 if __name__ == '__main__':

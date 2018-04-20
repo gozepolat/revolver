@@ -106,14 +106,13 @@ class Blueprint(dict):
         self['unique'] = True
         if '~' not in self['name']:
             self['name'] = generate_random_scope(self['prefix'])
+            if self['parent'] is not None:
+                self['parent'].make_unique()
             if common.BLUEPRINT_GUI:
                 self.button_text_color.set('#FFAAAA')
                 self.button_text.set(self['name'])
                 if self.button is not None:
                     self.button.configure(bg=self.button_text_color.get())
-
-        if self['parent'] is not None:
-            self['parent'].make_unique()
 
     def get_child(self, index):
         b = self['children']
@@ -128,6 +127,9 @@ class Blueprint(dict):
             return b
 
     def get_scope_button(self, master):
+        if not common.BLUEPRINT_GUI:
+            return None
+
         blueprint = self
 
         def callback():
@@ -137,20 +139,20 @@ class Blueprint(dict):
                 blueprint.make_unique()
 
         self.button = tk.Button(master,
-                          textvariable=self.button_text,
-                          command=callback
-                          , bg=self.button_text_color.get())
+                                textvariable=self.button_text,
+                                command=callback,
+                                bg=self.button_text_color.get())
         return self.button
 
 
 def make_module(blueprint):
-    r"""Construct named (or scoped) object given the blueprint"""
+    """Construct named (or scoped) object given the blueprint"""
     return blueprint['type'](blueprint['name'], *blueprint['args'],
                              **blueprint['kwargs'])
 
 
 def summarize(blueprint):
-    r"""Print the names of objects in the blueprint"""
+    """"Print the names of objects in the blueprint"""
     print(blueprint['name'])
     for b in blueprint['children']:
         if type(b) == Blueprint:
@@ -161,7 +163,7 @@ def summarize(blueprint):
 
 
 def visualize(blueprint):
-    r"""Visualize module names, and toggle uniqueness"""
+    """Visualize module names, and toggle uniqueness"""
     master = common.GUI
     buttons = []
 
@@ -183,10 +185,17 @@ def visualize(blueprint):
 
 
 def visit_modules(blueprint, main_input, outputs=[],
-                  fn=lambda x, k: x.get_scope_button(k)):
-    r"""Recursively add named buttons to the module set"""
+                  fn=lambda bp, inp: bp.get_scope_button(inp)):
+    """Recursively apply a function to all modules
+
+    e.g.add named buttons to the outputs"""
     if issubclass(blueprint['type'], Module):
         outputs.append(fn(blueprint, main_input))
+
+    for k, v in blueprint.items():
+        if type(v) == Blueprint and k != 'parent':
+            if v['type'] != all_to_none:
+                visit_modules(v, main_input, outputs)
 
     for b in blueprint['children']:
         if type(b) == Blueprint:
