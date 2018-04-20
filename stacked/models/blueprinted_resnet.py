@@ -86,8 +86,10 @@ class ScopedResBlock(Module):
                             act_module, args=[True])
             bn = Blueprint(scope('bn%d_%d' % (ni, no)), default, False,
                            bn_module, args=[ni])
+            kwargs = {'in_channels': ni, 'out_channels': no,
+                      'kernel_size': kernel_size, 'stride': stride, 'padding': padding}
             conv = Blueprint(scope('conv%d_%d' % (ni, no)), default, False, conv_module,
-                             args=[ni, no, kernel_size, stride, padding])
+                             kwargs=kwargs)
             unit = (act, bn, conv)
             children.append(unit)
             padding = 1
@@ -239,8 +241,9 @@ class ScopedResNet(Module):
         default = Blueprint(prefix, parent, False, ScopedResNet)
         default['bn'] = Blueprint(scope('bn_%d' % no), default, False, bn_module, args=[no])
         default['act'] = Blueprint(scope('act%d' % no), default, False, act_module, args=[True])
+        kwargs = {'in_channels': 3, 'out_channels': ni, 'kernel_size': 3, 'padding': 1}
         default['conv0'] = Blueprint(scope('conv03_%d' % ni), default, False,
-                                     conv_module, args=[3, ni, 3, 1, 1])
+                                     conv_module, kwargs=kwargs)
         default['linear'] = Blueprint(scope('linear%d_%d' % (no, num_classes)), default, False,
                                       linear_module, args=[no, num_classes])
         for width in widths:

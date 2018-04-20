@@ -8,6 +8,7 @@ from stacked.models import blueprinted_resnet
 from stacked.meta.blueprint import visualize, get_module_names
 from torch.nn import Conv2d
 from stacked.modules.scoped_nn import ScopedEnsemble
+from stacked.modules.conv3d2d import Conv3d2d
 import glob
 import copy
 
@@ -96,20 +97,29 @@ class TestResNet(unittest.TestCase):
             self.assertEqual(out.size(), self.out_size)
 
     def test_ensemble_instead_of_conv(self):
-        in_channels = 3
-        out_channels = 16
-        kernel_size = 3
-        stride = 1
-        args = (in_channels, out_channels, kernel_size, stride)
-        kwargs = {'padding': 1}
-        args = [(Conv2d, args, kwargs)] * 5
+        # replace conv0 of ResNet with Ensemble
+        kwargs = {'in_channels': 3, 'out_channels': 16,
+                  'kernel_size': 3, 'padding': 1, 'stride': 1}
+        args = [(Conv2d, [], kwargs)] * 5
         input_shape = transformer.image_to_unsqueezed_cuda_variable(self.test_images[0][1]).size()
         conv0 = self.blueprint['conv0']
         conv0['prefix'] = 'ResNet/stacked0'
         conv0['type'] = ScopedEnsemble
-        conv0['args'] = [args, input_shape]
+        conv0['kwargs'] = {'iterable_args': args, 'inp_shape': input_shape}
         conv0.make_unique()
-        new_model = blueprinted_resnet.ScopedResNet(self.blueprint['name'], self.blueprint).cuda()
+
+        # replace the 2nd conv of the 2nd block of the 3rd group with Ensemble
+        input_shape = (1, 64, 32, 32)
+        kwargs = copy.deepcopy(kwargs)
+        kwargs['in_channels'] = 64
+        kwargs['out_channels'] = 64
+        args = [(Conv3d2d, [], kwargs)] * 5
+        conv2 = self.blueprint.get_child((2, 1, 1, 2))
+        conv2['prefix'] = 'ResNet/stacked0'
+        conv2['type'] = ScopedEnsemble
+        conv2['kwargs'] = {'iterable_args': args, 'inp_shape': input_shape}
+        new_model = blueprinted_resnet.ScopedResNet(self.blueprint['name'],
+                                                    self.blueprint).cuda()
         for path, im in self.test_images:
             x = transformer.image_to_unsqueezed_cuda_variable(im)
             out = new_model(x)

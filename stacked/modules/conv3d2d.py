@@ -7,11 +7,11 @@ class Conv3d2d(Module):
 
     When the input dimension == 4, converts the input into 5d input that can work with Conv3d
     """
-    def __init__(self, ni, no, kernel_size=3, stride=1, padding=0, dilation=1, groups=1):
+    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=0, dilation=1, groups=1):
         super(Conv3d2d, self).__init__()
-        self.ni = ni
-        self.no = no
-        self.conv = Conv3d(ni, no, kernel_size, stride, padding, dilation, groups)
+        self.ni = in_channels
+        self.no = out_channels
+        self.conv = Conv3d(in_channels, out_channels, kernel_size, stride, padding, dilation, groups)
 
     def forward(self, x):
         if x.dim() == 4:
