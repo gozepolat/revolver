@@ -81,9 +81,14 @@ class TestResNet(unittest.TestCase):
 
     #@unittest.skip("GUI test for uniqueness skipped")
     def test_visual_change_blueprinted(self):
+        # group[0] -> block[0] -> unit[1 -> conv] (0: act, 1: bn, 2: conv)
+        self.blueprint.get_child((0, 0, 1, 2)).make_unique()
         visualize(self.blueprint)
         new_model = blueprinted_resnet.ScopedResNet(self.blueprint['name'], self.blueprint).cuda()
         self.assertEqual(new_model.conv0, self.blueprinted_model.conv0)
+        self.assertEqual(self.blueprinted_model.group_container[1], new_model.group_container[1])
+        self.assertNotEqual(self.blueprinted_model.group_container[0], new_model.group_container[0])
+        self.assertNotEqual(self.blueprinted_model.group_container, new_model.group_container)
         for path, im in self.test_images:
             x = transformer.image_to_unsqueezed_cuda_variable(im)
             out = new_model(x)

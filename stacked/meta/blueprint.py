@@ -115,16 +115,18 @@ class Blueprint(dict):
                     self.button.configure(bg=self.button_text_color.get())
 
     def get_child(self, index):
-        b = self['children']
         if type(index) == int:
-            b = b[index]
-            if type(b) == Blueprint:
-                return b
-        else:
-            for i in index:
-                b = b[i]
-            assert(type(b) == Blueprint)
-            return b
+            index = [index]
+        b = self
+        for i in index:
+            if 'children' in b:
+                b = b['children']
+
+            # otherwise b is just an iterable
+            b = b[i]
+
+        assert(type(b) == Blueprint)
+        return b
 
     def get_scope_button(self, master):
         if not common.BLUEPRINT_GUI:
@@ -151,17 +153,6 @@ def make_module(blueprint):
                              **blueprint['kwargs'])
 
 
-def summarize(blueprint):
-    """"Print the names of objects in the blueprint"""
-    print(blueprint['name'])
-    for b in blueprint['children']:
-        if type(b) == Blueprint:
-            summarize(b)
-        else:
-            for i in b:
-                summarize(i)
-
-
 def visualize(blueprint):
     """Visualize module names, and toggle uniqueness"""
     master = common.GUI
@@ -177,7 +168,11 @@ def visualize(blueprint):
 
     visit_modules(blueprint, master, buttons)
     for b in buttons:
+        # insert tabs before the button for hierarchical display
+        text.insert("end", '\t' * b.config('text')[-1].count('/'))
+        # add the button
         text.window_create("end", window=b)
+        # next line
         text.insert("end", "\n")
 
     text.configure(state="disabled")
