@@ -5,6 +5,7 @@ from torch.nn import Module
 import tkinter as tk
 from stacked.utils import common
 from logging import warning
+import json
 
 
 def log(log_func, msg):
@@ -29,7 +30,8 @@ class Blueprint(dict):
 
     def __init__(self, prefix='None', parent=None, unique=False,
                  module_type=all_to_none, args=[],
-                 children=[], description={}, kwargs={}):
+                 children=[], description={},
+                 kwargs={}, freeze=False):
         super(Blueprint, self).__init__(description)
 
         # set from args if not in description
@@ -43,6 +45,8 @@ class Blueprint(dict):
             self['type'] = module_type
         if 'unique' not in self:
             self['unique'] = unique
+        if 'freeze' not in self:
+            self['freeze'] = freeze
         if 'prefix' not in self:
             self['prefix'] = prefix
         if 'parent' not in self:
@@ -63,6 +67,34 @@ class Blueprint(dict):
                 self.button_text_color.set('#FFAAAA')
             else:
                 self.button_text_color.set('#BBDDBB')
+
+    def get_acyclic_dict(self):
+        """Dictionary representation without cycles"""
+        acyclic = {}
+        for k, v in self.items():
+            if k != 'children':
+                if not issubclass(type(v), Blueprint):
+                    acyclic[k] = str(v)
+                elif k != 'parent':
+                    acyclic[k] = v.get_acyclic_dict()
+
+        acyclic['parent'] = None
+        if self['parent'] is not None:
+            acyclic['parent'] = self['parent']['name']
+
+        children = []
+        for c in self['children']:
+            if issubclass(type(c), Blueprint):
+                children.append(c.get_acyclic_dict())
+            else:
+                for i in c:
+                    children.append(i.get_acyclic_dict())
+
+        acyclic['children'] = children
+        return acyclic
+
+    def __str__(self):
+        return json.dumps(self.get_acyclic_dict(), indent=4)
 
     def has_unique_elements(self):
         if self['unique']:
@@ -98,8 +130,8 @@ class Blueprint(dict):
                 self.button_text.set(self['name'])
                 self.button_text_color.set('#BBDDBB')
                 self.button.configure(bg=self.button_text_color.get())
-
-        self['parent'].make_common()
+        if self['parent'] is not None:
+            self['parent'].make_common()
 
     def make_unique(self):
         """Make the blueprint and all parents unique"""
@@ -121,14 +153,13 @@ class Blueprint(dict):
         for i in index:
             if 'children' in b:
                 b = b['children']
-
             # otherwise b is just an iterable
             b = b[i]
 
         assert(type(b) == Blueprint)
         return b
 
-    def get_scope_button(self, master):
+    def get_scope_button(self, master, info):
         if not common.BLUEPRINT_GUI:
             return None
 
@@ -144,6 +175,13 @@ class Blueprint(dict):
                                 textvariable=self.button_text,
                                 command=callback,
                                 bg=self.button_text_color.get())
+
+        def onEnter(button):
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> onEnter {}".format(blueprint))
+            info.delete('1.0', "end")
+            info.insert("end", "{}".format(blueprint))
+
+        self.button.bind("<Enter>", onEnter)
         return self.button
 
 
@@ -156,6 +194,11 @@ def make_module(blueprint):
 def visualize(blueprint):
     """Visualize module names, and toggle uniqueness"""
     master = common.GUI
+    t = tk.Toplevel(master)
+    t.wm_title("Info")
+    info = tk.Text(t, wrap="none")
+    info.tag_configure("center", justify=tk.CENTER)
+    info.pack(fill="both", expand=True)
     buttons = []
 
     frame = master
@@ -166,7 +209,7 @@ def visualize(blueprint):
     text.tag_configure("center", justify=tk.CENTER)
     text.pack(fill="both", expand=True)
 
-    visit_modules(blueprint, master, buttons)
+    visit_modules(blueprint, [master, info], buttons)
     for b in buttons:
         # insert tabs before the button for hierarchical display
         text.insert("end", '\t' * b.config('text')[-1].count('/'))
@@ -180,7 +223,7 @@ def visualize(blueprint):
 
 
 def visit_modules(blueprint, main_input, outputs=[],
-                  fn=lambda bp, inp: bp.get_scope_button(inp)):
+                  fn=lambda bp, inp: bp.get_scope_button(*inp)):
     """Recursively apply a function to all modules
 
     e.g.add named buttons to the outputs"""
@@ -189,6 +232,7 @@ def visit_modules(blueprint, main_input, outputs=[],
 
     for k, v in blueprint.items():
         if type(v) == Blueprint and k != 'parent':
+            # type all_to_none -> ignore the module
             if v['type'] != all_to_none:
                 visit_modules(v, main_input, outputs)
 
