@@ -115,9 +115,10 @@ class TestResNet(unittest.TestCase):
         kwargs['out_channels'] = 64
         args = [(Conv3d2d, [], kwargs)] * 5
         conv2 = self.blueprint.get_child((2, 1, 1, 2))
-        conv2['prefix'] = 'ResNet/stacked0'
+        conv2['prefix'] = 'ResNet/stacked2_2_3'
         conv2['type'] = ScopedEnsemble
         conv2['kwargs'] = {'iterable_args': args, 'inp_shape': input_shape}
+        conv2.make_unique()
         new_model = blueprinted_resnet.ScopedResNet(self.blueprint['name'],
                                                     self.blueprint).cuda()
         for path, im in self.test_images:

@@ -79,23 +79,30 @@ class ClosedList(Domain):
 
           diameter normalized similar to the given value
          """
-        assert (1.0 > diameter > 0)
+        assert (1.0 >= diameter >= 0)
         num = self.cardinality
         if diameter == 0:
-            log(info, "Diameter is zero, picking the only possible value")
+            log(warning, "Diameter is zero, picking the only possible value")
             index = denormalize_index(normalized_float, num, self.mapper)
         else:
+
             high = denormalize_index(normalized_float + diameter, num, self.mapper)
             low = denormalize_index(max(0.0, normalized_float - diameter), num, self.mapper)
             if low == high:
                 log(warning, "Diameter is too small {}, picking the only possible value".format(diameter))
                 index = high
             else:
-                index = np.random.randint(low, high)
+                index = np.random.randint(low, high + 1)
         if index < num:
             return normalize_index(index, num, self.mapper), self.elements[index]
         log(warning, "{} not in domain, index {} too large, picking random".format(normalized_float, index))
         return self.pick_random()
+
+    def get_normalized_index(self, element):
+        index = self.elements.index(element)
+        if index < 0:
+            return -1.0
+        return normalize_index(index, self.cardinality, self.mapper)
 
     def pick_random(self):
         """ Pick a random element from the domain (discrete uniform distribution)
@@ -159,7 +166,7 @@ class ClosedInterval(Domain):
         lower_index = denormalize_index(center - diameter, self.__len__(), self.mapper)
         upper_index = denormalize_index(center + diameter, self.__len__(), self.mapper)
         if lower_index < upper_index:
-            index = np.random.randint(lower_index, upper_index)
+            index = np.random.randint(lower_index, upper_index + 1)
         else:
             log(warning, "Diameter is too small {}, picking the only possible value".format(diameter))
             assert (lower_index == upper_index)

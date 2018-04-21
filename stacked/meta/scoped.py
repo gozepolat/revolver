@@ -42,8 +42,8 @@ class ScopedMeta(type):
             instance = super(ScopedMeta, cls).__call__(scope, *args, **kwargs)
             common.SCOPE_DICTIONARY[scope] = {'meta': dict(), 'instance': instance}
         else:
-            log(warning, "Scope {} already exists, "
-            "ignoring the constructor arguments".format(scope))
+            log(warning, "Scope {} already exists, \
+            ignoring the constructor arguments".format(scope))
 
         scoped = common.SCOPE_DICTIONARY[scope]
         scoped_instance = scoped['instance']

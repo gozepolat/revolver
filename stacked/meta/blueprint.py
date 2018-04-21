@@ -24,14 +24,17 @@ class Blueprint(dict):
                             if not given, the constructor will return None
         args (iterable): Arguments that will be used in the constructor
         kwargs (dict): Key, value arguments for the constructor
+        evolvables (dict): (Key, Domain) for evolvable elements
         children (iterable): Member module descriptions
         description (dict): Dictionary form of the whole description
+        utility_score (float): [-1.0, 1.0] performance score
     """
 
     def __init__(self, prefix='None', parent=None, unique=False,
                  module_type=all_to_none, args=[],
                  children=[], description={},
-                 kwargs={}, freeze=False):
+                 kwargs={}, evolvables={},
+                 utility_score=0.0, freeze=False):
         super(Blueprint, self).__init__(description)
 
         # set from args if not in description
@@ -53,6 +56,10 @@ class Blueprint(dict):
             self['parent'] = parent
         if 'children' not in self:
             self['children'] = children
+        if 'evolvables' not in self:
+            self['evolvables'] = evolvables
+        if 'utility_score' not in self:
+            self['utility_score'] = utility_score
 
         if self['unique']:
             self.make_unique()
@@ -67,6 +74,12 @@ class Blueprint(dict):
                 self.button_text_color.set('#FFAAAA')
             else:
                 self.button_text_color.set('#BBDDBB')
+
+    def __eq__(self, other):
+        return other == self.get_acyclic_dict()
+
+    def __ne__(self, other):
+        return not (self == other)
 
     def get_acyclic_dict(self):
         """Dictionary representation without cycles"""
@@ -230,7 +243,7 @@ def visit_modules(blueprint, main_input, outputs=[],
         outputs.append(fn(blueprint, main_input))
 
     for k, v in blueprint.items():
-        if type(v) == Blueprint and k != 'parent':
+        if type(v) == Blueprint and k != 'parent' and k != 'evolvable':
             # type all_to_none -> ignore the module
             if v['type'] != all_to_none:
                 visit_modules(v, main_input, outputs)
