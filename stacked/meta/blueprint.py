@@ -27,14 +27,13 @@ class Blueprint(dict):
         evolvables (dict): (Key, Domain) for evolvable elements
         children (iterable): Member module descriptions
         description (dict): Dictionary form of the whole description
-        utility_score (float): [-1.0, 1.0] performance score
+        meta (dict): container for information such as utility score etc.
     """
 
     def __init__(self, prefix='None', parent=None, unique=False,
                  module_type=all_to_none, args=[],
-                 children=[], description={},
-                 kwargs={}, evolvables={},
-                 utility_score=0.0, freeze=False):
+                 children=[], description={}, kwargs={}, evolvables={},
+                 meta={}, freeze=False, ):
         super(Blueprint, self).__init__(description)
 
         # set from args if not in description
@@ -58,8 +57,8 @@ class Blueprint(dict):
             self['children'] = children
         if 'evolvables' not in self:
             self['evolvables'] = evolvables
-        if 'utility_score' not in self:
-            self['utility_score'] = utility_score
+        if 'meta' not in self:
+            self['meta'] = meta
 
         if self['unique']:
             self.make_unique()
@@ -142,7 +141,8 @@ class Blueprint(dict):
             if common.BLUEPRINT_GUI:
                 self.button_text.set(self['name'])
                 self.button_text_color.set('#BBDDBB')
-                self.button.configure(bg=self.button_text_color.get())
+                if self.button is not None:
+                    self.button.configure(bg=self.button_text_color.get())
         if self['parent'] is not None:
             self['parent'].make_common()
 
@@ -189,11 +189,11 @@ class Blueprint(dict):
                                 command=callback,
                                 bg=self.button_text_color.get())
 
-        def onEnter(button):
+        def enter(_):
             info.delete('1.0', "end")
             info.insert("end", "{}".format(blueprint))
 
-        self.button.bind("<Enter>", onEnter)
+        self.button.bind("<Enter>", enter)
         return self.button
 
 

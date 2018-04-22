@@ -12,10 +12,7 @@ DEBUG_SCOPE = True
 DEBUG_SCOPED_RESNET = True
 DEBUG_BLUEPRINT = True
 BLUEPRINT_GUI = True
-
-if BLUEPRINT_GUI:
-    from tkinter import Tk
-    GUI = Tk()
+GUI = None
 
 SCOPE_DICTIONARY = dict()
 

@@ -19,7 +19,7 @@ def mutate(blueprint, key, diameter, p=0.05, p_decay=1.0):
         # try mutating a component instead
         if issubclass(type(element), Blueprint) and len(element['evolvables']) > 0:
             random_key = np.random.choice(element['evolvables'].keys())
-            mutate(element, random_key, diameter, p)
+            mutate(element, random_key, diameter, p * p_decay)
         return
     domain = domains[key]
     float_index = domain.get_normalized_index(blueprint[key])
@@ -30,6 +30,8 @@ def mutate(blueprint, key, diameter, p=0.05, p_decay=1.0):
     blueprint[key] = value
 
 
+def crossover(blueprint1, blueprint2):
+    pass
 
 
 

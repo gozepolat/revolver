@@ -12,17 +12,17 @@ import copy
 class TestMetaHeuristics(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(TestMetaHeuristics, self).__init__(*args, **kwargs)
-        # otherwise cant deepcopy blueprint
-        common.BLUEPRINT_GUI = False
 
     @classmethod
     def setUpClass(cls):
+        # don't create buttons
+        common.BLUEPRINT_GUI = False
         cls.blueprint = ScopedResNet.describe_default(depth=28,
                                                       width=1,
                                                       num_classes=100)
-        pass
 
     def test_mutate(self):
+        common.BLUEPRINT_GUI = False
         kwargs = {'in_channels': 3, 'out_channels': 16,
                   'kernel_size': 3, 'padding': 1, 'stride': 1}
         args = [(Conv2d, [], kwargs)] * 5

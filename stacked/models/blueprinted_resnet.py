@@ -18,7 +18,7 @@ class ScopedResBlock(Module):
         blueprint: Description of inner scopes, member modules, and args
     """
 
-    def __init__(self, scope, blueprint):
+    def __init__(self, scope, blueprint, *_, **__):
         super(ScopedResBlock, self).__init__()
         self.scope = scope
 
@@ -75,17 +75,21 @@ class ScopedResBlock(Module):
             return '%s/%s_%d' % (prefix, suffix, kernel_size)
 
         children = []
-        default = Blueprint(prefix, parent, False, ScopedResBlock)
+        kwargs = {'in_channels': ni, 'out_channels': no,
+                  'kernel_size': 3, 'stride': stride, 'padding': padding}
+        default = Blueprint(prefix, parent, False, ScopedResBlock, kwargs=kwargs)
         convdim_type = conv_module if ni != no else all_to_none
-        convdim = Blueprint(scope('convdim%d_%d' % (ni, no)), default, False, convdim_type,
-                            args=[ni, no, 1, stride])
+        kwargs = {'in_channels': ni, 'out_channels': no,
+                  'kernel_size': 1, 'stride': stride, 'padding': 0}
+        convdim = Blueprint(scope('convdim%d_%d' % (ni, no)), default, False,
+                            convdim_type, kwargs=kwargs)
         default['convdim'] = convdim
         # default: after ni = no, everything is the same
         for i in range(depth):
             act = Blueprint(scope('act%d_%d' % (ni, no)), default, False,
-                            act_module, args=[True])
+                            act_module, kwargs={'inplace': True})
             bn = Blueprint(scope('bn%d_%d' % (ni, no)), default, False,
-                           bn_module, args=[ni])
+                           bn_module, kwargs={'num_features': ni})
             kwargs = {'in_channels': ni, 'out_channels': no,
                       'kernel_size': kernel_size, 'stride': stride, 'padding': padding}
             conv = Blueprint(scope('conv%d_%d' % (ni, no)), default, False, conv_module,
@@ -116,7 +120,7 @@ class ScopedResGroup(Module):
         num_blocks (int): Number of residual blocks per group
         conv_module (torch.nn.Module): Module to use in forward. Default: Conv2d
     """
-    def __init__(self, scope, blueprint):
+    def __init__(self, scope, blueprint, *_, **__):
         super(ScopedResGroup, self).__init__()
         self.scope = scope
         self.block_container = ModuleList()
@@ -147,8 +151,9 @@ class ScopedResGroup(Module):
             stride (int or tuple, optional): Stride for the first convolution
             padding (int or tuple, optional): Padding for the first convolution
         """
-
-        default = Blueprint(prefix, parent, False, ScopedResGroup)
+        kwargs = {'in_channels': ni, 'out_channels': no,
+                  'kernel_size': 3, 'stride': stride, 'padding': padding}
+        default = Blueprint(prefix, parent, False, ScopedResGroup, kwargs=kwargs)
         children = []
         for i in range(group_depth):
             block_name = '%s/block%d_%d' % (prefix, ni, no)
@@ -217,7 +222,7 @@ class ScopedResNet(Module):
             num_classes (int): Number of categories for supervised learning
             depth (int): Overall depth of the network
             width (int): Scalar to get the scaled width per group
-            block_depth: Number of [conv/act/bn] units in the block
+            block_depth (int): Number of [conv/act/bn] units in the block
             conv_module (type): CNN module to use in forward. e.g. ScopedConv2d
             bn_module (type): Batch normalization module. e.g. ScopedBatchNorm2d
             linear_module (type): Linear module for classification e.g. ScopedLinear
@@ -237,15 +242,19 @@ class ScopedResNet(Module):
         group_depth = ScopedResNet.get_num_blocks_per_group(depth, num_groups, block_depth)
         ni = skeleton[0]
         no = widths[-1]
-
-        default = Blueprint(prefix, parent, False, ScopedResNet)
-        default['bn'] = Blueprint(scope('bn_%d' % no), default, False, bn_module, args=[no])
-        default['act'] = Blueprint(scope('act%d' % no), default, False, act_module, args=[True])
-        kwargs = {'in_channels': 3, 'out_channels': ni, 'kernel_size': 3, 'padding': 1}
-        default['conv0'] = Blueprint(scope('conv03_%d' % ni), default, False,
-                                     conv_module, kwargs=kwargs)
-        default['linear'] = Blueprint(scope('linear%d_%d' % (no, num_classes)), default, False,
-                                      linear_module, args=[no, num_classes])
+        default = Blueprint(prefix, parent, False, ScopedResNet,
+                            kwargs={'in_channels': 3, 'out_channels': num_classes})
+        default['bn'] = Blueprint(scope('bn_%d' % no), default, False, bn_module,
+                                  kwargs={'num_features': no})
+        default['act'] = Blueprint(scope('act%d' % no), default, False, act_module,
+                                   kwargs={'inplace': True})
+        kwargs = {'in_channels': 3, 'out_channels': ni,
+                  'kernel_size': 3, 'stride': 1, 'padding': 1}
+        default['conv0'] = Blueprint(scope('conv03_%d' % ni), default, False, conv_module,
+                                     kwargs=kwargs)
+        default['linear'] = Blueprint(scope('linear%d_%d' % (no, num_classes)),
+                                      default, False, linear_module,
+                                      kwargs={'in_features': no, 'out_features': num_classes})
         for width in widths:
             no = width
             block = ScopedResGroup.describe_default(scope('group%d_%d' % (ni, no)), default,

@@ -9,11 +9,11 @@ class Ensemble(nn.Module):
         Note that this assumes all modules have the same output size, given the input size
     Arguments:
         iterable_args: an iterable that consists of elements in the form: (module, module_args, module_kwargs)
-        inp_shape: the input size that will be used for deducing the mask size
+        input_shape: the input size that will be used for deducing the mask size
         mask_with_grad: True if mask is learnable
         mask_func: lambda function to run with conv_out and mask"""
 
-    def __init__(self, iterable_args, inp_shape, mask_with_grad=True,
+    def __init__(self, iterable_args, input_shape, mask_with_grad=True,
                  mask_func=lambda out, module_out, mask: out + module_out * mask):
         super(Ensemble, self).__init__()
         assert(len(iterable_args) > 0)
@@ -24,7 +24,7 @@ class Ensemble(nn.Module):
         self.mask_func = mask_func
 
         # get the output size using the first module in the iterable args
-        fake_input = torch.FloatTensor([1]).expand(inp_shape)
+        fake_input = torch.FloatTensor([1]).expand(input_shape)
         self.out_size = self.stack[0](fake_input).size()
 
         # create masks using the output size
