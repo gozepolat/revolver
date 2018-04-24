@@ -10,6 +10,7 @@ import math
 DEBUG_DOMAIN = True
 DEBUG_SCOPE = True
 DEBUG_SCOPED_RESNET = True
+DEBUG_HEURISTICS = True
 DEBUG_BLUEPRINT = True
 BLUEPRINT_GUI = True
 GUI = None
@@ -44,3 +45,12 @@ def make_weights(num_input_filters,
                            kernel_width,
                            kernel_height).normal_(0, 2 / fan_in)
     return dtype(get_cuda(weights), requires_grad=requires_grad)
+
+
+def replace_key(container, key, value):
+    if not isinstance(container, dict):
+        return container
+    new_dict = {k: v for k, v in container.items()}
+    new_dict[key] = value
+    return new_dict
+

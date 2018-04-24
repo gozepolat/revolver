@@ -36,7 +36,7 @@ class TestMetaHeuristics(unittest.TestCase):
         conv0.make_unique()
 
         conv0_alternatives = [self.blueprint['conv0'], conv0]
-        self.blueprint['evolvables'] = {
+        self.blueprint['mutables'] = {
             'conv0': ClosedList(conv0_alternatives)
         }
 
@@ -45,7 +45,7 @@ class TestMetaHeuristics(unittest.TestCase):
             if self.blueprint['conv0'] != old_conv:
                 break
 
-        self.assertTrue(self.blueprint['conv0'] != old_conv)
+        self.assertNotEqual(self.blueprint['conv0'], old_conv)
 
 
 if __name__ == '__main__':

@@ -1,5 +1,35 @@
 # -*- coding: utf-8 -*-
 from torch.nn import Module, Conv3d
+from math import floor
+
+
+def _repeat_in_array(value, length):
+    """Repeat int value in an array"""
+    if not isinstance(value, int):
+        return value
+    return [value] * length
+
+
+def get_conv_out_res(x, kernel_size, stride, padding, dilation):
+    """Given [D], H, W, get [D_out], H_out, W_out after conv"""
+    length = len(x)
+    kernel_size = _repeat_in_array(kernel_size, length)
+    stride = _repeat_in_array(stride, length)
+    padding = _repeat_in_array(padding, length)
+    dilation = _repeat_in_array(dilation, length)
+    return tuple(floor((x_in + 2 * padding[i] - dilation[i] *
+                        (kernel_size[i] - 1) - 1) / stride[i] + 1)
+                 for i, x_in in enumerate(x))
+
+
+def get_conv_out_shape(input_shape, c_out, kernel_size=3,
+                       stride=1, padding=1, dilation=1):
+    """Given input shape and conv arguments, get the output shape"""
+    if input_shape is None:
+        return None
+    x = input_shape[2:]
+    x_out = get_conv_out_res(x, kernel_size, stride, padding, dilation)
+    return (input_shape[0], c_out) + x_out
 
 
 class Conv3d2d(Module):

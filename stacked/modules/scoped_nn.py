@@ -4,7 +4,7 @@ from stacked.meta.masked import Ensemble
 from torch.nn import Conv2d, Conv3d, BatchNorm2d, \
     BatchNorm3d, Linear, Module, ModuleList, Parameter, \
     ParameterList, ReLU
-from stacked.modules.conv3d2d import Conv3d2d
+from stacked.modules.conv import Conv3d2d
 
 
 @add_metaclass(ScopedMeta)

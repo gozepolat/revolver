@@ -8,7 +8,7 @@ from stacked.models import blueprinted_resnet
 from stacked.meta.blueprint import visualize, get_module_names
 from torch.nn import Conv2d
 from stacked.modules.scoped_nn import ScopedEnsemble
-from stacked.modules.conv3d2d import Conv3d2d
+from stacked.modules.conv import Conv3d2d
 from stacked.utils import common
 import glob
 import copy
@@ -76,14 +76,14 @@ class TestResNet(unittest.TestCase):
 
     def test_module_names_blueprinted(self):
         # ResNet -> group16_16
-        group = self.blueprint.get_child(0)
+        group = self.blueprint.get_element(0)
         # group16_16 -> block16_16
-        block = group.get_child(0)
+        block = group.get_element(0)
         # block16_16 -> conv16_16_3
-        child = block.get_child((1, 2))
-        self.assertEqual(child['name'], 'ResNet28/group16_16/block16_16/conv16_16_3')
+        child = block.get_element((1, 2))
+        self.assertEqual(child['name'], 'ResNet28/group/block/conv16_16_3')
         child.make_unique()
-        self.assertNotEqual(child['name'], 'ResNet28/group16_16/block16_16/conv16_16_3')
+        self.assertNotEqual(child['name'], 'ResNet28/group/block/conv16_16_3')
         module_list = set()
         get_module_names(self.blueprint, module_list)
         self.assertTrue(child['name'] in module_list)
@@ -92,17 +92,17 @@ class TestResNet(unittest.TestCase):
     def test_visual_change_blueprinted(self):
         common.BLUEPRINT_GUI = True
         # group[0] -> block[0] -> unit[1 -> conv] (0: act, 1: bn, 2: conv)
-        self.blueprint.get_child((0, 1, 1, 2)).make_unique()
+        self.blueprint.get_element((0, 1, 1, 2)).make_unique()
         visualize(self.blueprint)
         new_model = blueprinted_resnet.ScopedResNet('Resnet28', self.blueprint).cuda()
-        self.assertEqual(self.blueprinted_model.group_container[1],
-                         new_model.group_container[1])
-        self.assertNotEqual(self.blueprinted_model.group_container[0],
-                            new_model.group_container[0])
-        self.assertEqual(self.blueprinted_model.group_container[1].block_container[1],
-                         new_model.group_container[1].block_container[1])
-        self.assertNotEqual(self.blueprinted_model.group_container,
-                            new_model.group_container)
+        self.assertEqual(self.blueprinted_model.container[1],
+                         new_model.container[1])
+        self.assertNotEqual(self.blueprinted_model.container[0],
+                            new_model.container[0])
+        self.assertEqual(self.blueprinted_model.container[1].container[1],
+                         new_model.container[1].container[1])
+        self.assertNotEqual(self.blueprinted_model.container,
+                            new_model.container)
         for path, im in self.test_images:
             x = transformer.image_to_unsqueezed_cuda_variable(im)
             out = new_model(x)
@@ -126,7 +126,7 @@ class TestResNet(unittest.TestCase):
         kwargs['in_channels'] = 64
         kwargs['out_channels'] = 64
         args = [(Conv3d2d, [], kwargs)] * 5
-        conv2 = self.blueprint.get_child((2, 1, 1, 2))
+        conv2 = self.blueprint.get_element((2, 1, 1, 2))
         conv2['prefix'] = 'ResNet/stacked2_2_3'
         conv2['type'] = ScopedEnsemble
         conv2['kwargs'] = {'iterable_args': args, 'input_shape': input_shape}
