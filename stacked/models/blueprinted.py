@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import torch.nn.functional as F
-from torch.nn import Module, ModuleList
+from torch.nn import Module
 from stacked.modules.scoped_nn import ScopedConv2d, \
     ScopedBatchNorm2d, ScopedLinear, ScopedReLU
-from stacked.meta.scoped import ScopedMeta
+from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.utils.transformer import all_to_none
@@ -12,7 +12,64 @@ from six import add_metaclass
 
 
 @add_metaclass(ScopedMeta)
-class ScopedResBlock(Module):
+class ScopedConvUnit(Module):
+    """BN-act-conv unit
+
+    Args:
+        scope: Scope for the self (ScopedConvUnit instance)
+        blueprint: Description of bn, act, and conv
+        Ignores the rest of the args
+    """
+    def __init__(self, scope, blueprint, *_, **__):
+        super(ScopedConvUnit, self).__init__()
+        self.scope = scope
+
+        self.bn = make_module(blueprint['bn'])
+        self.act = make_module(blueprint['act'])
+        self.conv = make_module(blueprint['conv'])
+
+    def forward(self, x):
+        x = self.act(self.bn(x))
+        x = self.conv(x)
+        return x
+
+    @staticmethod
+    def set_unit_description(default, prefix, input_shape, ni, no, kernel_size,
+                             stride, padding, conv_module, act_module, bn_module):
+        """Set descriptions for act, bn, and conv"""
+        # describe act and bn
+        default['act'] = Blueprint('%s/act' % prefix, '%d_%d' % (ni, no), default,
+                                   False, act_module, kwargs={'inplace': True})
+        default['bn'] = Blueprint('%s/bn' % prefix, '%d_%d' % (ni, no), default,
+                                  False, bn_module, kwargs={'num_features': ni})
+        # describe conv
+        kwargs = {'in_channels': ni, 'out_channels': no,
+                  'kernel_size': kernel_size, 'stride': stride, 'padding': padding}
+        conv = Blueprint('%s/conv' % prefix, '%d_%d_%d' % (ni, no, kernel_size),
+                         default, False, conv_module, kwargs=kwargs)
+        conv['input_shape'] = input_shape
+        conv['output_shape'] = get_conv_out_shape(input_shape, no,
+                                                  kernel_size, stride, padding)
+        default['conv'] = conv
+
+    @staticmethod
+    def describe_default(prefix, suffix, parent, input_shape, ni, no, kernel_size,
+                         stride, padding, act_module, bn_module, conv_module):
+        """Create a default ScopedConvUnit blueprint"""
+        default = Blueprint(prefix, suffix, parent, False, ScopedConvUnit)
+        default['input_shape'] = input_shape
+
+        ScopedConvUnit.set_unit_description(default, prefix, input_shape, ni, no,
+                                            kernel_size, stride, padding,
+                                            conv_module, act_module, bn_module)
+
+        default['output_shape'] = default['conv']['output_shape']
+        default['kwargs'] = {'blueprint': default}
+        return default
+
+
+@add_metaclass(ScopedMeta)
+class ScopedResBlock(Sequential):
     """Pre-ResNet block
 
     Args:
@@ -21,34 +78,23 @@ class ScopedResBlock(Module):
     """
 
     def __init__(self, scope, blueprint, *_, **__):
-        super(ScopedResBlock, self).__init__()
+        super(ScopedResBlock, self).__init__(blueprint)
         self.scope = scope
-
-        # containers for the units
-        self.act = ModuleList()
-        self.conv = ModuleList()
-        self.bn = ModuleList()
-
         self.depth = len(blueprint['children'])
 
-        for unit in blueprint['children']:
-            act, bn, conv = unit
-            self.act.append(make_module(act))
-            self.conv.append(make_module(conv))
-            self.bn.append(make_module(bn))
+        self.bn = make_module(blueprint['bn'])
+        self.act = make_module(blueprint['act'])
+        self.conv = make_module(blueprint['conv'])
 
         # 1x1 conv to correct the number of channels for summation
-        convdim = blueprint['convdim']
-        self.convdim = make_module(convdim)
+        self.convdim = make_module(blueprint['convdim'])
 
     def forward(self, x):
-        o1 = self.act[0](self.bn[0](x))
+        o1 = self.act(self.bn(x))
+        z = self.conv(o1)
 
-        o2 = o1
-        for i in range(1, self.depth):
-            y = self.conv[i-1](o2)
-            o2 = self.act[i](self.bn[i](y))
-        z = self.conv[-1](o2)
+        for unit in self.container:
+            z = unit(z)
 
         if self.convdim is not None:
             return z + self.convdim(o1)
@@ -56,55 +102,51 @@ class ScopedResBlock(Module):
             return z + x
 
     @staticmethod
-    def __set_default_items(prefix, default, input_shape, ni, no, conv_module, stride):
+    def __set_default_items(prefix, default, input_shape, ni, no, kernel_size,
+                            stride, padding, conv_module, act_module, bn_module):
         default['input_shape'] = input_shape
+
+        # describe bn, act, conv
+        ScopedConvUnit.set_unit_description(default, prefix, input_shape, ni, no,
+                                            kernel_size, stride, padding,
+                                            conv_module, act_module, bn_module)
+        # describe convdim
         convdim_type = conv_module if ni != no else all_to_none
         kwargs = {'in_channels': ni, 'out_channels': no,
                   'kernel_size': 1, 'stride': stride, 'padding': 0}
-        convdim = Blueprint('%s/convdim' % prefix, '%d_%d' % (ni, no), default, False,
-                            convdim_type, kwargs=kwargs)
+        convdim = Blueprint('%s/convdim' % prefix, '%d_%d' % (ni, no), default,
+                            False, convdim_type, kwargs=kwargs)
         convdim['input_shape'] = input_shape
         convdim['output_shape'] = get_conv_out_shape(input_shape, no, 1, stride, 0)
         default['convdim'] = convdim
-        return input_shape
+        return default['conv']['output_shape']
 
     @staticmethod
-    def __set_default_children(prefix, default, input_shape, ni, no, kernel_size, stride,
-                               padding, depth, act_module, bn_module, conv_module):
-        # default: after ni = no, every unit is the same
+    def __set_default_children(prefix, default, shape, ni, no, kernel_size, stride,
+                               padding, conv_module, act_module, bn_module, depth):
         children = []
         for i in range(depth):
-            act = Blueprint('%s/act' % prefix, '%d_%d' % (ni, no), default, False,
-                            act_module, kwargs={'inplace': True})
-            bn = Blueprint('%s/bn' % prefix, '%d_%d' % (ni, no), default, False,
-                           bn_module, kwargs={'num_features': ni})
-            kwargs = {'in_channels': ni, 'out_channels': no,
-                      'kernel_size': kernel_size, 'stride': stride, 'padding': padding}
-            conv = Blueprint('%s/conv' % prefix, '%d_%d_%d' % (ni, no, kernel_size), default,
-                             False, conv_module, kwargs=kwargs)
-            conv['input_shape'] = input_shape
-            conv['output_shape'] = get_conv_out_shape(input_shape, no,
-                                                      kernel_size, stride, padding)
-            input_shape = conv['output_shape']
-            unit = (act, bn, conv)
+            unit_prefix = '%s/unit' % prefix
+            suffix = '%d_%d' % (ni, no)
+            unit = ScopedConvUnit.describe_default(unit_prefix, suffix, default, shape,
+                                                   ni, no, kernel_size, stride, padding,
+                                                   act_module, bn_module, conv_module)
+            shape = unit['output_shape']
             children.append(unit)
-            padding = 1
-            stride = 1
-            ni = no
 
         default['children'] = children
-        return input_shape
+        return shape
 
     @staticmethod
     def describe_default(prefix, suffix, parent, depth, conv_module, bn_module,
                          act_module, ni, no, kernel_size, stride, padding, input_shape):
-        """Create a default ResBlock blueprint
+        """Create a default ScopedResBlock blueprint
 
         Args:
             prefix (str): Prefix from which the member scopes will be created
             suffix (str): Suffix to append the name of the scoped object
             parent (Blueprint): None or the instance of the parent blueprint
-            depth: Number of conv/act/bn units in the block
+            depth: Number of (bn, act, conv) units in the block
             conv_module (type): CNN module to use in forward. e.g. ScopedConv2d
             bn_module (type): Batch normalization module. e.g. ScopedBatchNorm2d
             act_module (type): Activation module e.g ScopedReLU
@@ -116,12 +158,16 @@ class ScopedResBlock(Module):
             input_shape (tuple): (N, C_{in}, H_{in}, W_{in})
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedResBlock)
-        input_shape = ScopedResBlock.__set_default_items(prefix, default, input_shape, ni,
-                                                         no, conv_module, stride)
 
-        input_shape = ScopedResBlock.__set_default_children(prefix, default, input_shape, ni, no,
-                                                            kernel_size, stride, padding, depth,
-                                                            act_module, bn_module, conv_module)
+        input_shape = ScopedResBlock.__set_default_items(prefix, default, input_shape,
+                                                         ni, no, kernel_size, stride,
+                                                         padding, conv_module, act_module,
+                                                         bn_module)
+        # in_channels = no, and stride = 1 for children
+        input_shape = ScopedResBlock.__set_default_children(prefix, default, input_shape,
+                                                            no, no, kernel_size, 1,
+                                                            padding, conv_module, act_module,
+                                                            bn_module, depth)
         default['output_shape'] = input_shape
         default['kwargs'] = {'blueprint': default}
         return default
@@ -162,10 +208,10 @@ class ScopedResGroup(Sequential):
         for i in range(group_depth):
             block_prefix = '%s/block' % prefix
             suffix = '%d_%d' % (ni, no)
-            block = ScopedResBlock.describe_default(block_prefix, suffix, default, block_depth,
-                                                    conv_module, bn_module, act_module,
-                                                    ni, no, kernel_size, stride, padding,
-                                                    input_shape)
+            block = ScopedResBlock.describe_default(block_prefix, suffix, default,
+                                                    block_depth, conv_module, bn_module,
+                                                    act_module, ni, no, kernel_size,
+                                                    stride, padding, input_shape)
             input_shape = block['output_shape']
             children.append(block)
             padding = 1
@@ -192,15 +238,15 @@ class ScopedResNet(Sequential):
 
         act = blueprint['act']
         self.act = make_module(act)
-        conv0 = blueprint['conv0']
-        self.conv0 = make_module(conv0)
+        conv = blueprint['conv']
+        self.conv = make_module(conv)
         bn = blueprint['bn']
         self.bn = make_module(bn)
         linear = blueprint['linear']
         self.linear = make_module(linear)
 
     def forward(self, x):
-        x = self.conv0(x)
+        x = self.conv(x)
         for group in self.container:
             x = group(x)
         o = self.act(self.bn(x))
@@ -223,21 +269,28 @@ class ScopedResNet(Sequential):
                                   bn_module, kwargs={'num_features': no})
         default['act'] = Blueprint('%s/act' % prefix, '%d' % no, default, False,
                                    act_module, kwargs={'inplace': True})
+        # describe conv
         kwargs = {'in_channels': shape[1], 'out_channels': ni,
                   'kernel_size': kernel_size, 'stride': 1, 'padding': 1}
-        default['conv0'] = Blueprint('%s/conv03' % prefix, '_%d_%d' % (ni, kernel_size),
-                                     default, False, conv_module, kwargs=kwargs)
-        default['conv0']['input_shape'] = shape
+        suffix = '%d_%d_%d' % (shape[1], ni, kernel_size)
+        default['conv'] = Blueprint('%s/conv' % prefix, suffix,
+                                    default, False, conv_module, kwargs=kwargs)
+        default['conv']['input_shape'] = shape
         shape = get_conv_out_shape(shape, ni, kernel_size, 1, 1)
-        default['conv0']['output_shape'] = shape
-        default['linear'] = Blueprint('%s/linear' % prefix, '%d_%d' % (no, num_classes),
+        default['conv']['output_shape'] = shape
+
+        # describe linear, (shapes will be set after children)
+        kwargs = {'in_features': no, 'out_features': num_classes}
+        default['linear'] = Blueprint('%s/linear' % prefix,
+                                      '%d_%d' % (no, num_classes),
                                       default, False, linear_module,
-                                      kwargs={'in_features': no, 'out_features': num_classes})
+                                      kwargs=kwargs)
         return shape
 
     @staticmethod
-    def __set_default_children(prefix, default, ni, widths, group_depth, block_depth, conv_module,
-                               bn_module, act_module, kernel_size, stride, padding, shape):
+    def __set_default_children(prefix, default, ni, widths, group_depth,
+                               block_depth, conv_module, bn_module, act_module,
+                               kernel_size, stride, padding, shape):
         """Sequentially set children blueprints"""
         children = []
         for width in widths:
@@ -318,7 +371,6 @@ class ScopedResNet(Sequential):
                                              conv_module, linear_module, widths, group_depth,
                                              block_depth, stride, padding)
         return default
-
 
 
 

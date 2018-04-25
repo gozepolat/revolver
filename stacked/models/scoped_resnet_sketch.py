@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
+"""An early prototype"""
 import torch.nn.functional as F
 from torch.nn import Module
 from stacked.modules.scoped_nn import ScopedConv2d, \
     ScopedBatchNorm2d, ScopedLinear, ScopedModuleList
-from stacked.meta.scoped import ScopedMeta, generate_random_scope
+from stacked.meta.scope import ScopedMeta, generate_random_scope
 from six import add_metaclass
 from stacked.utils import common
 from logging import warning

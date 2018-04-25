@@ -1,5 +1,5 @@
 from six import add_metaclass
-from stacked.meta.scoped import ScopedMeta
+from stacked.meta.scope import ScopedMeta
 from stacked.meta.masked import Ensemble
 from torch.nn import Conv2d, Conv3d, BatchNorm2d, \
     BatchNorm3d, Linear, Module, ModuleList, Parameter, \

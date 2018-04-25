@@ -1,5 +1,5 @@
 import unittest
-from stacked.models.blueprinted_resnet import ScopedResNet
+from stacked.models.blueprinted import ScopedResNet
 from stacked.utils import transformer
 from torch.nn import Conv2d
 from stacked.modules.scoped_nn import ScopedEnsemble
@@ -21,31 +21,38 @@ class TestMetaHeuristics(unittest.TestCase):
                                                       width=1,
                                                       num_classes=100)
 
+    def test_index(self):
+        conv = self.blueprint.get_element([0, 1, 1, 'conv'])
+        conv.make_unique()
+        convdim = self.blueprint.get_element((0, 0, 'convdim'))
+        self.assertEqual(conv.get_index_from_root(), [0, 1, 1, 'conv'])
+        self.assertEqual(convdim.get_index_from_root(), [0, 0, 'convdim'])
+
     def test_mutate(self):
         common.BLUEPRINT_GUI = False
         kwargs = {'in_channels': 3, 'out_channels': 16,
                   'kernel_size': 3, 'padding': 1, 'stride': 1}
         args = [(Conv2d, [], kwargs)] * 5
 
-        old_conv = copy.deepcopy(self.blueprint['conv0'])
-        conv0 = copy.deepcopy(self.blueprint['conv0'])
+        old_conv = copy.deepcopy(self.blueprint['conv'])
+        conv0 = copy.deepcopy(self.blueprint['conv'])
         conv0['prefix'] = 'ResNet/stacked0'
         conv0['type'] = ScopedEnsemble
         conv0['kwargs'] = {'iterable_args': args,
                            'inp_shape': (1, 3, 128, 128)}
         conv0.make_unique()
 
-        conv0_alternatives = [self.blueprint['conv0'], conv0]
+        conv0_alternatives = [self.blueprint['conv'], conv0]
         self.blueprint['mutables'] = {
-            'conv0': ClosedList(conv0_alternatives)
+            'conv': ClosedList(conv0_alternatives)
         }
 
         for i in range(100):
-            mutate(self.blueprint, 'conv0', 1.0, 0.95)
-            if self.blueprint['conv0'] != old_conv:
+            mutate(self.blueprint, 'conv', 1.0, 0.95)
+            if self.blueprint['conv'] != old_conv:
                 break
 
-        self.assertNotEqual(self.blueprint['conv0'], old_conv)
+        self.assertNotEqual(self.blueprint['conv'], old_conv)
 
 
 if __name__ == '__main__':

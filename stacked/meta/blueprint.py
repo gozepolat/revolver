@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 from six import string_types
-from stacked.meta.scoped import generate_random_scope
+from stacked.meta.scope import generate_random_scope
 from stacked.utils.transformer import all_to_none
 from torch.nn import Module
 import tkinter as tk
 from stacked.utils import common
 from logging import warning
+from collections import Iterable
 import json
 
 
@@ -94,7 +95,7 @@ class Blueprint(dict):
         acyclic = {}
         for k, v in self.items():
             if k != 'children':
-                if not issubclass(type(v), Blueprint):
+                if not isinstance(v, Blueprint):
                     v = common.replace_key(v, 'blueprint', 'self')
                     acyclic[k] = str(v)
                 elif k != 'parent':
@@ -106,11 +107,7 @@ class Blueprint(dict):
 
         children = []
         for c in self['children']:
-            if issubclass(type(c), Blueprint):
-                children.append(c.get_acyclic_dict())
-            else:
-                for i in c:
-                    children.append(i.get_acyclic_dict())
+            children.append(c.get_acyclic_dict())
 
         acyclic['children'] = children
         return acyclic
@@ -123,66 +120,92 @@ class Blueprint(dict):
             return True
 
         for k, v in self.items():
-            if type(v) == Blueprint and k != 'parent':
+            if isinstance(v, Blueprint) and k != 'parent':
                 if v.has_unique_elements():
                     return True
 
         for b in self['children']:
-            if type(b) == Blueprint:
-                if b.has_unique_elements():
-                    return True
-            else:
-                for i in b:
-                    if i.has_unique_elements():
-                        return True
+            if b.has_unique_elements():
+                return True
+
         return False
+
+    def get_index_from_root(self):
+        if self['parent'] is None:
+            return []
+
+        indices = self['parent'].get_index_from_root()
+        index = self['parent'].get_element_index(self)
+        assert(index is not None)
+        indices += index
+
+        return indices
+
+    def get_element_index(self, element):
+        for k, v in self.items():
+            if element == v:
+                return [k]
+
+        for i, c in enumerate(self['children']):
+            if c == element:
+                return [i]
+
+        return None
+
+    def make_button_common(self):
+        if common.BLUEPRINT_GUI:
+            self.button_text.set(self['name'])
+            self.button_text_color.set('#BBDDBB')
+            if self.button is not None:
+                self.button.configure(bg=self.button_text_color.get())
 
     def make_common(self):
         """Revert back from uniqueness"""
         self['unique'] = False
         if self.has_unique_elements():
-            log(warning, "Can't make common, %s has unique elements." % self['name'])
+            log(warning, "Can't make common, %s has unique elements."
+                % self['name'])
             self['unique'] = True
             return
 
         index = self['name'].find('~')
         if index > 0:
             self['name'] = self['name'][0:index]
-            if common.BLUEPRINT_GUI:
-                self.button_text.set(self['name'])
-                self.button_text_color.set('#BBDDBB')
-                if self.button is not None:
-                    self.button.configure(bg=self.button_text_color.get())
+            self.make_button_common()
+
         if self['parent'] is not None:
             self['parent'].make_common()
+
+    def make_button_unique(self):
+        if common.BLUEPRINT_GUI:
+            self.button_text_color.set('#FFAAAA')
+            self.button_text.set(self['name'])
+            if self.button is not None:
+                self.button.configure(bg=self.button_text_color.get())
 
     def make_unique(self):
         """Make the blueprint and all parents unique"""
         self['unique'] = True
         if '~' not in self['name']:
             self['name'] = generate_random_scope(self['name'])
+            self.make_button_unique()
             if self['parent'] is not None:
                 self['parent'].make_unique()
-            if common.BLUEPRINT_GUI:
-                self.button_text_color.set('#FFAAAA')
-                self.button_text.set(self['name'])
-                if self.button is not None:
-                    self.button.configure(bg=self.button_text_color.get())
 
     def get_element(self, index):
-        if isinstance(index, string_types):
-            return self[index]
-
-        if type(index) == int:
+        if not isinstance(index, Iterable):
             index = [index]
+
         b = self
         for i in index:
-            if 'children' in b:
+            if isinstance(i, string_types):
+                b = b[i]
+                continue
+            # sugar for easier access to sub elements
+            elif 'children' in b:
                 b = b['children']
-            # otherwise b is just an iterable
             b = b[i]
 
-        assert(type(b) == Blueprint)
         return b
 
     def get_scope_button(self, master, info):
@@ -256,26 +279,11 @@ def visit_modules(blueprint, main_input, outputs=[],
         fn(blueprint, main_input, outputs)
 
     for k, v in blueprint.items():
-        if type(v) == Blueprint and k != 'parent':
+        if isinstance(v, Blueprint) and k != 'parent':
             # type all_to_none -> ignore the module
             if v['type'] != all_to_none:
                 visit_modules(v, main_input, outputs, fn)
 
     for b in blueprint['children']:
-        if type(b) == Blueprint:
-            visit_modules(b, main_input, outputs, fn)
-        else:
-            for i in b:
-                visit_modules(i, main_input, outputs, fn)
+        visit_modules(b, main_input, outputs, fn)
 
-
-def get_module_names(blueprint, module_set=set()):
-    r"""Recursively add names (or scopes) to the module set"""
-    if issubclass(blueprint['type'], Module):
-        module_set.add(blueprint['name'])
-    for b in blueprint['children']:
-        if type(b) == Blueprint:
-            get_module_names(b, module_set)
-        else:
-            for i in b:
-                get_module_names(i, module_set)
