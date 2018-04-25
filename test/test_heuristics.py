@@ -4,7 +4,7 @@ from stacked.utils import transformer
 from torch.nn import Conv2d
 from stacked.modules.scoped_nn import ScopedEnsemble
 from stacked.utils.domain import ClosedList
-from stacked.meta.heuristics import mutate
+from stacked.meta.heuristics import mutate, crossover
 from stacked.utils import common
 import copy
 
@@ -22,6 +22,7 @@ class TestMetaHeuristics(unittest.TestCase):
                                                       num_classes=100)
 
     def test_index(self):
+        common.BLUEPRINT_GUI = False
         conv = self.blueprint.get_element([0, 1, 1, 'conv'])
         conv.make_unique()
         convdim = self.blueprint.get_element((0, 0, 'convdim'))
@@ -53,6 +54,21 @@ class TestMetaHeuristics(unittest.TestCase):
                 break
 
         self.assertNotEqual(self.blueprint['conv'], old_conv)
+
+    def test_crossover(self):
+        common.BLUEPRINT_GUI = False
+        blueprint1 = ScopedResNet.describe_default('ResNet28', depth=28,
+                                                   width=1, num_classes=100)
+        blueprint1_bk = copy.deepcopy(blueprint1)
+        blueprint2 = ScopedResNet.describe_default('ResNet40', depth=40,
+                                                   width=1, num_classes=100)
+        is_crossed = False
+        for i in range(100):
+            if crossover(blueprint1, blueprint2):
+                is_crossed = True
+
+        self.assertTrue(is_crossed)
+        self.assertNotEqual(blueprint1, blueprint1_bk)
 
 
 if __name__ == '__main__':

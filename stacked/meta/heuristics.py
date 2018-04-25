@@ -1,6 +1,5 @@
-from stacked.meta.blueprint import Blueprint, visit_modules
+from stacked.meta.blueprint import Blueprint
 from stacked.utils import common
-from collections import Iterable
 from logging import warning
 import numpy as np
 
@@ -58,113 +57,138 @@ def mutate(blueprint, key=None, diameter=1.0, p=0.05, p_decay=1.0):
     mutate_current(blueprint, key, diameter)
 
 
-def search_elements(blueprint, main_input, add_if):
-    """Accumulate elements with matching criterion
+def swap_consecutive(container1, container2, index1, index2):
+    """Swap all the elements after the entry point (index1, index2)"""
+    tmp = [k for k in container1]
+    container1[index1:] = container2[index2:]
+    container2[index2:] = tmp[index1:]
 
-    Args:
-        blueprint: Module description
-        main_input: Input to be used in the append_fn
-        add_if (Fn): that adds the blueprint itself, or its elements
+
+def reset_parent(children, parent):
+    for c in children:
+        c['parent'] = parent
+
+
+def cross_elements(iterable1, iterable2, index1, index2):
+    parent1 = iterable1[0]['parent']
+    parent2 = iterable2[0]['parent']
+    swap_consecutive(iterable1, iterable2, index1, index2)
+    reset_parent(iterable1, parent1)
+    reset_parent(iterable2, parent2)
+
+
+def pick_key_dict(iterable1, iterable2,
+                  key='input_shape', ix1=0, ix2=0):
+    """Pick index list dictionaries with the same key"""
+    dict1 = common.get_same_value_indices(iterable1, key, ix1)
+    dict2 = common.get_same_value_indices(iterable2, key, ix2)
+
+    intersection = set(dict1.keys()).intersection(set(dict2.keys()))
+    keys = list(intersection)
+    return dict1, dict2, keys
+
+
+def pick_random_cross_indices(shapes1, shapes2, keys):
+    if len(keys) > 0:
+        key = np.random.choice(keys)
+        assert(len(shapes1[key]) > 0 and len(shapes2[key]) > 0)
+        index1 = np.random.choice(shapes1[key])
+        index2 = np.random.choice(shapes2[key])
+        return index1, index2, key
+
+    return None, None, None
+
+
+def search_exit(iterable1, iterable2, index1, index2):
+    """Search for a crossover exit point, given entry (index1, index2)
+
+    No cross operation is done on children[1,2] yet
+    (index1, index2) is a hypothetical entry point
     """
-    blueprints = []
-    visit_modules(blueprint, main_input, blueprints, add_if)
-    return blueprints
+    # shape1, shape2 switched due to cross_elements no being done
+    shapes2, shapes1, keys = pick_key_dict(iterable1, iterable2,
+                                           'output_shape', index1, index2)
+
+    # search for a random exit point as if cross_elements was done
+    ix1, ix2, key = pick_random_cross_indices(shapes1, shapes2, keys)
+    len2 = len1 = None
+
+    if ix1 is not None:
+        ix1 = ix1 - index2 + index1 + 1
+        len1 = index1 + len(iterable2) - ix2
+    if ix2 is not None:
+        ix2 = ix2 - index1 + index2 + 1
+        len2 = index2 + len(iterable1) - ix1
+
+    return ix1, ix2, len1, len2
 
 
-def get_entry(blueprint, shape, append_fn):
-    """Randomly pick an element with the given input shape"""
-    blueprints = search_elements(blueprint, shape, append_fn)
-    if len(blueprints) > 0:
-        # can be extended with score based choice
-        return np.random.choice(blueprints)
-    return None
+def cross_children(iterable1, iterable2):
+    """Crossover on children
+
+    Arguments should contain the keys input_shape, and output_shape
+    """
+    shapes1, shapes2, keys = pick_key_dict(iterable1, iterable2)
+    index1, index2, key = pick_random_cross_indices(shapes1, shapes2, keys)
+    if index1 is None or index2 is None:
+        log(warning, "Children don't have matching input shape!")
+        return False
+
+    ix1, ix2, len1, len2 = search_exit(iterable1, iterable2, index1, index2)
+    if (ix1 is None or ix2 is None or
+            ix1 == len1 or ix2 == len2):
+        if iterable1[-1]['output_shape'] == iterable2[-1]['output_shape']:
+            cross_elements(iterable1, iterable2, index1, index2)
+            return True
+        return False
+
+    cross_elements(iterable1, iterable2, index1, index2)
+    cross_elements(iterable1, iterable2, ix1, ix2)
+    return True
 
 
-def search_matching_point(blueprint1, blueprint2, add_if, point):
-    bp1 = get_entry(blueprint1, blueprint2[point], add_if)
-    if bp1 is None:
-        bp1 = blueprint1
-        bp2 = get_entry(blueprint2, blueprint1[point], add_if)
-        if bp2 is None:
-            bp1 = blueprint1['name']
-            bp2 = blueprint2['name']
-            log(warning, "No matching point for {}, {}".format(bp1, bp2))
-            return None, None
-    else:
-        bp2 = blueprint2
-    return bp1, bp2
-
-
-def add_if_in(bp, inp, outputs):
-    if bp['input_shape'] == inp:
-        outputs.append(bp)
-
-
-def add_if_out(bp, output, outputs):
-    if bp['output_shape'] == output:
-        outputs.append(bp)
-
-
-def get_random_index(blueprint, p_stop=0.5):
-    if ('children' in blueprint and len(blueprint['children']) > 0
-            and np.random.random() < p_stop):
-        index = [np.random.randint(len(blueprint['children']))]
-        blueprint = blueprint.get_element(index)
-        assert(isinstance(blueprint, Blueprint))
-        tail = get_random_index(blueprint, p_stop)
-        if tail is not None:
-            return index + tail
-        return index
-    elif 'linear' in blueprint or 'conv0' in blueprint:
-        return [['linear'], ['conv0']][np.random.randint(2)]
-    elif 'convdim' in blueprint:
-        return ['convdim']
-    return None
-
-
-def search_cross_items(blueprint1, blueprint2):
-
-    if blueprint1['input_shape'] != blueprint2['input_shape']:
-        bps = search_matching_point(blueprint1, blueprint2, add_if_in, 'input_shape')
-        blueprint1, blueprint2 = bps
-        if blueprint2 is None or blueprint1 is None:
-            return None, None
-
-    out1 = blueprint1
-    out2 = blueprint2
-    if out1['output_shape'] != out2['output_shape']:
-        bps = search_matching_point(out1, out2, add_if_out, 'output_shape')
-        out1, out2 = bps
-        if out2 is None or out1 is None:
-            return None, None
-
-    return blueprint1, blueprint2, out1, out2
-
-
-def crossover(blueprint1, blueprint2, p_items=0.05,
-              p_children=0.1, p_grandchildren=0.1):
-    # try crossing random items
-    if np.random.random() < p_items:
-        items = search_cross_items(blueprint1, blueprint2)
-        if None not in items:
-            bp1, bp2, out1, out2 = items
-            indices = []
-            for i in items:
-                index = i.get_index_from_root()
-                if len(index) == 0:
-                    pass
-                # indices.append()
-
-    # try crossing immediate children:
+def crossover_on_children(blueprint1, blueprint2, p_items, p_children):
     if 'children' in blueprint1 and 'children' in blueprint2:
-        # pick range of children
-        # switch selected children
-        pass
+        children1 = blueprint1['children']
+        children2 = blueprint2['children']
 
-        # try crossing grand children
-        pass
+        # try crossing immediate children:
+        if np.random.random() < p_children:
+            if cross_children(children1, children2):
+                return True
+
+        # try crossing grandchildren, or children x grandchildren
+        if np.random.random() < p_children:
+            c1 = children1 + [blueprint1]
+            c2 = children2 + [blueprint2]
+            bp1 = np.random.choice(c1)
+            bp2 = np.random.choice(c2)
+            if crossover(bp1, bp2, p_items, p_children):
+                return True
+    return False
 
 
+def crossover_on_item(blueprint1, blueprint2, key):
+    if key in blueprint1 and key in blueprint2:
+        key1 = blueprint1[key]
+        key2 = blueprint2[key]
+
+        if (key1['input_shape'] == key2['input_shape']
+                and key1['output_shape'] == key2['output_shape']):
+            common.swap_elements(blueprint1, blueprint2, key, key)
+            return True
+
+    return False
 
 
+def crossover(blueprint1, blueprint2, p_items=0.5, p_children=0.9):
+    """In place, crossover operation on conv, convdim, linear or children"""
+    if np.random.random() < p_items:
+        if crossover_on_item(blueprint1, blueprint2, 'conv'):
+            return True
+        if crossover_on_item(blueprint1, blueprint2, 'convdim'):
+            return True
+        if crossover_on_item(blueprint1, blueprint2, 'linear'):
+            return True
 
+    return crossover_on_children(blueprint1, blueprint2, p_items, p_children)

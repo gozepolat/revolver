@@ -98,7 +98,7 @@ class TestResNet(unittest.TestCase):
     #@unittest.skip("GUI test for uniqueness skipped")
     def test_visual_change_blueprinted(self):
         common.BLUEPRINT_GUI = True
-        # group[0] -> block[0] -> unit[1 -> conv] (0: act, 1: bn, 2: conv)
+        # group[0] -> block[1] -> unit[0].conv
         self.blueprint.get_element((0, 1, 0, 'conv')).make_unique()
         visualize(self.blueprint)
         new_model = blueprinted.ScopedResNet('Resnet28', self.blueprint).cuda()

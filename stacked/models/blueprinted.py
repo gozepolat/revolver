@@ -90,14 +90,14 @@ class ScopedResBlock(Sequential):
         self.convdim = make_module(blueprint['convdim'])
 
     def forward(self, x):
-        o1 = self.act(self.bn(x))
-        z = self.conv(o1)
+        o = self.act(self.bn(x))
+        z = self.conv(o)
 
         for unit in self.container:
             z = unit(z)
 
         if self.convdim is not None:
-            return z + self.convdim(o1)
+            return z + self.convdim(o)
         else:
             return z + x
 
@@ -236,14 +236,10 @@ class ScopedResNet(Sequential):
         super(ScopedResNet, self).__init__(blueprint)
         self.scope = scope
 
-        act = blueprint['act']
-        self.act = make_module(act)
-        conv = blueprint['conv']
-        self.conv = make_module(conv)
-        bn = blueprint['bn']
-        self.bn = make_module(bn)
-        linear = blueprint['linear']
-        self.linear = make_module(linear)
+        self.act = make_module(blueprint['act'])
+        self.conv = make_module(blueprint['conv'])
+        self.bn = make_module(blueprint['bn'])
+        self.linear = make_module(blueprint['linear'])
 
     def forward(self, x):
         x = self.conv(x)

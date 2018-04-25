@@ -54,3 +54,16 @@ def replace_key(container, key, value):
     new_dict[key] = value
     return new_dict
 
+
+def get_same_value_indices(container, key, ix=0):
+    """Collect indices where value is the same for the given key"""
+    indices = {str(c[key]): [] for c in container[ix:]}
+    for i, c in enumerate(container[ix:]):
+        indices[str(c[key])].append(i + ix)
+    return indices
+
+
+def swap_elements(container1, container2, key1, key2):
+    tmp = container1[key1]
+    container1[key1] = container2[key2]
+    container2[key2] = tmp
