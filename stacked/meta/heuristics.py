@@ -2,6 +2,7 @@ from stacked.meta.blueprint import Blueprint
 from stacked.utils import common
 from logging import warning
 import numpy as np
+import copy
 
 
 def log(log_func, msg):
@@ -57,31 +58,87 @@ def mutate(blueprint, key=None, diameter=1.0, p=0.05, p_decay=1.0):
     mutate_current(blueprint, key, diameter)
 
 
-def swap_consecutive(container1, container2, index1, index2):
-    """Swap all the elements after the entry point (index1, index2)"""
-    tmp = [k for k in container1]
-    container1[index1:] = container2[index2:]
-    container2[index2:] = tmp[index1:]
+def get_parent_uuids(blueprint):
+    return set([p.uuid for p in blueprint.get_parents()])
 
 
-def reset_parent(children, parent):
+def in_parents(blueprint1, blueprint2):
+    parents = get_parent_uuids(blueprint2)
+    return blueprint1.uuid in parents
+
+
+def readjust_uniqueness(blueprint):
+    if blueprint['unique']:
+        blueprint.make_unique()
+
+def readjust_child(blueprint, parent):
+    """Set the new parent and adjust uniqueness again"""
+    blueprint['parent'] = parent
+    readjust_uniqueness(blueprint)
+
+
+def readjust_children(children, parent):
     for c in children:
-        c['parent'] = parent
+        readjust_child(c, parent)
 
 
-def cross_elements(iterable1, iterable2, index1, index2):
-    parent1 = iterable1[0]['parent']
-    parent2 = iterable2[0]['parent']
-    swap_consecutive(iterable1, iterable2, index1, index2)
-    reset_parent(iterable1, parent1)
-    reset_parent(iterable2, parent2)
+def swap_child(children1, children2, key1, key2):
+    """Swap child in children1 with another in children2"""
+    tmp = children1[key1]
+    parent1 = tmp['parent']
+    parent2 = children2[key2]['parent']
+
+    # prevent cycles
+    if in_parents(tmp, children2[key2]) or in_parents(children2[key2], tmp):
+        return False
+
+    # swap
+    children1[key1] = children2[key2]
+    children2[key2] = tmp
+
+    readjust_child(children1[key1], parent1)
+    readjust_child(children2[key2], parent2)
+
+    return True
+
+
+def override_child(children1, children2, key1, key2):
+    """Override child in children2 with one from children1"""
+    parent = children2[key2]['parent']
+    blueprint = copy.deepcopy(children1[key1])
+
+    if in_parents(blueprint, children2[key2]):
+        return False
+
+    children2[key2] = blueprint
+
+    readjust_child(blueprint, parent)
+
+    return True
+
+
+def cross_children(children1, children2, index1, index2, ix1=None, ix2=None):
+    parent1 = children1[0]['parent']
+    parent2 = children2[0]['parent']
+    common.swap_consecutive(children1, children2, index1, index2, ix1, ix2)
+    readjust_children(children1, parent1)
+    readjust_children(children2, parent2)
+
+
+def override_children(children1, children2, index1, index2, ix1=None, ix2=None):
+    """Override some of elements in children2 with ones from children1"""
+    parent2 = children2[0]['parent']
+
+    children2[index2:ix2] = copy.deepcopy(children1[index1:ix1])
+
+    readjust_children(children2, parent2)
 
 
 def pick_key_dict(iterable1, iterable2,
-                  key='input_shape', ix1=0, ix2=0):
+                  key1='input_shape', key2='input_shape', ix1=0, ix2=0):
     """Pick index list dictionaries with the same key"""
-    dict1 = common.get_same_value_indices(iterable1, key, ix1)
-    dict2 = common.get_same_value_indices(iterable2, key, ix2)
+    dict1 = common.get_same_value_indices(iterable1, key1, ix1)
+    dict2 = common.get_same_value_indices(iterable2, key2, ix2)
 
     intersection = set(dict1.keys()).intersection(set(dict2.keys()))
     keys = list(intersection)
@@ -89,6 +146,7 @@ def pick_key_dict(iterable1, iterable2,
 
 
 def pick_random_cross_indices(shapes1, shapes2, keys):
+    """Randomly pick indices, and matching key (shape) in shapes"""
     if len(keys) > 0:
         key = np.random.choice(keys)
         assert(len(shapes1[key]) > 0 and len(shapes2[key]) > 0)
@@ -106,7 +164,7 @@ def search_exit(iterable1, iterable2, index1, index2):
     (index1, index2) is a hypothetical entry point
     """
     # shape1, shape2 switched due to cross_elements no being done
-    shapes2, shapes1, keys = pick_key_dict(iterable1, iterable2,
+    shapes2, shapes1, keys = pick_key_dict(iterable1, iterable2, 'output_shape',
                                            'output_shape', index1, index2)
 
     # search for a random exit point as if cross_elements was done
@@ -116,6 +174,7 @@ def search_exit(iterable1, iterable2, index1, index2):
     if ix1 is not None:
         ix1 = ix1 - index2 + index1 + 1
         len1 = index1 + len(iterable2) - ix2
+
     if ix2 is not None:
         ix2 = ix2 - index1 + index2 + 1
         len2 = index2 + len(iterable1) - ix1
@@ -123,7 +182,7 @@ def search_exit(iterable1, iterable2, index1, index2):
     return ix1, ix2, len1, len2
 
 
-def cross_children(iterable1, iterable2):
+def crossover_children(iterable1, iterable2):
     """Crossover on children
 
     Arguments should contain the keys input_shape, and output_shape
@@ -138,57 +197,93 @@ def cross_children(iterable1, iterable2):
     if (ix1 is None or ix2 is None or
             ix1 == len1 or ix2 == len2):
         if iterable1[-1]['output_shape'] == iterable2[-1]['output_shape']:
-            cross_elements(iterable1, iterable2, index1, index2)
+            cross_children(iterable1, iterable2, index1, index2)
             return True
         return False
 
-    cross_elements(iterable1, iterable2, index1, index2)
-    cross_elements(iterable1, iterable2, ix1, ix2)
+    cross_children(iterable1, iterable2, index1, index2)
+    cross_children(iterable1, iterable2, ix1, ix2)
     return True
 
 
-def crossover_on_children(blueprint1, blueprint2, p_items, p_children):
+def copy_children(iterable1, iterable2):
+    """Override children
+
+    Arguments should contain the keys input_shape, and output_shape
+    """
+    shapes1, shapes2, keys = pick_key_dict(iterable1, iterable2)
+    index1, index2, key = pick_random_cross_indices(shapes1, shapes2, keys)
+    if index1 is None or index2 is None:
+        log(warning, "Children don't have matching input shape!")
+        return False
+
+    shapes1, shapes2, keys = pick_key_dict(iterable1, iterable2, 'output_shape',
+                                           'output_shape', index1, index2)
+    ix1, ix2, key = pick_random_cross_indices(shapes1, shapes2, keys)
+    if (ix1 is None or ix2 is None or
+            ix1 == len(iterable1) or ix2 == len(iterable2)):
+        if iterable1[-1]['output_shape'] == iterable2[-1]['output_shape']:
+            override_children(iterable1, iterable2, index1, index2)
+            return True
+        return False
+
+    override_children(iterable1, iterable2, index1, index2, ix1 + 1, ix2 + 1)
+    return True
+
+
+def op_over_children(blueprint1, blueprint2, p_items, p_children,
+                     fn_over, fn1=swap_child, fn=crossover_children):
+    """Crossover or copy over children (fn_over)"""
     if 'children' in blueprint1 and 'children' in blueprint2:
         children1 = blueprint1['children']
         children2 = blueprint2['children']
 
-        # try crossing immediate children:
+        # try crossover or copy over immediate children:
         if np.random.random() < p_children:
-            if cross_children(children1, children2):
+            if fn(children1, children2):
                 return True
 
-        # try crossing grandchildren, or children x grandchildren
+        # try over grandchildren, or children x grandchildren
         if np.random.random() < p_children:
             c1 = children1 + [blueprint1]
             c2 = children2 + [blueprint2]
             bp1 = np.random.choice(c1)
             bp2 = np.random.choice(c2)
-            if crossover(bp1, bp2, p_items, p_children):
+            if fn_over(bp1, bp2, p_items, p_children, fn1, fn):
                 return True
+
     return False
 
 
-def crossover_on_item(blueprint1, blueprint2, key):
+def op_over_item(blueprint1, blueprint2, key, fn=swap_child):
     if key in blueprint1 and key in blueprint2:
         key1 = blueprint1[key]
         key2 = blueprint2[key]
-
         if (key1['input_shape'] == key2['input_shape']
                 and key1['output_shape'] == key2['output_shape']):
-            common.swap_elements(blueprint1, blueprint2, key, key)
-            return True
-
+            return fn(blueprint1, blueprint2, key, key)
     return False
 
 
-def crossover(blueprint1, blueprint2, p_items=0.5, p_children=0.9):
-    """In place, crossover operation on conv, convdim, linear or children"""
+def op_over(blueprint1, blueprint2, p_items=0.5, p_children=0.9,
+            fn1=swap_child, fn2=crossover_children):
+    """In place, crossover like operation on conv, convdim, linear or children"""
     if np.random.random() < p_items:
-        if crossover_on_item(blueprint1, blueprint2, 'conv'):
+        if op_over_item(blueprint1, blueprint2, 'conv', fn1):
             return True
-        if crossover_on_item(blueprint1, blueprint2, 'convdim'):
+        if op_over_item(blueprint1, blueprint2, 'convdim', fn1):
             return True
-        if crossover_on_item(blueprint1, blueprint2, 'linear'):
+        if op_over_item(blueprint1, blueprint2, 'linear', fn1):
             return True
 
-    return crossover_on_children(blueprint1, blueprint2, p_items, p_children)
+    return op_over_children(blueprint1, blueprint2,
+                            p_items, p_children, op_over, fn1, fn2)
+
+
+def crossover(blueprint1, blueprint2, p_items=0.5, p_children=0.9):
+    return op_over(blueprint1, blueprint2, p_items, p_children)
+
+
+def copyover(blueprint1, blueprint2, p_items=0.5, p_children=0.9):
+    return op_over(blueprint1, blueprint2, p_items, p_children,
+                   fn1=override_child, fn2=copy_children)

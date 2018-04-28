@@ -63,7 +63,9 @@ def get_same_value_indices(container, key, ix=0):
     return indices
 
 
-def swap_elements(container1, container2, key1, key2):
-    tmp = container1[key1]
-    container1[key1] = container2[key2]
-    container2[key2] = tmp
+def swap_consecutive(container1, container2, index1, index2, ix1=None, ix2=None):
+    """Swap all the elements after the entry point (index1, index2)"""
+    tmp = [k for k in container1]
+    container1[index1:ix1] = container2[index2:ix2]
+    container2[index2:ix2] = tmp[index1:ix1]
+

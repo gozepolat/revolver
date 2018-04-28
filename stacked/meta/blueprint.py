@@ -5,7 +5,7 @@ from stacked.utils.transformer import all_to_none
 from torch.nn import Module
 import tkinter as tk
 from stacked.utils import common
-from logging import warning
+from logging import warning, error
 from collections import Iterable
 import json
 
@@ -41,7 +41,7 @@ class Blueprint(dict):
                  children=[], description={}, kwargs={}, mutables={},
                  meta={}, freeze=False, input_shape=None, output_shape=None):
         super(Blueprint, self).__init__(description)
-
+        self.uuid = generate_random_scope()
         # set from args if not in description
         if 'name' not in self:
             self['name'] = '%s%s' % (prefix, suffix)
@@ -90,16 +90,32 @@ class Blueprint(dict):
     def __ne__(self, other):
         return not (self == other)
 
-    def get_acyclic_dict(self):
+    def get_parents(self, uuids=set([])):
+        """List of parents until root"""
+        parents = []
+        if self.uuid in uuids:
+            log(error, "Blueprint has cycles!!")
+            return parents
+
+        p = self['parent']
+        if p is not None:
+            parents = [p] + p.get_parents(uuids | set([self.uuid]))
+        return parents
+
+    def get_acyclic_dict(self, uuids=set([])):
         """Dictionary representation without cycles"""
         acyclic = {}
+        if self.uuid in uuids:
+            log(error, "Blueprint has cycles!!")
+            return acyclic
+
         for k, v in self.items():
             if k != 'children':
                 if not isinstance(v, Blueprint):
                     v = common.replace_key(v, 'blueprint', 'self')
                     acyclic[k] = str(v)
                 elif k != 'parent':
-                    acyclic[k] = v.get_acyclic_dict()
+                    acyclic[k] = v.get_acyclic_dict(uuids | set([self.uuid]))
 
         acyclic['parent'] = None
         if self['parent'] is not None:
@@ -107,7 +123,7 @@ class Blueprint(dict):
 
         children = []
         for c in self['children']:
-            children.append(c.get_acyclic_dict())
+            children.append(c.get_acyclic_dict(uuids | set([self.uuid])))
 
         acyclic['children'] = children
         return acyclic
@@ -125,6 +141,7 @@ class Blueprint(dict):
                     return True
 
         for b in self['children']:
+            print(b['name'])
             if b.has_unique_elements():
                 return True
 
@@ -154,6 +171,7 @@ class Blueprint(dict):
 
     def make_button_common(self):
         if common.BLUEPRINT_GUI:
+            log(warning, "Call button common")
             self.button_text.set(self['name'])
             self.button_text_color.set('#BBDDBB')
             if self.button is not None:
@@ -162,12 +180,13 @@ class Blueprint(dict):
     def make_common(self):
         """Revert back from uniqueness"""
         self['unique'] = False
+        log(warning, "Calling make common")
         if self.has_unique_elements():
             log(warning, "Can't make common, %s has unique elements."
                 % self['name'])
             self['unique'] = True
             return
-
+        log(warning, "Can make common, %s has no unique elements." % self['name'])
         index = self['name'].find('~')
         if index > 0:
             self['name'] = self['name'][0:index]
@@ -189,8 +208,9 @@ class Blueprint(dict):
         if '~' not in self['name']:
             self['name'] = generate_random_scope(self['name'])
             self.make_button_unique()
-            if self['parent'] is not None:
-                self['parent'].make_unique()
+
+        if self['parent'] is not None:
+            self['parent'].make_unique()
 
     def get_element(self, index):
         if not isinstance(index, Iterable):

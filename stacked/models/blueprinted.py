@@ -371,6 +371,3 @@ class ScopedResNet(Sequential):
 
 
 
-
-
-
