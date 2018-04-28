@@ -6,16 +6,16 @@ from torch.nn import Conv2d
 from stacked.models import blueprinted
 from stacked.modules.scoped_nn import ScopedEnsemble
 from stacked.utils.domain import ClosedList
-from stacked.meta.heuristics import mutate, crossover, copyover
+from stacked.meta.heuristics.operators import mutate, crossover, copyover
 from stacked.meta.blueprint import visit_modules, visualize
 from stacked.utils import common
 import copy
 import glob
 
 
-class TestMetaHeuristics(unittest.TestCase):
+class TestMetaOperators(unittest.TestCase):
     def __init__(self, *args, **kwargs):
-        super(TestMetaHeuristics, self).__init__(*args, **kwargs)
+        super(TestMetaOperators, self).__init__(*args, **kwargs)
 
     @classmethod
     def setUpClass(cls):

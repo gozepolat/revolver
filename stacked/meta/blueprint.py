@@ -90,7 +90,7 @@ class Blueprint(dict):
     def __ne__(self, other):
         return not (self == other)
 
-    def get_parents(self, uuids=set([])):
+    def get_parents(self, uuids=set()):
         """List of parents until root"""
         parents = []
         if self.uuid in uuids:
@@ -102,7 +102,7 @@ class Blueprint(dict):
             parents = [p] + p.get_parents(uuids | set([self.uuid]))
         return parents
 
-    def get_acyclic_dict(self, uuids=set([])):
+    def get_acyclic_dict(self, uuids=set()):
         """Dictionary representation without cycles"""
         acyclic = {}
         if self.uuid in uuids:

@@ -4,11 +4,13 @@ from torch.nn import Module
 from stacked.modules.scoped_nn import ScopedConv2d, \
     ScopedBatchNorm2d, ScopedLinear, ScopedReLU
 from stacked.meta.scope import ScopedMeta
+from stacked.meta.masked import Ensemble
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.utils.transformer import all_to_none
 from stacked.modules.conv import get_conv_out_shape
 from six import add_metaclass
+import copy
 
 
 @add_metaclass(ScopedMeta)
@@ -368,6 +370,29 @@ class ScopedResNet(Sequential):
                                              block_depth, stride, padding)
         return default
 
+
+@add_metaclass(ScopedMeta)
+class ScopedEnsemble(Ensemble):
+    def __init__(self, scope, *args, **kwargs):
+        super(ScopedEnsemble, self).__init__(*args, **kwargs)
+        self.scope = scope
+
+    @staticmethod
+    def describe_from_blueprint(prefix, suffix,  blueprint, parent, ensemble_size):
+        input_shape = blueprint['input_shape']
+        output_shape = blueprint['output_shape']
+        kwargs = blueprint['kwargs']
+
+        args = [(blueprint['type'], [], kwargs)] * ensemble_size
+        ensemble = copy.deepcopy(blueprint)
+        ensemble['parent'] = parent
+        ensemble['prefix'] = prefix
+        ensemble['name'] = '%s%s' % (prefix, suffix)
+        ensemble['type'] = ScopedEnsemble
+        ensemble['kwargs'] = {'iterable_args': args, 'input_shape': input_shape}
+        ensemble['input_shape'] = input_shape
+        ensemble['output_shape'] = output_shape
+        return ensemble
 
 
 

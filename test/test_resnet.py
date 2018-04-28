@@ -7,7 +7,7 @@ from stacked.models import scoped_resnet_sketch
 from stacked.models import blueprinted
 from stacked.meta.blueprint import visualize, visit_modules
 from torch.nn import Conv2d
-from stacked.modules.scoped_nn import ScopedEnsemble
+from stacked.models.blueprinted import ScopedEnsemble
 from stacked.modules.conv import Conv3d2d
 from stacked.utils import common
 import glob

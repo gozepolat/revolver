@@ -1,17 +1,9 @@
 from six import add_metaclass
 from stacked.meta.scope import ScopedMeta
-from stacked.meta.masked import Ensemble
 from torch.nn import Conv2d, Conv3d, BatchNorm2d, \
     BatchNorm3d, Linear, Module, ModuleList, Parameter, \
     ParameterList, ReLU
 from stacked.modules.conv import Conv3d2d
-
-
-@add_metaclass(ScopedMeta)
-class ScopedEnsemble(Ensemble):
-    def __init__(self, scope, *args, **kwargs):
-        super(ScopedEnsemble, self).__init__(*args, **kwargs)
-        self.scope = scope
 
 
 @add_metaclass(ScopedMeta)

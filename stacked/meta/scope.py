@@ -24,12 +24,15 @@ def validate_scope(scope):
 
 
 class ScopedMeta(type):
-    """A metaclass that creates a base Scoped class when called.
+    """A metaclass that creates a scoped class when called.
 
-    '_random' is reserved for generating a random scope that will not be shared
-    '~' is reserved for denoting the beginning of uuid, if instance is unique
-    All instances will be stored in the common.SCOPE_DICTIONARY"""
+    Args:
+        scope (str): identifier for the scope name
+        '_random' is reserved for generating a random scope that will not be shared
+        '~' is reserved for denoting the beginning of uuid, if instance is unique
 
+    All scoped class instances will be stored in the common.SCOPE_DICTIONARY
+    """
     def __call__(cls, scope, *args, **kwargs):
         validate_scope(scope)
         if scope not in common.SCOPE_DICTIONARY:
