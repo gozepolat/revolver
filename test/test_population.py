@@ -1,7 +1,9 @@
 import unittest
 from stacked.meta.heuristics import population
 from stacked.models import blueprinted
-from stacked.utils import transformer
+from stacked.utils import transformer, common
+from PIL import Image
+import glob
 
 
 class TestPopulation(unittest.TestCase):
@@ -10,7 +12,9 @@ class TestPopulation(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        pass
+        image_paths = glob.glob("images/*")
+        cls.out_size = (1, 10)
+        cls.test_images = [(s, Image.open(s).resize((32, 32))) for s in image_paths]
 
     def model_run(self, blueprint):
         # run and test a model created from the blueprint
@@ -22,7 +26,8 @@ class TestPopulation(unittest.TestCase):
             self.assertEqual(out.size(), self.out_size)
 
     def test_init_population(self):
-        p = population.generate(100)
+        common.BLUEPRINT_GUI = False
+        p = population.generate(10)
         for i in p.individuals:
             self.model_run(i)
 

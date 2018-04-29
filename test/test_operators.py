@@ -4,7 +4,7 @@ from stacked.models.blueprinted import ScopedResNet
 from stacked.utils import transformer
 from torch.nn import Conv2d
 from stacked.models import blueprinted
-from stacked.modules.scoped_nn import ScopedEnsemble
+from stacked.models.blueprinted import ScopedEnsemble
 from stacked.utils.domain import ClosedList
 from stacked.meta.heuristics.operators import mutate, crossover, copyover
 from stacked.meta.blueprint import visit_modules, visualize

@@ -174,6 +174,23 @@ class ScopedResBlock(Sequential):
         default['kwargs'] = {'blueprint': default}
         return default
 
+    @staticmethod
+    def describe_from_blueprint(prefix, suffix, blueprint, parent, depth):
+        kwargs = blueprint['kwargs']
+        input_shape = blueprint['input_shape']
+        output_shape = blueprint['output_shape']
+        return ScopedResBlock.describe_default(prefix, suffix, parent,
+                                               depth=depth,
+                                               conv_module=blueprint['type'],
+                                               bn_module=ScopedBatchNorm2d,
+                                               act_module=ScopedReLU,
+                                               ni=input_shape[1],
+                                               no=output_shape[1],
+                                               kernel_size=kwargs['kernel_size'],
+                                               stride=kwargs['stride'],
+                                               padding=kwargs['padding'],
+                                               input_shape=input_shape)
+
 
 @add_metaclass(ScopedMeta)
 class ScopedResGroup(Sequential):

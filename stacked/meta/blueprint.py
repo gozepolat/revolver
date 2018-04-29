@@ -94,7 +94,9 @@ class Blueprint(dict):
         """List of parents until root"""
         parents = []
         if self.uuid in uuids:
-            log(error, "Blueprint has cycles!!")
+            log(error, "get_parents: Blueprint %s has cycles!!"
+                % self['name'])
+            raw_input("continue")
             return parents
 
         p = self['parent']
@@ -106,7 +108,9 @@ class Blueprint(dict):
         """Dictionary representation without cycles"""
         acyclic = {}
         if self.uuid in uuids:
-            log(error, "Blueprint has cycles!!")
+            log(error, "get_acyclic_dict: Blueprint %s has cycles!!"
+                % self['name'])
+            raw_input("continue")
             return acyclic
 
         for k, v in self.items():

@@ -1,9 +1,9 @@
 from stacked.meta.blueprint import visit_modules
 from stacked.modules.scoped_nn import ScopedConv2d
 from stacked.models.blueprinted import ScopedResNet
+from stacked.meta.heuristics import extensions
 from stacked.utils.domain import ClosedList
 import numpy as np
-from torch.nn import Conv2d
 
 
 def collect_modules(blueprint):
@@ -47,17 +47,28 @@ class Population(object):
 
 def generate(population_size):
     max_width = 4
-    max_depth = 46
+    max_depth = 28
 
     depths = ClosedList(list(range(16, max_depth + 1, 6)))
     widths = ClosedList(list(range(1, max_width + 1)))
 
-    kwargs = {'in_channels': 3, 'out_channels': 16,
-              'kernel_size': 3, 'padding': 1, 'stride': 1}
-    args = [(Conv2d, [], kwargs)] * 5
+    def make_mutable_and_randomly_unique(bp, p, outp):
+        if 'conv' in bp:
+            extensions.extend_conv_mutables(bp, ensemble_size=3, block_depth=2)
+        if np.random.random() < p:
+            bp.make_unique()
 
+    individuals = []
+    for i in range(population_size):
+        blueprint = ScopedResNet.describe_default('ResNet',
+                                                  depth=depths.pick_random()[1],
+                                                  width=widths.pick_random()[1],
+                                                  num_classes=10)
 
+        visit_modules(blueprint, 0.01, [], make_mutable_and_randomly_unique)
+        individuals.append(blueprint)
 
-    blueprint = ScopedResNet.describe_default('ResNet', depth=28, width=1, num_classes=10)
-    pass
+    p = Population()
+    p.individuals = individuals
+    return p
 

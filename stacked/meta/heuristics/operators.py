@@ -62,14 +62,23 @@ def get_parent_uuids(blueprint):
     return set([p.uuid for p in blueprint.get_parents()])
 
 
-def in_parents(blueprint1, blueprint2):
+def child_in_parents(blueprint1, blueprint2):
     parents = get_parent_uuids(blueprint2)
     return blueprint1.uuid in parents
+
+
+def children_in_parents(children, parents):
+    parents = set([p.uuid for p in parents])
+    for c in children:
+        if c.uuid in parents:
+            return True
+    return False
 
 
 def readjust_uniqueness(blueprint):
     if blueprint['unique']:
         blueprint.make_unique()
+
 
 def readjust_child(blueprint, parent):
     """Set the new parent and adjust uniqueness again"""
@@ -89,7 +98,7 @@ def swap_child(children1, children2, key1, key2):
     parent2 = children2[key2]['parent']
 
     # prevent cycles
-    if in_parents(tmp, children2[key2]) or in_parents(children2[key2], tmp):
+    if child_in_parents(tmp, children2[key2]) or child_in_parents(children2[key2], tmp):
         return False
 
     # swap
@@ -107,7 +116,7 @@ def override_child(children1, children2, key1, key2):
     parent = children2[key2]['parent']
     blueprint = copy.deepcopy(children1[key1])
 
-    if in_parents(blueprint, children2[key2]):
+    if child_in_parents(blueprint, children2[key2]):
         return False
 
     children2[key2] = blueprint
@@ -120,6 +129,15 @@ def override_child(children1, children2, key1, key2):
 def cross_children(children1, children2, index1, index2, ix1=None, ix2=None):
     parent1 = children1[0]['parent']
     parent2 = children2[0]['parent']
+    parents1 = [parent1] + parent1.get_parents()
+    parents2 = [parent2] + parent2.get_parents()
+
+    if children_in_parents(children1[index1:ix1], parents2):
+        return False
+
+    if children_in_parents(children1[index2:ix2], parents1):
+        return False
+
     common.swap_consecutive(children1, children2, index1, index2, ix1, ix2)
     readjust_children(children1, parent1)
     readjust_children(children2, parent2)
@@ -128,6 +146,10 @@ def cross_children(children1, children2, index1, index2, ix1=None, ix2=None):
 def override_children(children1, children2, index1, index2, ix1=None, ix2=None):
     """Override some of elements in children2 with ones from children1"""
     parent2 = children2[0]['parent']
+    parents = [parent2] + parent2.get_parents()
+
+    if children_in_parents(children1[index1:ix1], parents):
+        return False
 
     children2[index2:ix2] = copy.deepcopy(children1[index1:ix1])
 
@@ -206,28 +228,28 @@ def crossover_children(iterable1, iterable2):
     return True
 
 
-def copy_children(iterable1, iterable2):
+def copy_children(children1, children2):
     """Override children
 
     Arguments should contain the keys input_shape, and output_shape
     """
-    shapes1, shapes2, keys = pick_key_dict(iterable1, iterable2)
+    shapes1, shapes2, keys = pick_key_dict(children1, children2)
     index1, index2, key = pick_random_cross_indices(shapes1, shapes2, keys)
     if index1 is None or index2 is None:
         log(warning, "Children don't have matching input shape!")
         return False
 
-    shapes1, shapes2, keys = pick_key_dict(iterable1, iterable2, 'output_shape',
+    shapes1, shapes2, keys = pick_key_dict(children1, children2, 'output_shape',
                                            'output_shape', index1, index2)
     ix1, ix2, key = pick_random_cross_indices(shapes1, shapes2, keys)
     if (ix1 is None or ix2 is None or
-            ix1 == len(iterable1) or ix2 == len(iterable2)):
-        if iterable1[-1]['output_shape'] == iterable2[-1]['output_shape']:
-            override_children(iterable1, iterable2, index1, index2)
+            ix1 == len(children1) or ix2 == len(children2)):
+        if children1[-1]['output_shape'] == children2[-1]['output_shape']:
+            override_children(children1, children2, index1, index2)
             return True
         return False
 
-    override_children(iterable1, iterable2, index1, index2, ix1 + 1, ix2 + 1)
+    override_children(children1, children2, index1, index2, ix1 + 1, ix2 + 1)
     return True
 
 
