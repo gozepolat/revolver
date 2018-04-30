@@ -52,10 +52,10 @@ def generate(population_size):
     depths = ClosedList(list(range(16, max_depth + 1, 6)))
     widths = ClosedList(list(range(1, max_width + 1)))
 
-    def make_mutable_and_randomly_unique(bp, p, outp):
+    def make_mutable_and_randomly_unique(bp, p_unique, _):
         if 'conv' in bp:
             extensions.extend_conv_mutables(bp, ensemble_size=3, block_depth=2)
-        if np.random.random() < p:
+        if np.random.random() < p_unique:
             bp.make_unique()
 
     individuals = []

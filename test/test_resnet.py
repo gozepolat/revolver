@@ -75,17 +75,17 @@ class TestResNet(unittest.TestCase):
             self.assertEqual(out.size(), self.out_size)
 
     def test_module_names_blueprinted(self):
-        # ResNet -> group16_16
+        # ResNet -> group
         group = self.blueprint.get_element(0)
-        # group16_16 -> block16_16
+        # group -> block
         block = group.get_element(0)
-        # block16_16 -> conv16_16_3
+        # block -> conv (in/out channels 16/16, kernel 3, stride 1, padding 1)
         child = block.get_element((0, 'conv'))
-        self.assertEqual(child['name'], 'ResNet28/group/block/unit/conv16_16_3')
+        self.assertEqual(child['name'], 'ResNet28/group/block/unit/conv16_16_3_1_1')
         child.make_unique()
-        self.assertNotEqual(child['name'], 'ResNet28/group/block/unit/conv16_16_3')
+        self.assertNotEqual(child['name'], 'ResNet28/group/block/unit/conv16_16_3_1_1')
         convdim = self.blueprint.get_element((0, 0, 'convdim'))
-        self.assertEqual(convdim['name'], 'ResNet28/group/block/convdim16_16')
+        self.assertEqual(convdim['name'], 'ResNet28/group/block/convdim16_16_1_1_0')
         module_list = set()
 
         def collect(bp, key, out):
@@ -124,7 +124,12 @@ class TestResNet(unittest.TestCase):
         conv0 = self.blueprint['conv']
         conv0['prefix'] = 'ResNet28/stacked'
         conv0['type'] = ScopedEnsemble
-        conv0['kwargs'] = {'iterable_args': args, 'input_shape': input_shape}
+        conv0['iterable_args'] = args
+        conv0['input_shape'] = input_shape
+        conv0['output_shape'] = None
+        conv0['kwargs'] = {'blueprint': conv0, 'iterable_args': args,
+                           'input_shape': input_shape,
+                           'output_shape': None}
         conv0.make_unique()
 
         # replace the 2nd conv of the 2nd block of the 3rd group with Ensemble
@@ -136,7 +141,12 @@ class TestResNet(unittest.TestCase):
         conv2 = self.blueprint.get_element((2, 1, 0, 'conv'))
         conv2['prefix'] = 'ResNet/stacked2_2_3'
         conv2['type'] = ScopedEnsemble
-        conv2['kwargs'] = {'iterable_args': args, 'input_shape': input_shape}
+        conv2['iterable_args'] = args
+        conv2['input_shape'] = input_shape
+        conv2['output_shape'] = input_shape
+        conv2['kwargs'] = {'blueprint': conv2, 'iterable_args': args,
+                           'input_shape': input_shape,
+                           'output_shape': input_shape}
         conv2.make_unique()
         new_model = blueprinted.ScopedResNet('ResNet28_ensemble',
                                              self.blueprint).cuda()

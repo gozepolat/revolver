@@ -20,7 +20,7 @@ def extend_conv_mutables(blueprint, ensemble_size=5, block_depth=2):
     prefix = blueprint['conv']['prefix']
     conv = blueprint['conv']
     parent = conv['parent']
-    bp = ScopedEnsemble.describe_from_blueprint(prefix, "_ensemble",
+    bp = ScopedEnsemble.describe_from_blueprint(prefix, '',
                                                 conv, parent,
                                                 ensemble_size)
 

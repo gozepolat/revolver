@@ -27,7 +27,7 @@ class TestEnsemble(unittest.TestCase):
         out_size = (1, 3, 256, 256)
         input_shape = transformer.image_to_unsqueezed_cuda_variable(self.test_images[0][1]).size()
         ensemble = masked.Ensemble(args, input_shape).cuda()
-        self.assertEqual(out_size, ensemble.out_size)
+        self.assertEqual(out_size, ensemble.output_shape)
 
         # test forward with various images
         for path, im in self.test_images:

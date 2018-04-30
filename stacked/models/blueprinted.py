@@ -40,15 +40,16 @@ class ScopedConvUnit(Module):
                              stride, padding, conv_module, act_module, bn_module):
         """Set descriptions for act, bn, and conv"""
         # describe act and bn
-        default['act'] = Blueprint('%s/act' % prefix, '%d_%d' % (ni, no), default,
+        suffix = '%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride, padding)
+        default['act'] = Blueprint('%s/act' % prefix, suffix, default,
                                    False, act_module, kwargs={'inplace': True})
-        default['bn'] = Blueprint('%s/bn' % prefix, '%d_%d' % (ni, no), default,
+        default['bn'] = Blueprint('%s/bn' % prefix, suffix, default,
                                   False, bn_module, kwargs={'num_features': ni})
         # describe conv
         kwargs = {'in_channels': ni, 'out_channels': no,
                   'kernel_size': kernel_size, 'stride': stride, 'padding': padding}
-        conv = Blueprint('%s/conv' % prefix, '%d_%d_%d' % (ni, no, kernel_size),
-                         default, False, conv_module, kwargs=kwargs)
+        conv = Blueprint('%s/conv' % prefix, suffix, default,
+                         False, conv_module, kwargs=kwargs)
         conv['input_shape'] = input_shape
         conv['output_shape'] = get_conv_out_shape(input_shape, no,
                                                   kernel_size, stride, padding)
@@ -116,8 +117,9 @@ class ScopedResBlock(Sequential):
         convdim_type = conv_module if ni != no else all_to_none
         kwargs = {'in_channels': ni, 'out_channels': no,
                   'kernel_size': 1, 'stride': stride, 'padding': 0}
-        convdim = Blueprint('%s/convdim' % prefix, '%d_%d' % (ni, no), default,
-                            False, convdim_type, kwargs=kwargs)
+        convdim = Blueprint('%s/convdim' % prefix,
+                            '%d_%d_%d_%d_%d' % (ni, no, 1, stride, 0),
+                            default, False, convdim_type, kwargs=kwargs)
         convdim['input_shape'] = input_shape
         convdim['output_shape'] = get_conv_out_shape(input_shape, no, 1, stride, 0)
         default['convdim'] = convdim
@@ -129,7 +131,7 @@ class ScopedResBlock(Sequential):
         children = []
         for i in range(depth):
             unit_prefix = '%s/unit' % prefix
-            suffix = '%d_%d' % (ni, no)
+            suffix = '%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride, padding)
             unit = ScopedConvUnit.describe_default(unit_prefix, suffix, default, shape,
                                                    ni, no, kernel_size, stride, padding,
                                                    act_module, bn_module, conv_module)
@@ -171,7 +173,8 @@ class ScopedResBlock(Sequential):
                                                             padding, conv_module, act_module,
                                                             bn_module, depth)
         default['output_shape'] = input_shape
-        default['kwargs'] = {'blueprint': default}
+        default['kwargs'] = {'blueprint': default, 'kernel_size':kernel_size,
+                             'stride': stride, 'padding': padding}
         return default
 
     @staticmethod
@@ -226,7 +229,7 @@ class ScopedResGroup(Sequential):
         default['input_shape'] = input_shape
         for i in range(group_depth):
             block_prefix = '%s/block' % prefix
-            suffix = '%d_%d' % (ni, no)
+            suffix = '%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride, padding)
             block = ScopedResBlock.describe_default(block_prefix, suffix, default,
                                                     block_depth, conv_module, bn_module,
                                                     act_module, ni, no, kernel_size,
@@ -287,7 +290,7 @@ class ScopedResNet(Sequential):
         # describe conv
         kwargs = {'in_channels': shape[1], 'out_channels': ni,
                   'kernel_size': kernel_size, 'stride': 1, 'padding': 1}
-        suffix = '%d_%d_%d' % (shape[1], ni, kernel_size)
+        suffix = '%d_%d_%d_%d_%d' % (shape[1], ni, kernel_size, 1, 1)
         default['conv'] = Blueprint('%s/conv' % prefix, suffix,
                                     default, False, conv_module, kwargs=kwargs)
         default['conv']['input_shape'] = shape
@@ -310,7 +313,8 @@ class ScopedResNet(Sequential):
         children = []
         for width in widths:
             no = width
-            block = ScopedResGroup.describe_default('%s/group' % prefix, '%d_%d' % (ni, no),
+            suffix = '%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride, padding)
+            block = ScopedResGroup.describe_default('%s/group' % prefix, suffix,
                                                     default, group_depth, block_depth,
                                                     conv_module, bn_module, act_module,
                                                     ni, no, kernel_size, stride, padding,
@@ -390,8 +394,11 @@ class ScopedResNet(Sequential):
 
 @add_metaclass(ScopedMeta)
 class ScopedEnsemble(Ensemble):
-    def __init__(self, scope, *args, **kwargs):
-        super(ScopedEnsemble, self).__init__(*args, **kwargs)
+    def __init__(self, scope, blueprint, *_, **__):
+        super(ScopedEnsemble, self).__init__(blueprint['iterable_args'],
+                                             blueprint['input_shape'],
+                                             blueprint['output_shape'],
+                                             mask_with_grad=True)
         self.scope = scope
 
     @staticmethod
@@ -400,13 +407,22 @@ class ScopedEnsemble(Ensemble):
         output_shape = blueprint['output_shape']
         kwargs = blueprint['kwargs']
 
+        suffix = "%s_ensemble_%d_%d_%d_%d_%d" % (suffix, input_shape[1],
+                                                 output_shape[1],
+                                                 kwargs['kernel_size'],
+                                                 kwargs['stride'],
+                                                 kwargs['padding'])
         args = [(blueprint['type'], [], kwargs)] * ensemble_size
         ensemble = copy.deepcopy(blueprint)
         ensemble['parent'] = parent
         ensemble['prefix'] = prefix
         ensemble['name'] = '%s%s' % (prefix, suffix)
         ensemble['type'] = ScopedEnsemble
-        ensemble['kwargs'] = {'iterable_args': args, 'input_shape': input_shape}
+        ensemble['iterable_args'] = args
+        ensemble['kwargs'] = {'blueprint': ensemble,
+                              'kernel_size': kwargs['kernel_size'],
+                              'stride': kwargs['stride'],
+                              'padding': kwargs['padding']}
         ensemble['input_shape'] = input_shape
         ensemble['output_shape'] = output_shape
         return ensemble

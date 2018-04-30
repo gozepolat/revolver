@@ -27,8 +27,9 @@ class TestPopulation(unittest.TestCase):
 
     def test_init_population(self):
         common.BLUEPRINT_GUI = False
-        p = population.generate(10)
+        p = population.generate(100)
         for i in p.individuals:
+            print("%s" % i)
             self.model_run(i)
 
     def test_estimate_cost(self):
