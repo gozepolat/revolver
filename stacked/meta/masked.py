@@ -13,7 +13,8 @@ class Ensemble(nn.Module):
         mask_with_grad: True if mask is learnable
         mask_func: lambda function to run with conv_out and mask"""
 
-    def __init__(self, iterable_args, input_shape, output_shape=None, mask_with_grad=True,
+    def __init__(self, iterable_args, input_shape,
+                 output_shape=None, mask_with_grad=True,
                  mask_func=lambda out, module_out, mask: out + module_out * mask):
         super(Ensemble, self).__init__()
         assert(len(iterable_args) > 0)

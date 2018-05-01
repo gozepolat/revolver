@@ -1,5 +1,6 @@
 from six import add_metaclass
 from stacked.meta.scope import ScopedMeta
+from stacked.utils.transformer import scalar_to_tensor
 from torch.nn import Conv2d, Conv3d, BatchNorm2d, \
     BatchNorm3d, Linear, Module, ModuleList, Parameter, \
     ParameterList, ReLU
@@ -91,3 +92,14 @@ class ScopedReLU(ReLU):
     def __init__(self, scope, *args, **kwargs):
         super(ScopedReLU, self).__init__(*args, **kwargs)
         self.scope = scope
+
+
+@add_metaclass(ScopedMeta)
+class ParameterModule(Module):
+    def __init__(self, scope, value, size, *args, **kwargs):
+        super(ParameterModule, self).__init__(*args, **kwargs)
+        self.scope = scope
+        self.parameter = Parameter(scalar_to_tensor(value, size))
+
+    def forward(self, *_):
+        return self.parameter

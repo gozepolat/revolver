@@ -8,6 +8,7 @@ from stacked.utils import common
 from logging import warning, error
 from collections import Iterable
 import json
+import copy
 
 
 def log(log_func, msg):
@@ -43,8 +44,6 @@ class Blueprint(dict):
         super(Blueprint, self).__init__(description)
         self.uuid = generate_random_scope()
         # set from args if not in description
-        if 'name' not in self:
-            self['name'] = '%s%s' % (prefix, suffix)
         if 'args' not in self:
             self['args'] = args
         if 'kwargs' not in self:
@@ -57,6 +56,8 @@ class Blueprint(dict):
             self['freeze'] = freeze
         if 'prefix' not in self:
             self['prefix'] = prefix
+        if 'suffix' not in self:
+            self['suffix'] = suffix
         if 'parent' not in self:
             self['parent'] = parent
         if 'children' not in self:
@@ -69,9 +70,8 @@ class Blueprint(dict):
             self['input_shape'] = input_shape
         if 'output_shape' not in self:
             self['output_shape'] = output_shape
-
-        if self['unique']:
-            self.make_unique()
+        if 'name' not in self:
+            self.refresh_name()
 
         # gui related
         if common.BLUEPRINT_GUI:
@@ -89,6 +89,11 @@ class Blueprint(dict):
 
     def __ne__(self, other):
         return not (self == other)
+
+    def refresh_name(self):
+        self['name'] = '%s%s' % (self['prefix'], self['suffix'])
+        if self['unique']:
+            self.make_unique()
 
     def get_parents(self, uuids=set()):
         """List of parents until root"""
@@ -134,6 +139,23 @@ class Blueprint(dict):
 
     def __str__(self):
         return json.dumps(self.get_acyclic_dict(), indent=4)
+
+    def copy(self):
+        """Copy self, without changing the references to the items"""
+        return Blueprint(description=self)
+
+    def clone(self):
+        """Fast deep copy self, removing mutable elements"""
+        description = {'children': [c.clone() for c in self['children']],
+                       'parent': self['parent'],
+                       'kwargs': self['kwargs'],
+                       'mutables': {}}
+
+        for k, v in self.items():
+            if k not in description:
+                description[k] = copy.deepcopy(v)
+
+        return Blueprint(description=description)
 
     def has_unique_elements(self):
         if self['unique']:
@@ -232,6 +254,14 @@ class Blueprint(dict):
 
         return b
 
+    def set_element(self, index, value):
+        if not isinstance(index, Iterable):
+            index = [index]
+
+        last = index[-1]
+        b = self.get_element(index[:-1])
+        b[last] = value
+
     def get_scope_button(self, master, info):
         if not common.BLUEPRINT_GUI:
             return None
@@ -281,10 +311,15 @@ def visualize(blueprint):
     text.tag_configure("center", justify=tk.CENTER)
     text.pack(fill="both", expand=True)
 
-    visit_modules(blueprint, [master, info], buttons)
-    for b in buttons:
+    def collect(bp, _, out):
+        out.append(bp)
+
+    module_list = []
+    visit_modules(blueprint, None, module_list, collect)
+    for module in module_list:
+        b = module.get_scope_button(master, info)
         # insert tabs before the button for hierarchical display
-        text.insert("end", '\t' * b.config('text')[-1].count('/'))
+        text.insert("end", '\t' * len(module.get_parents()))
         # add the button
         text.window_create("end", window=b)
         # next line

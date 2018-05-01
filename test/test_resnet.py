@@ -31,6 +31,7 @@ class TestResNet(unittest.TestCase):
         cls.scoped_model = scoped_resnet_sketch.ResNet("ResNet16", None, None,
                                                        depth=16, width=1, num_classes=100).cuda()
         cls.blueprint = blueprinted.ScopedResNet.describe_default('ResNet28', depth=28,
+                                                                  input_shape=(1, 3, 128, 128),
                                                                   width=1, num_classes=100)
         cls.blueprinted_model = blueprinted.ScopedResNet(cls.blueprint['name'],
                                                          cls.blueprint).cuda()
@@ -117,37 +118,17 @@ class TestResNet(unittest.TestCase):
 
     def test_ensemble_instead_of_conv(self):
         # replace conv0 of ResNet with Ensemble
-        kwargs = {'in_channels': 3, 'out_channels': 16,
-                  'kernel_size': 3, 'padding': 1, 'stride': 1}
-        args = [(Conv2d, [], kwargs)] * 5
-        input_shape = transformer.image_to_unsqueezed_cuda_variable(self.test_images[0][1]).size()
-        conv0 = self.blueprint['conv']
-        conv0['prefix'] = 'ResNet28/stacked'
-        conv0['type'] = ScopedEnsemble
-        conv0['iterable_args'] = args
-        conv0['input_shape'] = input_shape
-        conv0['output_shape'] = None
-        conv0['kwargs'] = {'blueprint': conv0, 'iterable_args': args,
-                           'input_shape': input_shape,
-                           'output_shape': None}
+        conv0 = ScopedEnsemble.describe_from_blueprint('ResNet/ensemble', '',
+                                                       self.blueprint['conv'])
         conv0.make_unique()
+        self.blueprint['conv'] = conv0
 
         # replace the 2nd conv of the 2nd block of the 3rd group with Ensemble
-        input_shape = (1, 64, 32, 32)
-        kwargs = copy.deepcopy(kwargs)
-        kwargs['in_channels'] = 64
-        kwargs['out_channels'] = 64
-        args = [(Conv3d2d, [], kwargs)] * 5
-        conv2 = self.blueprint.get_element((2, 1, 0, 'conv'))
-        conv2['prefix'] = 'ResNet/stacked2_2_3'
-        conv2['type'] = ScopedEnsemble
-        conv2['iterable_args'] = args
-        conv2['input_shape'] = input_shape
-        conv2['output_shape'] = input_shape
-        conv2['kwargs'] = {'blueprint': conv2, 'iterable_args': args,
-                           'input_shape': input_shape,
-                           'output_shape': input_shape}
+        index = (2, 1, 0, 'conv')
+        conv2 = self.blueprint.get_element(index)
+        conv2 = ScopedEnsemble.describe_from_blueprint('ResNet/ensemble', '', conv2)
         conv2.make_unique()
+        self.blueprint.set_element(index, conv2)
         new_model = blueprinted.ScopedResNet('ResNet28_ensemble',
                                              self.blueprint).cuda()
         for path, im in self.test_images:

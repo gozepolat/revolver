@@ -119,6 +119,10 @@ def normalize(image, mean=None, std=None):
     return T.Normalize(mean, std)(image)
 
 
+def scalar_to_tensor(value, size):
+    return torch.FloatTensor([float(value)]).expand(size)
+
+
 def scalar_to_cuda_parameter(value, size, requires_grad=False, dtype=torch.FloatTensor):
     return Parameter(dtype([value]).cuda(),
                      requires_grad=requires_grad).expand(size)
