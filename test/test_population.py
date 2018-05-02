@@ -23,13 +23,13 @@ class TestPopulation(unittest.TestCase):
 
     def test_init_population(self):
         common.BLUEPRINT_GUI = False
-        p = population.Population(10)
+        p = population.Population(50)
         for model in p.phenotypes:
             self.model_run(model)
 
     def test_estimate_cost(self):
         common.BLUEPRINT_GUI = False
-        blueprints = population.generate(10)
+        blueprints = population.generate(50)
         for bp in blueprints:
             cost = population.estimate_cost(bp)
             self.assertTrue(cost > 0)

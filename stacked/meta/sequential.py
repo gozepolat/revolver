@@ -4,7 +4,7 @@ from stacked.meta.blueprint import make_module
 
 
 class Sequential(Module):
-    """Sequential blueprinted module"""
+    """Sequential blueprinted base module"""
     def __init__(self, blueprint, *_, **__):
         super(Sequential, self).__init__()
         self.container = ModuleList()
@@ -12,6 +12,4 @@ class Sequential(Module):
             self.container.append(make_module(bp))
 
     def forward(self, x):
-        for module in self.container:
-            x = module(x)
-        return x
+        pass

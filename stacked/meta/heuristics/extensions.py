@@ -1,4 +1,5 @@
-from stacked.models.blueprinted import ScopedEnsemble, ScopedResBlock
+from stacked.models.blueprinted.ensemble import ScopedEnsemble
+from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.utils.domain import ClosedList
 
 

@@ -1,6 +1,6 @@
 from stacked.meta.blueprint import visit_modules
 from stacked.modules.scoped_nn import ScopedConv2d, ScopedLinear
-from stacked.models.blueprinted import ScopedResNet
+from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.meta.heuristics import extensions
 from stacked.utils.domain import ClosedList
 from stacked.utils import common

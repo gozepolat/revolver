@@ -239,7 +239,7 @@ class Blueprint(dict):
             self['parent'].make_unique()
 
     def get_element(self, index):
-        if not isinstance(index, Iterable):
+        if isinstance(index, string_types) or not isinstance(index, Iterable):
             index = [index]
 
         b = self
@@ -301,7 +301,6 @@ def visualize(blueprint):
     info = tk.Text(t, wrap="none")
     info.tag_configure("center", justify=tk.CENTER)
     info.pack(fill="both", expand=True)
-    buttons = []
 
     frame = master
     text = tk.Text(frame, wrap="none")

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import unittest
-from stacked.meta import masked
+from stacked.meta import masked_sketch
 from PIL import Image
 from torch.nn import Conv2d
 from stacked.utils import transformer
@@ -26,7 +26,7 @@ class TestEnsemble(unittest.TestCase):
         args = [(Conv2d, args, kwargs)] * 5
         out_size = (1, 3, 256, 256)
         input_shape = transformer.image_to_unsqueezed_cuda_variable(self.test_images[0][1]).size()
-        ensemble = masked.Ensemble(args, input_shape).cuda()
+        ensemble = masked_sketch.Ensemble(args, input_shape).cuda()
         self.assertEqual(out_size, ensemble.output_shape)
 
         # test forward with various images

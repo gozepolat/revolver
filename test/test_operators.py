@@ -1,15 +1,13 @@
 import unittest
 from PIL import Image
-from stacked.models.blueprinted import ScopedResNet
+from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.utils import transformer
 from torch.nn import Conv2d
-from stacked.models import blueprinted
-from stacked.models.blueprinted import ScopedEnsemble
+from stacked.models.blueprinted.ensemble import ScopedEnsemble
 from stacked.utils.domain import ClosedList
 from stacked.meta.heuristics.operators import mutate, crossover, copyover
 from stacked.meta.blueprint import visit_modules, visualize
 from stacked.utils import common
-import copy
 import glob
 
 
@@ -42,15 +40,9 @@ class TestMetaOperators(unittest.TestCase):
                   'kernel_size': 3, 'padding': 1, 'stride': 1}
         args = [(Conv2d, [], kwargs)] * 5
 
-        old_conv = copy.deepcopy(self.blueprint['conv'])
-        conv0 = copy.deepcopy(self.blueprint['conv'])
-        conv0['prefix'] = 'ResNet/stacked0'
-        conv0['type'] = ScopedEnsemble
-        conv0['kwargs'] = {'iterable_args': args,
-                           'input_shape': (1, 3, 128, 128)}
-        conv0['input_shape'] = (1, 3, 128, 128)
-        conv0['output_shape'] = self.blueprint['conv']['output_shape']
-        conv0.make_unique()
+        old_conv = self.blueprint['conv'].clone()
+        conv0 = ScopedEnsemble.describe_from_blueprint('ensemble', '',
+                                                       self.blueprint['conv'])
 
         conv0_alternatives = [self.blueprint['conv'], conv0]
         self.blueprint['mutables'] = {
@@ -66,8 +58,7 @@ class TestMetaOperators(unittest.TestCase):
 
     def model_run(self, blueprint):
         # run and test a model created from the blueprint
-        model = blueprinted.ScopedResNet(blueprint['name'],
-                                         blueprint).cuda()
+        model = ScopedResNet(blueprint['name'], blueprint).cuda()
         for path, im in self.test_images:
             x = transformer.image_to_unsqueezed_cuda_variable(im)
             out = model(x)
@@ -117,7 +108,7 @@ class TestMetaOperators(unittest.TestCase):
         common.BLUEPRINT_GUI = False
         blueprint1 = ScopedResNet.describe_default('ResNet28x', depth=28,
                                                    width=1, num_classes=100)
-        blueprint1_bk = copy.deepcopy(blueprint1)
+        blueprint1_bk = blueprint1.clone()
         blueprint2 = ScopedResNet.describe_default('ResNet46x', depth=46,
                                                    width=1, num_classes=100)
 

@@ -21,12 +21,17 @@ def mutate_sub(blueprint, key, diameter, p, p_decay):
         mutate(element, random_key, diameter, p, p_decay)
 
 
-def mutate_current(blueprint, key, diameter):
-    """Mutate the current blueprint"""
+def mutate_current(blueprint, key, diameter, p):
+    """Mutate the current blueprint, or change uniqueness"""
     domain = blueprint['mutables'][key]
     float_index = domain.get_normalized_index(blueprint[key])
     if float_index >= 0.0:
         new_index, value = domain.pick_random_neighbor(float_index, diameter)
+    elif np.random.random() < p and isinstance(blueprint[key], Blueprint):
+        if blueprint[key]['unique']:
+            blueprint[key].make_common()
+        else:
+            blueprint[key].make_unique()
     else:
         new_index, value = domain.pick_random()
     blueprint[key] = value
@@ -55,7 +60,7 @@ def mutate(blueprint, key=None, diameter=1.0, p=0.05, p_decay=1.0):
         mutate_sub(blueprint, key, diameter, p * p_decay, p_decay)
         return
 
-    mutate_current(blueprint, key, diameter)
+    mutate_current(blueprint, key, diameter, p)
 
 
 def get_parent_uuids(blueprint):
@@ -114,7 +119,7 @@ def swap_child(children1, children2, key1, key2):
 def override_child(children1, children2, key1, key2):
     """Override child in children2 with one from children1"""
     parent = children2[key2]['parent']
-    blueprint = copy.deepcopy(children1[key1])
+    blueprint = children1[key1].clone()
 
     if child_in_parents(blueprint, children2[key2]):
         return False
