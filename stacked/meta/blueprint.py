@@ -145,17 +145,28 @@ class Blueprint(dict):
         return Blueprint(description=self)
 
     def clone(self):
-        """Fast deep copy self, removing mutable elements"""
+        """Fast deep copy self"""
+        kwargs = {k: v.clone() if isinstance(v, Blueprint) and k != 'blueprint'
+                  else copy.deepcopy(v) for k, v in self['kwargs'].items()}
+
         description = {'children': [c.clone() for c in self['children']],
                        'parent': self['parent'],
-                       'kwargs': self['kwargs'],
-                       'mutables': {}}
+                       'kwargs': kwargs,
+                       'mutables': self['mutables']}
 
         for k, v in self.items():
             if k not in description:
-                description[k] = copy.deepcopy(v)
+                if isinstance(v, Blueprint):
+                    description[k] = v.clone()
+                else:
+                    description[k] = copy.deepcopy(v)
 
-        return Blueprint(description=description)
+        bp = Blueprint(description=description)
+
+        if 'blueprint' in self['kwargs']:
+            kwargs['blueprint'] = bp
+
+        return bp
 
     def has_unique_elements(self):
         if self['unique']:

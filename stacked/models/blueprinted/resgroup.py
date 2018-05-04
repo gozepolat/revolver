@@ -25,7 +25,7 @@ class ScopedResGroup(Sequential):
     @staticmethod
     def describe_default(prefix, suffix, parent, group_depth, block_depth, conv_module,
                          bn_module, act_module, ni, no, kernel_size, stride, padding,
-                         input_shape):
+                         input_shape, dilation=1, groups=1, bias=True):
         """Create a default ResGroup blueprint
 
         Args:
@@ -43,17 +43,22 @@ class ScopedResGroup(Sequential):
             stride (int or tuple, optional): Stride for the first convolution
             padding (int or tuple, optional): Padding for the first convolution
             input_shape (tuple): (N, C_{in}, H_{in}, W_{in})
+            dilation: see conv_module
+            groups: see conv_module
+            bias: see conv_module
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedResGroup)
         children = []
         default['input_shape'] = input_shape
         for i in range(group_depth):
             block_prefix = '%s/block' % prefix
-            suffix = '%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride, padding)
+            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
+                                                  padding, dilation, groups, bias)
             block = ScopedResBlock.describe_default(block_prefix, suffix, default,
                                                     block_depth, conv_module, bn_module,
                                                     act_module, ni, no, kernel_size,
-                                                    stride, padding, input_shape)
+                                                    stride, padding, input_shape,
+                                                    dilation, groups, bias)
             input_shape = block['output_shape']
             children.append(block)
             padding = 1
@@ -62,5 +67,7 @@ class ScopedResGroup(Sequential):
         default['children'] = children
 
         default['output_shape'] = input_shape
-        default['kwargs'] = {'blueprint': default}
+        default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
+                             'stride': stride, 'padding': padding, 'dilation': dilation,
+                             'groups': groups, 'bias': bias}
         return default

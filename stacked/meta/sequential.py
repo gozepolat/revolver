@@ -12,4 +12,4 @@ class Sequential(Module):
             self.container.append(make_module(bp))
 
     def forward(self, x):
-        pass
+        raise NotImplementedError("Sequential forward")

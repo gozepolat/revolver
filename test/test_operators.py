@@ -2,7 +2,6 @@ import unittest
 from PIL import Image
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.utils import transformer
-from torch.nn import Conv2d
 from stacked.models.blueprinted.ensemble import ScopedEnsemble
 from stacked.utils.domain import ClosedList
 from stacked.meta.heuristics.operators import mutate, crossover, copyover
@@ -36,10 +35,6 @@ class TestMetaOperators(unittest.TestCase):
 
     def test_mutate(self):
         common.BLUEPRINT_GUI = False
-        kwargs = {'in_channels': 3, 'out_channels': 16,
-                  'kernel_size': 3, 'padding': 1, 'stride': 1}
-        args = [(Conv2d, [], kwargs)] * 5
-
         old_conv = self.blueprint['conv'].clone()
         conv0 = ScopedEnsemble.describe_from_blueprint('ensemble', '',
                                                        self.blueprint['conv'])
@@ -49,7 +44,7 @@ class TestMetaOperators(unittest.TestCase):
             'conv': ClosedList(conv0_alternatives)
         }
 
-        for i in range(100):
+        for i in range(500):
             mutate(self.blueprint, 'conv', 1.0, 0.95)
             if self.blueprint['conv'] != old_conv:
                 break
@@ -66,17 +61,17 @@ class TestMetaOperators(unittest.TestCase):
 
     def test_crossover(self):
         common.BLUEPRINT_GUI = True
-        from tkinter import Tk
         if common.GUI is None:
+            from tkinter import Tk
             common.GUI = Tk()
         blueprint1 = ScopedResNet.describe_default('ResNet_28', depth=28,
                                                    width=1, num_classes=100)
         blueprint1_bk = {k: v for k, v in blueprint1.items()}
         blueprint2 = ScopedResNet.describe_default('ResNet_40', depth=40,
                                                    width=1, num_classes=100)
-        blueprint3 = ScopedResNet.describe_default('ResNet', depth=22,
+        blueprint3 = ScopedResNet.describe_default('ResNet_22', depth=22,
                                                    width=1, num_classes=100)
-        blueprint4 = ScopedResNet.describe_default('ResNet', depth=46,
+        blueprint4 = ScopedResNet.describe_default('ResNet_46', depth=46,
                                                    width=1, num_classes=100)
 
         # visit all module blueprints and mark them unique
@@ -86,7 +81,7 @@ class TestMetaOperators(unittest.TestCase):
         visit_modules(blueprint2, None, [], make_unique)
 
         is_crossed = False
-        for i in range(100):
+        for i in range(500):
             if crossover(blueprint1, blueprint2):
                 is_crossed = True
             if crossover(blueprint2, blueprint1):
@@ -98,11 +93,14 @@ class TestMetaOperators(unittest.TestCase):
 
         self.assertTrue(is_crossed)
         self.assertNotEqual(blueprint1, blueprint1_bk)
+        visualize(blueprint1)
         self.model_run(blueprint1)
         self.model_run(blueprint2)
         self.model_run(blueprint3)
         self.model_run(blueprint4)
-        visualize(blueprint4)
+
+        common.GUI = None
+        common.BLUEPRINT_GUI = False
 
     def test_copyover(self):
         common.BLUEPRINT_GUI = False
@@ -119,7 +117,7 @@ class TestMetaOperators(unittest.TestCase):
         visit_modules(blueprint2, None, [], make_unique)
 
         is_crossed = False
-        for i in range(100):
+        for i in range(500):
             if copyover(blueprint1, blueprint2):
                 is_crossed = True
             if copyover(blueprint2, blueprint1):

@@ -21,14 +21,14 @@ def extend_conv_mutables(blueprint, ensemble_size=5, block_depth=2):
     prefix = blueprint['conv']['prefix']
     conv = blueprint['conv']
     parent = conv['parent']
-    bp = ScopedEnsemble.describe_from_blueprint(prefix, '_ensemble',
-                                                conv, parent,
-                                                ensemble_size)
+    ensemble = ScopedEnsemble.describe_from_blueprint(prefix, '_ensemble',
+                                                      conv, parent,
+                                                      ensemble_size)
 
     res_block = ScopedResBlock.describe_from_blueprint(prefix, "_block",
                                                        conv, parent,
                                                        block_depth)
-    mutables = [conv, res_block, bp]
+    mutables = [conv, res_block, ensemble]
     if 'conv' in blueprint['mutables']:
         elements = blueprint['mutables']['conv'].elements
         mutables = append_mutables(elements, mutables)

@@ -2,7 +2,6 @@
 from torch.nn import Module
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.blueprint import Blueprint, make_module
-from stacked.modules.conv import get_conv_out_shape
 from six import add_metaclass
 
 
@@ -34,35 +33,39 @@ class ScopedConvUnit(Module):
 
     @staticmethod
     def set_unit_description(default, prefix, input_shape, ni, no, kernel_size,
-                             stride, padding, conv_module, act_module, bn_module):
+                             stride, padding, conv_module, act_module, bn_module,
+                             dilation=1, groups=1, bias=True):
         """Set descriptions for act, bn, and conv"""
-        # describe act and bn
-        suffix = '%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride, padding)
+        suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
+                                              padding, dilation, groups, bias)
+
         default['act'] = Blueprint('%s/act' % prefix, suffix, default,
                                    False, act_module, kwargs={'inplace': True})
+
         default['bn'] = Blueprint('%s/bn' % prefix, suffix, default,
                                   False, bn_module, kwargs={'num_features': ni})
-        # describe conv
-        kwargs = {'in_channels': ni, 'out_channels': no,
-                  'kernel_size': kernel_size, 'stride': stride, 'padding': padding}
-        conv = Blueprint('%s/conv' % prefix, suffix, default,
-                         False, conv_module, kwargs=kwargs)
-        conv['input_shape'] = input_shape
-        conv['output_shape'] = get_conv_out_shape(input_shape, no,
-                                                  kernel_size, stride, padding)
-        default['conv'] = conv
+
+        default['conv'] = conv_module.describe_default('%s/conv' % prefix, suffix,
+                                                       default, input_shape, ni,
+                                                       no, kernel_size, stride,
+                                                       padding, dilation, groups,
+                                                       bias)
 
     @staticmethod
     def describe_default(prefix, suffix, parent, input_shape, ni, no, kernel_size,
-                         stride, padding, act_module, bn_module, conv_module):
+                         stride, padding, act_module, bn_module, conv_module,
+                         dilation=1, groups=1, bias=True):
         """Create a default ScopedConvUnit blueprint"""
         default = Blueprint(prefix, suffix, parent, False, ScopedConvUnit)
         default['input_shape'] = input_shape
 
         ScopedConvUnit.set_unit_description(default, prefix, input_shape, ni, no,
                                             kernel_size, stride, padding,
-                                            conv_module, act_module, bn_module)
+                                            conv_module, act_module, bn_module,
+                                            dilation, groups, bias)
 
         default['output_shape'] = default['conv']['output_shape']
-        default['kwargs'] = {'blueprint': default}
+        default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
+                             'stride': stride, 'padding': padding,
+                             'dilation': dilation, 'groups': groups, 'bias': bias}
         return default

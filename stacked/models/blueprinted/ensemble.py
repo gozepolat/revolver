@@ -22,27 +22,33 @@ class ScopedEnsemble(Sequential):
             self.masks.append(make_module(mask))
 
     def forward(self, x):
-        return self.function(self.container, self.masks, self.mask_fn, x)
+        return self.function(x, self.container,
+                             self.masks, self.mask_fn)
 
     @staticmethod
-    def function(container, masks, mask_fn, x):
+    def function(x, container, masks, mask_fn):
         out = 0.0
         for module, mask in zip(container, masks):
             out = mask_fn(out, module(x), mask)
         return out
 
     @staticmethod
-    def describe_from_blueprint(prefix, suffix, blueprint, parent=None, ensemble_size=3):
+    def describe_from_blueprint(prefix, suffix, blueprint,
+                                parent=None, ensemble_size=3):
+
         input_shape = blueprint['input_shape']
         output_shape = blueprint['output_shape']
         kwargs = blueprint['kwargs']
 
         prefix = "%s/%s" % (blueprint['prefix'], prefix)
-        suffix = "%s_%d_%d_%d_%d_%d" % (suffix, input_shape[1],
-                                        output_shape[1],
-                                        kwargs['kernel_size'],
-                                        kwargs['stride'],
-                                        kwargs['padding'])
+        suffix = "%s_%d_%d_%d_%d_%d_%d_%d_%d" % (suffix, input_shape[1],
+                                                 output_shape[1],
+                                                 kwargs['kernel_size'],
+                                                 kwargs['stride'],
+                                                 kwargs['padding'],
+                                                 kwargs['dilation'],
+                                                 kwargs['groups'],
+                                                 kwargs['bias'],)
         if parent is None:
             parent = blueprint['parent']
         blueprint = blueprint.clone()
@@ -64,18 +70,19 @@ class ScopedEnsemble(Sequential):
                                       False, ModuleList)
         masks = ensemble['masks']
         masks['children'] = [Blueprint('%s/masks/mask' % prefix, suffix,
-                                       masks, False, ParameterModule,
+                                       masks, True, ParameterModule,
                                        kwargs={'value': 1.0 / ensemble_size,
                                                'size': output_shape})
                              for _ in range(ensemble_size)]
-        for c in masks['children']:
-            c.make_unique()
 
         ensemble['children'] = [blueprint.clone() for _ in range(ensemble_size)]
         ensemble['kwargs'] = {'blueprint': ensemble,
                               'kernel_size': kwargs['kernel_size'],
                               'stride': kwargs['stride'],
-                              'padding': kwargs['padding']}
+                              'padding': kwargs['padding'],
+                              'dilation': kwargs['dilation'],
+                              'groups': kwargs['groups'],
+                              'bias': kwargs['bias']}
         ensemble['input_shape'] = input_shape
         ensemble['output_shape'] = output_shape
         return ensemble

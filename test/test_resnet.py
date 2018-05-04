@@ -16,10 +16,7 @@ class TestResNet(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        common.BLUEPRINT_GUI = True
-        from tkinter import Tk
-        common.GUI = Tk()
-
+        common.BLUEPRINT_GUI = False
         image_paths = glob.glob("images/*")
         cls.out_size = (1, 100)
         cls.test_images = [(s, Image.open(s).resize((128, 128))) for s in image_paths]
@@ -47,8 +44,9 @@ class TestResNet(unittest.TestCase):
             self.assertEqual(out.size(), self.out_size)
 
     def test_make_unique(self):
-        # conv[in]_[out]_[kernel]_[stride]_[padding]
-        conv_name = 'ResNet28/group/block/unit/conv16_16_3_1_1'
+        common.BLUEPRINT_GUI = False
+        # conv[in]_[out]_[kernel]_[stride]_[padding]_[dilation]_[groups]_[bias]
+        conv_name = 'ResNet28/group/block/unit/conv16_16_3_1_1_1_1_1'
 
         # ResNet -> group -> block -> unit -> conv
         group = self.blueprint.get_element(0)
@@ -70,23 +68,31 @@ class TestResNet(unittest.TestCase):
         self.assertTrue(conv['name'] in module_list)
 
     def test_get_element_with_tuple_index(self):
-        convdim_name = 'ResNet28/group/block/convdim16_16_1_1_0'
+        convdim_name = 'ResNet28/group/block/convdim16_16_1_1_0_1_1_1'
         convdim = self.blueprint.get_element((0, 0, 'convdim'))
         self.assertEqual(convdim['name'], convdim_name)
 
     # @unittest.skip("GUI test for uniqueness skipped")
     def test_visual_change_blueprinted(self):
         common.BLUEPRINT_GUI = True
+        if common.GUI is None:
+            from tkinter import Tk
+            common.GUI = Tk()
 
+        blueprint = ScopedResNet.describe_default('ResNet28',
+                                                  depth=28,
+                                                  input_shape=(1, 3, 128, 128),
+                                                  width=1,
+                                                  num_classes=100)
         # group[0] -> block[1] -> unit[0].conv
-        self.blueprint.get_element((0, 1, 0, 'conv')).make_unique()
+        blueprint.get_element((0, 1, 0, 'conv')).make_unique()
 
         # make the new ScopedResNet name different
-        self.blueprint['suffix'] = '_new'
-        self.blueprint.refresh_name()
-        visualize(self.blueprint)
+        blueprint['suffix'] = '_new'
+        blueprint.refresh_name()
+        visualize(blueprint)
 
-        new_model = ScopedResNet(self.blueprint['name'], self.blueprint).cuda()
+        new_model = ScopedResNet(blueprint['name'], blueprint).cuda()
         self.assertEqual(self.blueprinted_model.container[1],
                          new_model.container[1])
         self.assertNotEqual(self.blueprinted_model.container[0],
@@ -99,8 +105,10 @@ class TestResNet(unittest.TestCase):
             x = transformer.image_to_unsqueezed_cuda_variable(im)
             out = new_model(x)
             self.assertEqual(out.size(), self.out_size)
+        common.BLUEPRINT_GUI = False
 
     def test_ensemble_instead_of_conv(self):
+        common.BLUEPRINT_GUI = False
         # replace conv0 of ResNet with Ensemble
         conv0 = ScopedEnsemble.describe_from_blueprint('ensemble', '',
                                                        self.blueprint['conv'])
@@ -110,7 +118,7 @@ class TestResNet(unittest.TestCase):
         # replace the 1st conv of the 2nd block of the 3rd group with Ensemble
         index = (2, 1, 0, 'conv')
         conv2 = self.blueprint.get_element(index)
-        conv2 = ScopedEnsemble.describe_from_blueprint('ensemble', '', conv2)
+        conv2 = ScopedEnsemble.describe_from_blueprint('ensemble', '2', conv2)
         conv2.make_unique()
         self.blueprint.set_element(index, conv2)
 

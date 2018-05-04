@@ -5,7 +5,6 @@ from stacked.modules.scoped_nn import ScopedConv2d, \
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
-from stacked.modules.conv import get_conv_out_shape
 from stacked.models.blueprinted.resgroup import ScopedResGroup
 from six import add_metaclass
 
@@ -48,7 +47,8 @@ class ScopedResNet(Sequential):
 
     @staticmethod
     def __set_default_items(prefix, default, shape, ni, no, kernel_size, num_classes,
-                            bn_module, act_module, conv_module, linear_module):
+                            bn_module, act_module, conv_module, linear_module,
+                            dilation=1, groups=1, bias=True):
         """Set blueprint items that are not Sequential type"""
 
         default['input_shape'] = shape
@@ -57,14 +57,16 @@ class ScopedResNet(Sequential):
         default['act'] = Blueprint('%s/act' % prefix, '%d' % no, default, False,
                                    act_module, kwargs={'inplace': True})
         # describe conv
-        kwargs = {'in_channels': shape[1], 'out_channels': ni,
-                  'kernel_size': kernel_size, 'stride': 1, 'padding': 1}
-        suffix = '%d_%d_%d_%d_%d' % (shape[1], ni, kernel_size, 1, 1)
-        default['conv'] = Blueprint('%s/conv' % prefix, suffix,
-                                    default, False, conv_module, kwargs=kwargs)
-        default['conv']['input_shape'] = shape
-        shape = get_conv_out_shape(shape, ni, kernel_size, 1, 1)
-        default['conv']['output_shape'] = shape
+        suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (shape[1], ni, kernel_size, 1,
+                                              1, dilation, groups, bias)
+        default['conv'] = conv_module.describe_default('%s/conv' % prefix, suffix,
+                                                       default, shape,
+                                                       in_channels=shape[1],
+                                                       out_channels=ni,
+                                                       kernel_size=kernel_size,
+                                                       stride=1, padding=1,
+                                                       dilation=dilation,
+                                                       groups=groups, bias=bias)
 
         # describe linear, (shapes will be set after children)
         kwargs = {'in_features': no, 'out_features': num_classes}
@@ -72,22 +74,26 @@ class ScopedResNet(Sequential):
                                       '%d_%d' % (no, num_classes),
                                       default, False, linear_module,
                                       kwargs=kwargs)
-        return shape
+
+        # return input shape for __set_default_children
+        return default['conv']['output_shape']
 
     @staticmethod
     def __set_default_children(prefix, default, ni, widths, group_depth,
                                block_depth, conv_module, bn_module, act_module,
-                               kernel_size, stride, padding, shape):
+                               kernel_size, stride, padding, shape,
+                               dilation=1, groups=1, bias=True):
         """Sequentially set children blueprints"""
         children = []
         for width in widths:
             no = width
-            suffix = '%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride, padding)
+            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
+                                                  padding, dilation, groups, bias)
             block = ScopedResGroup.describe_default('%s/group' % prefix, suffix,
                                                     default, group_depth, block_depth,
                                                     conv_module, bn_module, act_module,
                                                     ni, no, kernel_size, stride, padding,
-                                                    shape)
+                                                    shape, dilation, groups, bias)
             shape = block['output_shape']
             children.append(block)
             padding = 1
@@ -99,22 +105,27 @@ class ScopedResNet(Sequential):
     @staticmethod
     def __get_default(prefix, suffix, parent, shape, ni, no, kernel_size,
                       num_classes, bn_module, act_module, conv_module, linear_module,
-                      widths, group_depth, block_depth, stride, padding):
+                      widths, group_depth, block_depth, stride, padding,
+                      dilation=1, groups=1, bias=True):
         """Set the items and the children of the default blueprint object"""
         default = Blueprint(prefix, suffix, parent, False, ScopedResNet)
         shape = ScopedResNet.__set_default_items(prefix, default, shape, ni, no,
                                                  kernel_size, num_classes, bn_module,
-                                                 act_module, conv_module, linear_module)
+                                                 act_module, conv_module, linear_module,
+                                                 dilation, groups, bias)
 
         shape = ScopedResNet.__set_default_children(prefix, default, ni, widths,
                                                     group_depth, block_depth, conv_module,
                                                     bn_module, act_module, kernel_size,
-                                                    stride, padding, shape)
+                                                    stride, padding, shape, dilation,
+                                                    groups, bias)
 
         default['linear']['input_shape'] = (shape[0], shape[1])
         default['linear']['output_shape'] = (shape[0], num_classes)
         default['output_shape'] = (shape[0], num_classes)
-        default['kwargs'] = {'blueprint': default}
+        default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
+                             'stride': stride, 'padding': padding, 'dilation': dilation,
+                             'groups': groups, 'bias': bias}
         return default
 
     @staticmethod
@@ -123,7 +134,7 @@ class ScopedResNet(Sequential):
                          block_depth=2, conv_module=ScopedConv2d,
                          bn_module=ScopedBatchNorm2d, linear_module=ScopedLinear,
                          act_module=ScopedReLU, kernel_size=3, padding=1,
-                         input_shape=None):
+                         input_shape=None, dilation=1, groups=1, bias=True):
         """Create a default ResBlock blueprint
 
         Args:
@@ -142,6 +153,9 @@ class ScopedResNet(Sequential):
             kernel_size (int or tuple): Size of the convolving kernel.
             padding (int or tuple, optional): Padding for the first convolution
             input_shape (tuple): (N, C_{in}, H_{in}, W_{in})
+            dilation: see conv_module
+            groups: see conv_module
+            bias: see conv_module
         """
         if input_shape is None:
             # assume batch_size = 1, in_channels: 3, h: 32, and w : 32
@@ -150,12 +164,17 @@ class ScopedResNet(Sequential):
         widths = [i * width for i in skeleton]
         stride = 1
         num_groups = len(skeleton)
-        group_depth = ScopedResNet.get_num_blocks_per_group(depth, num_groups, block_depth)
+        group_depth = ScopedResNet.get_num_blocks_per_group(depth, num_groups,
+                                                            block_depth)
         ni = skeleton[0]
         no = widths[-1]
 
-        default = ScopedResNet.__get_default(prefix, suffix, parent, input_shape, ni, no,
-                                             kernel_size, num_classes, bn_module, act_module,
-                                             conv_module, linear_module, widths, group_depth,
-                                             block_depth, stride, padding)
+        default = ScopedResNet.__get_default(prefix, suffix, parent,
+                                             input_shape, ni, no,
+                                             kernel_size, num_classes,
+                                             bn_module, act_module,
+                                             conv_module, linear_module,
+                                             widths, group_depth,
+                                             block_depth, stride, padding,
+                                             dilation, groups, bias)
         return default

@@ -1,30 +1,94 @@
 from six import add_metaclass
 from stacked.meta.scope import ScopedMeta
 from stacked.utils.transformer import scalar_to_tensor
+from stacked.meta.blueprint import Blueprint
 from torch.nn import Conv2d, Conv3d, BatchNorm2d, \
     BatchNorm3d, Linear, Module, ModuleList, Parameter, \
     ParameterList, ReLU
-from stacked.modules.conv import Conv3d2d
+from stacked.modules.conv import Conv3d2d, get_conv_out_shape
 
 
 @add_metaclass(ScopedMeta)
 class ScopedConv2d(Conv2d):
-    def __init__(self, scope, *args, **kwargs):
-        super(ScopedConv2d, self).__init__(*args, **kwargs)
+    def __init__(self, scope, in_channels, out_channels, kernel_size,
+                 stride=1, padding=0, dilation=1, groups=1, bias=True, **__):
+
+        super(ScopedConv2d, self).__init__(in_channels, out_channels,
+                                           kernel_size, stride, padding,
+                                           dilation, groups, bias)
         self.scope = scope
+
+    @staticmethod
+    def describe_default(prefix='conv', suffix='', parent=None,
+                         shape=None, in_channels=3, out_channels=3,
+                         kernel_size=3, stride=1, padding=1,
+                         dilation=1, groups=1, bias=True, **__):
+
+        kwargs = {'in_channels': in_channels,
+                  'out_channels': out_channels,
+                  'kernel_size': kernel_size, 'stride': stride,
+                  'padding': padding, 'dilation': dilation,
+                  'groups': groups, 'bias': bias}
+
+        bp = Blueprint(prefix, suffix, parent, False,
+                       ScopedConv2d, kwargs=kwargs)
+
+        assert(shape is not None)
+        bp['input_shape'] = shape
+        bp['output_shape'] = get_conv_out_shape(shape, out_channels,
+                                                kernel_size, stride,
+                                                padding, dilation)
+        return bp
+
+
+@add_metaclass(ScopedMeta)
+class ScopedConv3d2d(Conv3d2d):
+    def __init__(self, scope, in_channels, out_channels, kernel_size=3,
+                 stride=1, padding=0, dilation=1, groups=1, bias=True, **__):
+
+        super(ScopedConv3d2d, self).__init__(in_channels, out_channels,
+                                             kernel_size, stride, padding,
+                                             dilation, groups, bias)
+        self.scope = scope
+
+    @staticmethod
+    def describe_default(prefix='conv3d2d', suffix='', parent=None,
+                         shape=None, in_channels=3, out_channels=3,
+                         kernel_size=3, stride=1, padding=1,
+                         dilation=1, groups=1, bias=True, **__):
+
+        kwargs = {'in_channels': in_channels,
+                  'out_channels': out_channels,
+                  'kernel_size': kernel_size, 'stride': stride,
+                  'padding': padding, 'dilation': dilation,
+                  'groups': groups, 'bias': bias}
+
+        bp = Blueprint(prefix, suffix, parent, False,
+                       ScopedConv3d2d, kwargs=kwargs)
+
+        assert (shape is not None)
+        bp['input_shape'] = shape
+
+        if len(shape) == 4:
+            shape = (shape[0], in_channels, shape[1] // in_channels,
+                     shape[2], shape[3])
+            shape = get_conv_out_shape(shape, out_channels,
+                                       kernel_size, stride,
+                                       padding, dilation)
+            bp['output_shape'] = (shape[0], shape[2] * out_channels,
+                                  shape[3], shape[4])
+            return bp
+
+        bp['output_shape'] = get_conv_out_shape(shape, out_channels,
+                                                kernel_size, stride,
+                                                padding, dilation)
+        return bp
 
 
 @add_metaclass(ScopedMeta)
 class ScopedBatchNorm2d(BatchNorm2d):
     def __init__(self, scope, *args, **kwargs):
         super(ScopedBatchNorm2d, self).__init__(*args, **kwargs)
-        self.scope = scope
-
-
-@add_metaclass(ScopedMeta)
-class ScopedConv3d2d(Conv3d2d):
-    def __init__(self, scope, *args, **kwargs):
-        super(ScopedConv3d2d, self).__init__(*args, **kwargs)
         self.scope = scope
 
 
@@ -46,13 +110,6 @@ class ScopedBatchNorm3d(BatchNorm3d):
 class ScopedLinear(Linear):
     def __init__(self, scope, *args, **kwargs):
         super(ScopedLinear, self).__init__(*args, **kwargs)
-        self.scope = scope
-
-
-@add_metaclass(ScopedMeta)
-class ScopedConv3d2d(Conv3d2d):
-    def __init__(self, scope, *args, **kwargs):
-        super(ScopedConv3d2d, self).__init__(*args, **kwargs)
         self.scope = scope
 
 

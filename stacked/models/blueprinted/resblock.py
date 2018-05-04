@@ -4,7 +4,6 @@ from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.utils.transformer import all_to_none
-from stacked.modules.conv import get_conv_out_shape
 from stacked.models.blueprinted.conv_unit import ScopedConvUnit
 from six import add_metaclass
 
@@ -50,35 +49,40 @@ class ScopedResBlock(Sequential):
 
     @staticmethod
     def __set_default_items(prefix, default, input_shape, ni, no, kernel_size,
-                            stride, padding, conv_module, act_module, bn_module):
+                            stride, padding, conv_module, act_module, bn_module,
+                            dilation=1, groups=1, bias=True):
         default['input_shape'] = input_shape
 
-        # describe bn, act, conv
+        # bn, act, conv
         ScopedConvUnit.set_unit_description(default, prefix, input_shape, ni, no,
                                             kernel_size, stride, padding,
-                                            conv_module, act_module, bn_module)
-        # describe convdim
-        convdim_type = conv_module if ni != no else all_to_none
-        kwargs = {'in_channels': ni, 'out_channels': no,
-                  'kernel_size': 1, 'stride': stride, 'padding': 0}
-        convdim = Blueprint('%s/convdim' % prefix,
-                            '%d_%d_%d_%d_%d' % (ni, no, 1, stride, 0),
-                            default, False, convdim_type, kwargs=kwargs)
-        convdim['input_shape'] = input_shape
-        convdim['output_shape'] = get_conv_out_shape(input_shape, no, 1, stride, 0)
-        default['convdim'] = convdim
+                                            conv_module, act_module, bn_module,
+                                            dilation, groups, bias)
+        # convdim
+        suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, 1, stride,
+                                              0, dilation, groups, bias)
+        default['convdim'] = conv_module.describe_default('%s/convdim' % prefix,
+                                                          suffix, default,
+                                                          input_shape, ni, no, 1,
+                                                          stride, 0, dilation,
+                                                          groups, bias)
+        default['convdim']['type'] = conv_module if ni != no else all_to_none
+
         return default['conv']['output_shape']
 
     @staticmethod
     def __set_default_children(prefix, default, shape, ni, no, kernel_size, stride,
-                               padding, conv_module, act_module, bn_module, depth):
+                               padding, conv_module, act_module, bn_module, depth,
+                               dilation=1, groups=1, bias=True):
         children = []
         for i in range(depth):
             unit_prefix = '%s/unit' % prefix
-            suffix = '%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride, padding)
+            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
+                                                  padding, dilation, groups, bias)
             unit = ScopedConvUnit.describe_default(unit_prefix, suffix, default, shape,
                                                    ni, no, kernel_size, stride, padding,
-                                                   act_module, bn_module, conv_module)
+                                                   act_module, bn_module, conv_module,
+                                                   dilation, groups, bias)
             shape = unit['output_shape']
             children.append(unit)
 
@@ -87,7 +91,8 @@ class ScopedResBlock(Sequential):
 
     @staticmethod
     def describe_default(prefix, suffix, parent, depth, conv_module, bn_module,
-                         act_module, ni, no, kernel_size, stride, padding, input_shape):
+                         act_module, ni, no, kernel_size, stride, padding, input_shape,
+                         dilation=1, groups=1, bias=True):
         """Create a default ScopedResBlock blueprint
 
         Args:
@@ -104,21 +109,26 @@ class ScopedResBlock(Sequential):
             stride (int or tuple, optional): Stride for the first convolution
             padding (int or tuple, optional): Padding for the first convolution
             input_shape (tuple): (N, C_{in}, H_{in}, W_{in})
+            dilation (int): see conv_module,
+            groups (int): see conv_module,
+            bias (bool): see conv_module
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedResBlock)
 
         input_shape = ScopedResBlock.__set_default_items(prefix, default, input_shape,
                                                          ni, no, kernel_size, stride,
                                                          padding, conv_module, act_module,
-                                                         bn_module)
+                                                         bn_module, dilation, groups, bias)
         # in_channels = no, and stride = 1 for children
         input_shape = ScopedResBlock.__set_default_children(prefix, default, input_shape,
                                                             no, no, kernel_size, 1,
                                                             padding, conv_module, act_module,
-                                                            bn_module, depth)
+                                                            bn_module, depth, dilation,
+                                                            groups, bias)
         default['output_shape'] = input_shape
-        default['kwargs'] = {'blueprint': default, 'kernel_size':kernel_size,
-                             'stride': stride, 'padding': padding}
+        default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
+                             'stride': stride, 'padding': padding, 'dilation': dilation,
+                             'groups': groups, 'bias': bias}
         return default
 
     @staticmethod
@@ -136,4 +146,7 @@ class ScopedResBlock(Sequential):
                                                kernel_size=kwargs['kernel_size'],
                                                stride=kwargs['stride'],
                                                padding=kwargs['padding'],
-                                               input_shape=input_shape)
+                                               input_shape=input_shape,
+                                               dilation=kwargs['dilation'],
+                                               groups=kwargs['groups'],
+                                               bias=kwargs['bias'])
