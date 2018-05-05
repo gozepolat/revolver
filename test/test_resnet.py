@@ -4,7 +4,7 @@ from PIL import Image
 from stacked.utils import transformer
 from stacked.models.resnet import ResNet
 from stacked.models.blueprinted.resnet import ScopedResNet
-from stacked.meta.blueprint import visualize, visit_modules
+from stacked.meta.blueprint import visualize, collect_keys
 from stacked.models.blueprinted.ensemble import ScopedEnsemble
 from stacked.utils import common
 import glob
@@ -59,12 +59,8 @@ class TestResNet(unittest.TestCase):
         self.assertNotEqual(conv['name'], conv_name)
 
         # check whether the child is available in self.blueprint
-        module_list = set()
+        module_list = set(collect_keys(self.blueprint, 'name'))
 
-        def collect(bp, key, out):
-            out.add(bp[key])
-
-        visit_modules(self.blueprint, 'name', module_list, collect)
         self.assertTrue(conv['name'] in module_list)
 
     def test_get_element_with_tuple_index(self):

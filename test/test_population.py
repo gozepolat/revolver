@@ -13,7 +13,8 @@ class TestPopulation(unittest.TestCase):
     def setUpClass(cls):
         image_paths = glob.glob("images/*")
         cls.out_size = (1, 10)
-        cls.test_images = [(s, Image.open(s).resize((32, 32))) for s in image_paths]
+        cls.test_images = [(s, Image.open(s).resize((32, 32)))
+                           for s in image_paths]
 
     def model_run(self, model):
         for path, im in self.test_images:

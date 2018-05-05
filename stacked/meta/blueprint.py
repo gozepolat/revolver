@@ -162,6 +162,7 @@ class Blueprint(dict):
                     description[k] = copy.deepcopy(v)
 
         bp = Blueprint(description=description)
+        bp.uuid = generate_random_scope()
 
         if 'blueprint' in self['kwargs']:
             kwargs['blueprint'] = bp
@@ -299,8 +300,6 @@ class Blueprint(dict):
 
 def make_module(blueprint):
     """Construct named (or scoped) object given the blueprint"""
-    #print(blueprint['type'], blueprint['name'], blueprint['args'],
-    #                         blueprint['kwargs'])
     return blueprint['type'](blueprint['name'], *blueprint['args'],
                              **blueprint['kwargs'])
 
@@ -357,3 +356,17 @@ def visit_modules(blueprint, main_input, outputs=[],
     for b in blueprint['children']:
         visit_modules(b, main_input, outputs, fn)
 
+
+def collect_modules(blueprint,
+                    collect=lambda bp, _, out: out.append(bp)):
+    out = []
+    visit_modules(blueprint, None, out, collect)
+    return out
+
+
+def collect_keys(blueprint, key,
+                 collect=lambda bp, key, out:
+                 out.append(bp[key]) if key in bp else None):
+    out = []
+    visit_modules(blueprint, key, out, collect)
+    return out

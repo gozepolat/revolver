@@ -62,6 +62,7 @@ class ScopedMetaMaskGenerator(Module):
                          bias=True, bn_module=ScopedBatchNorm2d,
                          act_module=ScopedReLU,
                          conv_module=ScopedConv3d2d,
+                         gen_module=ScopedResBlock,
                          pre_conv=MaskScalarMultipliedSummed,
                          conv_args=None, **__):
         bp = Blueprint(prefix, suffix, parent, False,
@@ -69,14 +70,15 @@ class ScopedMetaMaskGenerator(Module):
 
         depth = 2
         assert (in_channels == out_channels)
-        bp['conv'] = ScopedResBlock.describe_default('%s/conv' % prefix,
-                                                     suffix, bp, depth,
-                                                     conv_module, bn_module,
-                                                     act_module, in_channels,
-                                                     out_channels, kernel_size,
-                                                     stride, padding, shape,
-                                                     dilation, groups, bias,
-                                                     conv_args)
+        bp['conv'] = gen_module.describe_default('%s/conv' % prefix,
+                                                 suffix, bp, depth,
+                                                 conv_module, bn_module,
+                                                 act_module, in_channels,
+                                                 out_channels, kernel_size,
+                                                 stride, padding, shape,
+                                                 dilation, groups, bias,
+                                                 conv_args)
+
         bp['pre_conv'] = pre_conv.describe_default(prefix='pre_conv', suffix='',
                                                    parent=bp, scalar=0.0000001)
         bp['input_shape'] = shape
@@ -115,6 +117,7 @@ class ScopedMetaMasked(Module):
                          gen_bn_module=ScopedBatchNorm2d,
                          gen_act_module=ScopedReLU,
                          gen_conv=ScopedConv3d2d,
+                         gen_module=ScopedResBlock,
                          gen_in_channels=2, gen_out_channels=2,
                          gen_kernel_size=7, gen_stride=1,
                          gen_dilation=1, gen_groups=1, gen_bias=True,
@@ -156,7 +159,7 @@ class ScopedMetaMasked(Module):
                                                      1, padding, dilation,
                                                      groups, bias, gen_bn_module,
                                                      gen_act_module, gen_conv,
-                                                     gen_pre_conv,
+                                                     gen_module, gen_pre_conv,
                                                      conv_args=kwargs)
 
         assert (shape is not None)

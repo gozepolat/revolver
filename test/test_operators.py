@@ -10,6 +10,10 @@ from stacked.utils import common
 import glob
 
 
+def make_unique(bp, *_):
+    bp.make_unique()
+
+
 class TestMetaOperators(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(TestMetaOperators, self).__init__(*args, **kwargs)
@@ -75,9 +79,6 @@ class TestMetaOperators(unittest.TestCase):
                                                    width=1, num_classes=100)
 
         # visit all module blueprints and mark them unique
-        def make_unique(bp, *_):
-            bp.make_unique()
-
         visit_modules(blueprint2, None, [], make_unique)
 
         is_crossed = False
@@ -111,9 +112,6 @@ class TestMetaOperators(unittest.TestCase):
                                                    width=1, num_classes=100)
 
         # visit all module blueprints and mark them unique
-        def make_unique(bp, *_):
-            bp.make_unique()
-
         visit_modules(blueprint2, None, [], make_unique)
 
         is_crossed = False

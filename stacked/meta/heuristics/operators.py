@@ -103,7 +103,8 @@ def swap_child(children1, children2, key1, key2):
     parent2 = children2[key2]['parent']
 
     # prevent cycles
-    if child_in_parents(tmp, children2[key2]) or child_in_parents(children2[key2], tmp):
+    if (child_in_parents(tmp, children2[key2])
+            or child_in_parents(children2[key2], tmp)):
         return False
 
     # swap
