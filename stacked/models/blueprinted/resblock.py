@@ -50,14 +50,14 @@ class ScopedResBlock(Sequential):
     @staticmethod
     def __set_default_items(prefix, default, input_shape, ni, no, kernel_size,
                             stride, padding, conv_module, act_module, bn_module,
-                            dilation=1, groups=1, bias=True):
+                            dilation=1, groups=1, bias=True, conv_args=None):
         default['input_shape'] = input_shape
 
         # bn, act, conv
         ScopedConvUnit.set_unit_description(default, prefix, input_shape, ni, no,
                                             kernel_size, stride, padding,
                                             conv_module, act_module, bn_module,
-                                            dilation, groups, bias)
+                                            dilation, groups, bias, conv_args)
         # convdim
         suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, 1, stride,
                                               0, dilation, groups, bias)
@@ -73,7 +73,7 @@ class ScopedResBlock(Sequential):
     @staticmethod
     def __set_default_children(prefix, default, shape, ni, no, kernel_size, stride,
                                padding, conv_module, act_module, bn_module, depth,
-                               dilation=1, groups=1, bias=True):
+                               dilation=1, groups=1, bias=True, conv_args=None):
         children = []
         for i in range(depth):
             unit_prefix = '%s/unit' % prefix
@@ -82,7 +82,7 @@ class ScopedResBlock(Sequential):
             unit = ScopedConvUnit.describe_default(unit_prefix, suffix, default, shape,
                                                    ni, no, kernel_size, stride, padding,
                                                    act_module, bn_module, conv_module,
-                                                   dilation, groups, bias)
+                                                   dilation, groups, bias, conv_args)
             shape = unit['output_shape']
             children.append(unit)
 
@@ -92,7 +92,7 @@ class ScopedResBlock(Sequential):
     @staticmethod
     def describe_default(prefix, suffix, parent, depth, conv_module, bn_module,
                          act_module, ni, no, kernel_size, stride, padding, input_shape,
-                         dilation=1, groups=1, bias=True):
+                         dilation=1, groups=1, bias=True, conv_args=None):
         """Create a default ScopedResBlock blueprint
 
         Args:
@@ -112,19 +112,21 @@ class ScopedResBlock(Sequential):
             dilation (int): see conv_module,
             groups (int): see conv_module,
             bias (bool): see conv_module
+            conv_args: extra conv arguments to be used in self.conv and children
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedResBlock)
 
         input_shape = ScopedResBlock.__set_default_items(prefix, default, input_shape,
                                                          ni, no, kernel_size, stride,
                                                          padding, conv_module, act_module,
-                                                         bn_module, dilation, groups, bias)
+                                                         bn_module, dilation, groups, bias,
+                                                         conv_args)
         # in_channels = no, and stride = 1 for children
         input_shape = ScopedResBlock.__set_default_children(prefix, default, input_shape,
                                                             no, no, kernel_size, 1,
                                                             padding, conv_module, act_module,
                                                             bn_module, depth, dilation,
-                                                            groups, bias)
+                                                            groups, bias, conv_args)
         default['output_shape'] = input_shape
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
                              'stride': stride, 'padding': padding, 'dilation': dilation,
@@ -132,10 +134,21 @@ class ScopedResBlock(Sequential):
         return default
 
     @staticmethod
-    def describe_from_blueprint(prefix, suffix, blueprint, parent, depth):
+    def describe_from_blueprint(prefix, suffix, blueprint, parent, depth,
+                                kernel_size=None, stride=None, padding=None,
+                                dilation=None, groups=None, bias=None):
         kwargs = blueprint['kwargs']
         input_shape = blueprint['input_shape']
         output_shape = blueprint['output_shape']
+
+        # set values according to kwargs or the defaults
+        _kernel = kwargs['kernel_size'] if kernel_size is None else kernel_size
+        _stride = kwargs['stride'] if stride is None else stride
+        _padding = kwargs['padding'] if padding is None else padding
+        _dilation = kwargs['dilation'] if dilation is None else dilation
+        _groups = kwargs['groups'] if groups is None else groups
+        _bias = kwargs['bias'] if bias is None else bias
+
         return ScopedResBlock.describe_default(prefix, suffix, parent,
                                                depth=depth,
                                                conv_module=blueprint['type'],
@@ -143,10 +156,11 @@ class ScopedResBlock(Sequential):
                                                act_module=ScopedReLU,
                                                ni=input_shape[1],
                                                no=output_shape[1],
-                                               kernel_size=kwargs['kernel_size'],
-                                               stride=kwargs['stride'],
-                                               padding=kwargs['padding'],
+                                               kernel_size=_kernel,
+                                               stride=_stride,
+                                               padding=_padding,
                                                input_shape=input_shape,
-                                               dilation=kwargs['dilation'],
-                                               groups=kwargs['groups'],
-                                               bias=kwargs['bias'])
+                                               dilation=_dilation,
+                                               groups=_groups,
+                                               bias=_bias,
+                                               conv_args=kwargs)

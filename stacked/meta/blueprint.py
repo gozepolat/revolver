@@ -178,7 +178,6 @@ class Blueprint(dict):
                     return True
 
         for b in self['children']:
-            print(b['name'])
             if b.has_unique_elements():
                 return True
 
@@ -300,6 +299,8 @@ class Blueprint(dict):
 
 def make_module(blueprint):
     """Construct named (or scoped) object given the blueprint"""
+    #print(blueprint['type'], blueprint['name'], blueprint['args'],
+    #                         blueprint['kwargs'])
     return blueprint['type'](blueprint['name'], *blueprint['args'],
                              **blueprint['kwargs'])
 

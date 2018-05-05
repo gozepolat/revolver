@@ -2,6 +2,7 @@ import unittest
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.utils import transformer, common
+from stacked.meta.blueprint import visualize
 from PIL import Image
 import glob
 
@@ -22,13 +23,18 @@ class TestScopedMetaMasked(unittest.TestCase):
             out = model(x)
             self.assertEqual(out.size(), self.out_size)
 
-    @unittest.skip("in construction")
     def test_replace_conv_with_meta_layer(self):
+        common.BLUEPRINT_GUI = False
+        if common.BLUEPRINT_GUI and common.GUI is None:
+            from tkinter import Tk
+            common.GUI = Tk()
+
         bp = ScopedResNet.describe_default('ResNet_meta', depth=22,
                                            conv_module=ScopedMetaMasked,
                                            input_shape=(1, 3, 32, 32),
                                            num_classes=10)
-
-        self.model_run(ScopedResNet('ResNet_meta', bp))
+        if common.BLUEPRINT_GUI:
+            visualize(bp)
+        self.model_run(ScopedResNet('ResNet_meta', bp).cuda())
 
 

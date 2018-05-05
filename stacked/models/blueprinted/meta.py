@@ -14,18 +14,25 @@ from six import add_metaclass
 
 @add_metaclass(ScopedMeta)
 class PreConvMask(Module):
-    def __init__(self, scope, blueprint, *_,  **__):
+    def __init__(self, scope, blueprint, *_, **__):
         super(PreConvMask, self).__init__()
         self.scope = scope
         self.scalar = Parameter(torch.FloatTensor([blueprint['scalar']]).cuda(),
                                 requires_grad=True)
+        self.function = make_module(blueprint['function'])
 
     def forward(self, module_out, mask):
         return self.function(module_out, mask, self.scalar)
 
     @staticmethod
-    def function(module_out, mask, scalar):
-        return module_out * scalar + mask
+    def describe_default(prefix='pre_conv', suffix='', parent=None,
+                         scalar=0.0000001):
+        bp = Blueprint(prefix, suffix, parent, False, PreConvMask)
+        bp['scalar'] = scalar
+        bp['function'] = Blueprint(prefix, suffix, bp, False,
+                                   MaskScalarMultipliedSummed)
+        bp['kwargs'] = {'blueprint': bp}
+        return bp
 
 
 @add_metaclass(ScopedMeta)
@@ -49,38 +56,40 @@ class ScopedMetaMaskGenerator(Module):
 
     @staticmethod
     def describe_default(prefix='gen', suffix='', parent=None,
-                         shape=None,
-                         bn_module=ScopedBatchNorm2d,
+                         shape=None, in_channels=3, out_channels=3,
+                         kernel_size=3, stride=1,
+                         padding=1, dilation=1, groups=1,
+                         bias=True, bn_module=ScopedBatchNorm2d,
                          act_module=ScopedReLU,
                          conv_module=ScopedConv3d2d,
-                         in_channels=3, out_channels=3,
-                         kernel_size=7, stride=1,
-                         padding=2, dilation=1, groups=1,
-                         bias=True, pre_conv=MaskScalarMultipliedSummed,
-                         **__):
-
+                         pre_conv=MaskScalarMultipliedSummed,
+                         conv_args=None, **__):
         bp = Blueprint(prefix, suffix, parent, False,
                        ScopedMetaMaskGenerator)
 
         depth = 2
+        assert (in_channels == out_channels)
         bp['conv'] = ScopedResBlock.describe_default('%s/conv' % prefix,
                                                      suffix, bp, depth,
                                                      conv_module, bn_module,
                                                      act_module, in_channels,
                                                      out_channels, kernel_size,
                                                      stride, padding, shape,
-                                                     dilation, groups, bias)
-        bp['pre_conv'] = pre_conv
+                                                     dilation, groups, bias,
+                                                     conv_args)
+        bp['pre_conv'] = pre_conv.describe_default(prefix='pre_conv', suffix='',
+                                                   parent=bp, scalar=0.0000001)
         bp['input_shape'] = shape
         bp['output_shape'] = shape
-        assert(bp['conv']['output_shape'] == shape)
+        assert (bp['conv']['output_shape'] == shape)
+        bp['kwargs'] = {'blueprint': bp}
         return bp
 
 
 @add_metaclass(ScopedMeta)
 class ScopedMetaMasked(Module):
     def __init__(self, scope, blueprint, *_, **__):
-        super(ScopedMeta, self).__init__()
+        super(ScopedMetaMasked, self).__init__()
         self.scope = scope
         self.generator = make_module(blueprint['generator'])
         self.conv = make_module(blueprint['conv'])
@@ -93,7 +102,7 @@ class ScopedMetaMasked(Module):
     @staticmethod
     def function(x, mask_fn, generator, conv):
         out = conv(x)
-        return mask_fn(x, out, generator(out))
+        return mask_fn(out, generator(out), x)
 
     @staticmethod
     def describe_default(prefix='meta_layer', suffix='', parent=None,
@@ -108,10 +117,8 @@ class ScopedMetaMasked(Module):
                          gen_conv=ScopedConv3d2d,
                          gen_in_channels=2, gen_out_channels=2,
                          gen_kernel_size=7, gen_stride=1,
-                         gen_dilation=1, gen_groups=1,
-                         gen_bias=True,
-                         gen_pre_conv=PreConvMask,
-                         **__):
+                         gen_dilation=1, gen_groups=1, gen_bias=True,
+                         gen_pre_conv=PreConvMask, **__):
         """Meta masks to model local rules"""
 
         kwargs = {'in_channels': in_channels,
@@ -119,6 +126,12 @@ class ScopedMetaMasked(Module):
                   'kernel_size': kernel_size, 'stride': stride,
                   'padding': padding, 'dilation': dilation,
                   'groups': groups, 'bias': bias}
+
+        if suffix == '':
+            suffix = "%d_%d_%d_%d_%d_%d_%d_%d" % (in_channels, out_channels,
+                                                  kernel_size, stride,
+                                                  kernel_size, dilation,
+                                                  groups, bias)
 
         bp = Blueprint(prefix, suffix, parent, False,
                        ScopedMetaMasked, kwargs=kwargs)
@@ -132,17 +145,24 @@ class ScopedMetaMasked(Module):
                                                   stride, padding, dilation,
                                                   groups, bias)
         out_shape = bp['conv']['output_shape']
+        kwargs = {'in_channels': gen_in_channels, 'out_channels': gen_out_channels,
+                  'kernel_size': gen_kernel_size, 'stride': gen_stride,
+                  'padding': gen_kernel_size // 2, 'dilation': gen_dilation,
+                  'groups': gen_groups, 'bias': gen_bias}
+
         bp['generator'] = generator.describe_default('%s/gen' % prefix, suffix,
-                                                     bp, out_shape, gen_bn_module,
+                                                     bp, out_shape, out_channels,
+                                                     out_channels, kernel_size,
+                                                     1, padding, dilation,
+                                                     groups, bias, gen_bn_module,
                                                      gen_act_module, gen_conv,
-                                                     gen_in_channels,
-                                                     gen_out_channels, gen_kernel_size,
-                                                     gen_stride, gen_kernel_size // 2,
-                                                     gen_dilation, gen_groups, gen_bias,
-                                                     gen_pre_conv)
+                                                     gen_pre_conv,
+                                                     conv_args=kwargs)
 
         assert (shape is not None)
         bp['input_shape'] = shape
         bp['output_shape'] = out_shape
+        bp['kwargs'] = {'blueprint': bp, 'kernel_size': kernel_size,
+                        'stride': stride, 'padding': padding,
+                        'dilation': dilation, 'groups': groups, 'bias': bias}
         return bp
-

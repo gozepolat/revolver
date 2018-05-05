@@ -11,6 +11,11 @@ class MaskMultiplied(Mask):
         return module_out * mask
 
 
+class MaskIdentity(Mask):
+    def __call__(self, module_out, mask, *_):
+        return module_out
+
+
 class MaskHarmonicMean(Mask):
     def __call__(self, module_out, mask, *_):
         return module_out * mask * 2 / (module_out + mask)
@@ -24,12 +29,8 @@ class MaskMultipliedSummed(Mask):
 
 
 class MaskScalarMultipliedSummed(Mask):
-    def __init__(self, *args, **__):
-        super(MaskMultipliedSummed, self).__init__()
-        self.scalar = args[0]
-
     def __call__(self, module_out, mask, *args):
-        return module_out * self.scalar + mask
+        return module_out * args[0] + mask
 
 
 class MaskPowered(Mask):
