@@ -65,9 +65,14 @@ def normalize_float(value, low, high, mapper=None):
     """
     if mapper is not None:
         return mapper.forward(value, low, high)
-    assert (high > low and high >= value >= low)
+    if not (high >= low and high >= value >= low):
+        print (">>>>>>>>>>>>>>>>", high, low, value)
+        raw_input("dodo")
+    assert (high >= low and high >= value >= low)
     width = (high - low)
-    return float(value - low) / width
+    if width > 0:
+        return float(value - low) / width
+    return 0.0
 
 
 def denormalize_float(normalized_float, low, high, mapper=None):

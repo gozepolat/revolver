@@ -11,6 +11,7 @@ class Sequential(Module):
 
         depth = blueprint['depth']
         children = blueprint['children']
+
         for i, bp in enumerate(children):
             self.container.append(make_module(bp))
             if (i >= depth and

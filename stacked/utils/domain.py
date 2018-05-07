@@ -152,14 +152,14 @@ class ClosedInterval(Domain):
         return is_element(item, self.element_type) and self.lower_bound <= item <= self.upper_bound
 
     def __len__(self):
-        return self.upper_bound - self.lower_bound
+        return self.upper_bound - self.lower_bound + 1
 
     def __getitem__(self, index):
         if isinstance(index, int):
             if index + self.lower_bound > self.upper_bound:
                 raise IndexError("Interval integer index out of range")
             if index < 0:
-                index = self.__len__() + index + 1
+                index = self.__len__() + index
             return index + self.lower_bound
         if not 1.0 >= index >= 0.0:
             raise IndexError("Interval float index out of range (not normalized properly)")
@@ -167,9 +167,9 @@ class ClosedInterval(Domain):
 
     def _pick_random_int_neighbor(self, center, diameter):
         assert (self.element_type == int)
-        lower_index = denormalize_index(center - diameter, self.__len__(), self.mapper)
+        lower_index = denormalize_index(max(center - diameter, 0), self.__len__(), self.mapper)
         upper_index = denormalize_index(center + diameter, self.__len__(), self.mapper)
-        upper_index = min(upper_index, self.__len__())
+        upper_index = min(upper_index, self.__len__() - 1)
         if lower_index < upper_index:
             index = np.random.randint(lower_index, upper_index + 1)
         else:
@@ -182,7 +182,7 @@ class ClosedInterval(Domain):
 
     def get_normalized_index(self, element, *_):
         index = element - self.lower_bound
-        if index > self.__len__():
+        if index >= self.__len__():
             return -1
         return normalize_index(index, self.__len__(), self.mapper)
 

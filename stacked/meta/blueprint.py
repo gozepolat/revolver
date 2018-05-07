@@ -333,8 +333,17 @@ class Blueprint(dict):
 
 def make_module(blueprint):
     """Construct named (or scoped) object given the blueprint"""
-    return blueprint['type'](blueprint['name'], *blueprint['args'],
-                             **blueprint['kwargs'])
+    try:
+        module = blueprint['type'](blueprint['name'], *blueprint['args'],
+                                   **blueprint['kwargs'])
+    except TypeError:
+        # There is another object with the same scope, but different type
+        blueprint.make_common()
+        blueprint.make_unique()
+        blueprint.refresh_name()
+        module = blueprint['type'](blueprint['name'], *blueprint['args'],
+                                   **blueprint['kwargs'])
+    return module
 
 
 def visualize(blueprint):

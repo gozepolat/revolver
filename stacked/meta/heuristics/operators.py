@@ -22,6 +22,34 @@ def mutate_sub(blueprint, key, diameter, p, p_decay):
     return False
 
 
+def adjust_mutation(blueprint, key):
+    if key == 'depth':
+        # shrink children size to the given depth
+        new_children = []
+        children = blueprint['children']
+        new_depth = blueprint[key]
+        remove_count = len(children) - new_depth
+        duplicates = []
+        prev_output_shape = prev_input_shape = None
+        for i, c in enumerate(children):
+            input_shape = c['input_shape']
+            output_shape = c['output_shape']
+            if (input_shape == prev_input_shape
+                    and output_shape == prev_output_shape):
+                duplicates.append(i-1)
+            prev_input_shape = input_shape
+            prev_output_shape = output_shape
+
+        np.random.shuffle(duplicates)
+        remove_set = set(duplicates[:remove_count])
+
+        for i, c in enumerate(children):
+            if i not in remove_set:
+                new_children.append(c)
+
+        blueprint['children'] = new_children
+
+
 def mutate_current(blueprint, key, diameter, p):
     """Mutate the current blueprint, or change uniqueness"""
     domain = blueprint['mutables'][key]
@@ -38,6 +66,8 @@ def mutate_current(blueprint, key, diameter, p):
 
     blueprint[key] = value
     log(warning, 'Mutated %s, at key: %s with %s' % (blueprint['name'], key, value))
+
+    adjust_mutation(blueprint, key)
 
     if np.random.random() < p and isinstance(blueprint[key], Blueprint):
         if blueprint[key]['unique']:
