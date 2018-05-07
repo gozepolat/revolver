@@ -98,8 +98,12 @@ class ClosedList(Domain):
         log(warning, "{} not in domain, index {} too large, picking random".format(normalized_float, index))
         return self.pick_random()
 
-    def get_normalized_index(self, element):
-        index = self.elements.index(element)
+    def get_normalized_index(self, element, compare_fn=lambda x, y: x == y):
+        index = -1
+        for i, e in enumerate(self.elements):
+            if compare_fn(e, element):
+                index = i
+                break
         if index < 0:
             return -1.0
         return normalize_index(index, self.cardinality, self.mapper)
@@ -165,6 +169,7 @@ class ClosedInterval(Domain):
         assert (self.element_type == int)
         lower_index = denormalize_index(center - diameter, self.__len__(), self.mapper)
         upper_index = denormalize_index(center + diameter, self.__len__(), self.mapper)
+        upper_index = min(upper_index, self.__len__())
         if lower_index < upper_index:
             index = np.random.randint(lower_index, upper_index + 1)
         else:
@@ -174,6 +179,12 @@ class ClosedInterval(Domain):
         value = index + self.lower_bound
         center = normalize_float(value, self.lower_bound, self.upper_bound, self.mapper)
         return center, value
+
+    def get_normalized_index(self, element, *_):
+        index = element - self.lower_bound
+        if index > self.__len__():
+            return -1
+        return normalize_index(index, self.__len__(), self.mapper)
 
     def pick_random(self):
         """ Pick a random element from the domain (uniform distribution) """

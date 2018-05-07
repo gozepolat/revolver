@@ -3,6 +3,7 @@ from stacked.meta.heuristics import population
 from stacked.utils import transformer, common
 from PIL import Image
 import glob
+import numpy as np
 
 
 class TestPopulation(unittest.TestCase):
@@ -30,13 +31,44 @@ class TestPopulation(unittest.TestCase):
 
     def test_estimate_cost(self):
         common.BLUEPRINT_GUI = False
-        blueprints = population.generate(50)
+        blueprints = population.generate(5)
         for bp in blueprints:
             cost = population.estimate_cost(bp)
             self.assertTrue(cost > 0)
 
-    def test_utility(self):
-        pass
+    def test_evolve_population_once(self):
+        common.BLUEPRINT_GUI = False
+        p = population.Population(50)
+        names = [bp['name'] for bp in p.genotypes]
+        new_names = [bp['name'] for bp in p.genotypes]
+        self.assertEqual(names, new_names)
+        p.evolve_generation()
+        new_names = [bp['name'] for bp in p.genotypes]
+        self.assertNotEqual(names, new_names)
+        for model in p.phenotypes:
+            self.model_run(model)
 
-    def test_evolve_population(self):
-        pass
+    def test_population_convergence(self):
+        common.BLUEPRINT_GUI = False
+        p = population.Population(7)
+        names = [bp['name'] for bp in p.genotypes]
+        new_names = [bp['name'] for bp in p.genotypes]
+        self.assertEqual(names, new_names)
+
+        p.evolve_generation()
+        p.evolve_generation()
+        index = p.get_the_best_index()
+        best_init = p.genotypes[index]['meta']['score']
+
+        for i in range(70):
+            p.evolve_generation()
+            print('Population generation: %d' % i)
+
+        index = p.get_the_best_index()
+        best_final = p.genotypes[index]['meta']['score']
+
+        new_names = [bp['name'] for bp in p.genotypes]
+        self.assertNotEqual(names, new_names)
+        self.assertTrue(best_init > best_final)
+        for model in p.phenotypes:
+            self.model_run(model)

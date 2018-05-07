@@ -2,6 +2,8 @@
 from torch.nn import Module
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.blueprint import Blueprint, make_module
+from stacked.modules.scoped_nn import ScopedReLU, \
+    ScopedConv2d, ScopedBatchNorm2d
 from six import add_metaclass
 
 
@@ -76,14 +78,16 @@ class ScopedConvUnit(Module):
                                                        conv_args['bias'])
 
     @staticmethod
-    def describe_default(prefix, suffix, parent, input_shape, ni, no, kernel_size,
-                         stride, padding, act_module, bn_module, conv_module,
-                         dilation=1, groups=1, bias=True, conv_args=None):
+    def describe_default(prefix, suffix, parent, input_shape,
+                         in_channels, out_channels, kernel_size,
+                         stride, padding, dilation=1, groups=1, bias=True,
+                         act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
+                         conv_module=ScopedConv2d, conv_args=None):
         """Create a default ScopedConvUnit blueprint"""
         default = Blueprint(prefix, suffix, parent, False, ScopedConvUnit)
         default['input_shape'] = input_shape
 
-        ScopedConvUnit.set_unit_description(default, prefix, input_shape, ni, no,
+        ScopedConvUnit.set_unit_description(default, prefix, input_shape, in_channels, out_channels,
                                             kernel_size, stride, padding,
                                             conv_module, act_module, bn_module,
                                             dilation, groups, bias, conv_args)

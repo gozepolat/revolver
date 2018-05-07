@@ -13,7 +13,7 @@ import copy
 
 def log(log_func, msg):
     if common.DEBUG_BLUEPRINT:
-        log_func(msg)
+        log_func("stacked.meta.blueprint: %s" % msg)
 
 
 class Blueprint(dict):
@@ -38,15 +38,20 @@ class Blueprint(dict):
     """
 
     def __init__(self, prefix='None', suffix='', parent=None, unique=False,
-                 module_type=all_to_none, args=[],
-                 children=[], description={}, kwargs={}, mutables={},
-                 meta={}, freeze=False, input_shape=None, output_shape=None):
+                 module_type=all_to_none, args=None,
+                 children=None, description=None, kwargs=None, mutables=None,
+                 meta=None, freeze=False, input_shape=None, output_shape=None):
+        if description is None:
+            description = {}
         super(Blueprint, self).__init__(description)
-        self.uuid = generate_random_scope()
         # set from args if not in description
         if 'args' not in self:
+            if args is None:
+                args = []
             self['args'] = args
         if 'kwargs' not in self:
+            if kwargs is None:
+                kwargs = {}
             self['kwargs'] = kwargs
         if 'type' not in self:
             self['type'] = module_type
@@ -61,10 +66,16 @@ class Blueprint(dict):
         if 'parent' not in self:
             self['parent'] = parent
         if 'children' not in self:
+            if children is None:
+                children = []
             self['children'] = children
         if 'mutables' not in self:
+            if mutables is None:
+                mutables = {}
             self['mutables'] = mutables
         if 'meta' not in self:
+            if meta is None:
+                meta = {}
             self['meta'] = meta
         if 'input_shape' not in self:
             self['input_shape'] = input_shape
@@ -95,10 +106,13 @@ class Blueprint(dict):
         if self['unique']:
             self.make_unique()
 
-    def get_parents(self, uuids=set()):
+    def get_parents(self, id_set=None):
         """List of parents until root"""
+        if id_set is None:
+            id_set = set()
+
         parents = []
-        if self.uuid in uuids:
+        if id(self) in id_set:
             log(error, "get_parents: Blueprint %s has cycles!!"
                 % self['name'])
             raw_input("continue")
@@ -106,13 +120,16 @@ class Blueprint(dict):
 
         p = self['parent']
         if p is not None:
-            parents = [p] + p.get_parents(uuids | set([self.uuid]))
+            parents = [p] + p.get_parents(id_set | set([id(self)]))
         return parents
 
-    def get_acyclic_dict(self, uuids=set()):
+    def get_acyclic_dict(self, id_set=None):
         """Dictionary representation without cycles"""
+        if id_set is None:
+            id_set = set()
+
         acyclic = {}
-        if self.uuid in uuids:
+        if id(self) in id_set:
             log(error, "get_acyclic_dict: Blueprint %s has cycles!!"
                 % self['name'])
             raw_input("continue")
@@ -124,7 +141,7 @@ class Blueprint(dict):
                     v = common.replace_key(v, 'blueprint', 'self')
                     acyclic[k] = str(v)
                 elif k != 'parent':
-                    acyclic[k] = v.get_acyclic_dict(uuids | set([self.uuid]))
+                    acyclic[k] = v.get_acyclic_dict(id_set | set([id(self)]))
 
         acyclic['parent'] = None
         if self['parent'] is not None:
@@ -132,7 +149,7 @@ class Blueprint(dict):
 
         children = []
         for c in self['children']:
-            children.append(c.get_acyclic_dict(uuids | set([self.uuid])))
+            children.append(c.get_acyclic_dict(id_set | set([id(self)])))
 
         acyclic['children'] = children
         return acyclic
@@ -142,32 +159,48 @@ class Blueprint(dict):
 
     def copy(self):
         """Copy self, without changing the references to the items"""
-        return Blueprint(description=self)
+        bp = Blueprint(description=self)
+        if 'blueprint' in bp['kwargs']:
+            bp['kwargs']['blueprint'] = bp
+        return copy
 
-    def clone(self):
-        """Fast deep copy self"""
-        kwargs = {k: v.clone() if isinstance(v, Blueprint) and k != 'blueprint'
-                  else copy.deepcopy(v) for k, v in self['kwargs'].items()}
+    def __deepcopy__(self, memo=None):
+        if memo is None:
+            memo = {}
 
-        description = {'children': [c.clone() for c in self['children']],
-                       'parent': self['parent'],
-                       'kwargs': kwargs,
-                       'mutables': self['mutables']}
+        if id(self) in memo:
+            return memo[id(self)]
 
-        for k, v in self.items():
-            if k not in description:
-                if isinstance(v, Blueprint):
-                    description[k] = v.clone()
-                else:
-                    description[k] = copy.deepcopy(v)
+        copied = Blueprint(self['prefix'], self['suffix'])
+        memo[id(self)] = copied
 
-        bp = Blueprint(description=description)
-        bp.uuid = generate_random_scope()
+        for (k, v) in self.items():
+            k_id = id(self[k])
 
-        if 'blueprint' in self['kwargs']:
-            kwargs['blueprint'] = bp
+            if k_id in memo:
+                copied[k] = memo[k_id]
+                continue
 
-        return bp
+            if k == 'mutables':
+                copied[k] = {}  # self[k].copy()
+            elif k == 'kwargs':
+                copied[k] = self[k].copy()
+                if 'blueprint' in self[k]:
+                    copied[k]['blueprint'] = copied
+            elif k == 'parent':
+                copied[k] = self[k]
+            elif k == 'children':
+                copied[k] = [None] * len(self[k])
+                for i, c in enumerate(self[k]):
+                    copied[k][i] = copy.deepcopy(c, memo)
+            else:
+                copied[k] = copy.deepcopy(v, memo)
+
+            memo[k_id] = copied[k]
+
+        copied.refresh_name()
+
+        return copied
 
     def has_unique_elements(self):
         if self['unique']:
@@ -339,11 +372,14 @@ def visualize(blueprint):
     master.mainloop()
 
 
-def visit_modules(blueprint, main_input, outputs=[],
+def visit_modules(blueprint, main_input, outputs=None,
                   fn=lambda bp, inp, o: o.append(bp.get_scope_button(*inp))):
     """Recursively apply a function to all modules
 
     e.g.add named buttons to the outputs"""
+    if outputs is None:
+        outputs = []
+
     if issubclass(blueprint['type'], Module):
         fn(blueprint, main_input, outputs)
 

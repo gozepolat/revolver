@@ -58,7 +58,7 @@ def replace_key(container, key, value):
 
 def get_same_value_indices(container, key, ix=0):
     """Collect indices where value is the same for the given key"""
-    indices = {str(c[key]): [] for c in container[ix:]}
+    indices = {str(c[key]): [] for c in container[ix:] if c[key] is not None}
     for i, c in enumerate(container[ix:]):
         indices[str(c[key])].append(i + ix)
     return indices

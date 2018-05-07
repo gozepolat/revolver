@@ -8,6 +8,7 @@ from stacked.meta.heuristics.operators import mutate, crossover, copyover
 from stacked.meta.blueprint import visit_modules, visualize
 from stacked.utils import common
 import glob
+import copy
 
 
 def make_unique(bp, *_):
@@ -39,7 +40,7 @@ class TestMetaOperators(unittest.TestCase):
 
     def test_mutate(self):
         common.BLUEPRINT_GUI = False
-        old_conv = self.blueprint['conv'].clone()
+        old_conv = copy.deepcopy(self.blueprint['conv'])
         conv0 = ScopedEnsemble.describe_from_blueprint('ensemble', '',
                                                        self.blueprint['conv'])
 
@@ -48,7 +49,7 @@ class TestMetaOperators(unittest.TestCase):
             'conv': ClosedList(conv0_alternatives)
         }
 
-        for i in range(500):
+        for i in range(100):
             mutate(self.blueprint, 'conv', 1.0, 0.95)
             if self.blueprint['conv'] != old_conv:
                 break
@@ -94,7 +95,7 @@ class TestMetaOperators(unittest.TestCase):
 
         self.assertTrue(is_crossed)
         self.assertNotEqual(blueprint1, blueprint1_bk)
-        visualize(blueprint1)
+        visualize(blueprint3)
         self.model_run(blueprint1)
         self.model_run(blueprint2)
         self.model_run(blueprint3)
@@ -107,7 +108,7 @@ class TestMetaOperators(unittest.TestCase):
         common.BLUEPRINT_GUI = False
         blueprint1 = ScopedResNet.describe_default('ResNet28x', depth=28,
                                                    width=1, num_classes=100)
-        blueprint1_bk = blueprint1.clone()
+        blueprint1_bk = copy.deepcopy(blueprint1)
         blueprint2 = ScopedResNet.describe_default('ResNet46x', depth=46,
                                                    width=1, num_classes=100)
 

@@ -27,7 +27,11 @@ def get_conv_out_shape(input_shape, c_out, kernel_size=3,
     """Given input shape and conv arguments, get the output shape"""
     if input_shape is None:
         return None
-    x = input_shape[2:]
+    try:
+        x = input_shape[2:]
+    except TypeError:
+        print(">>>>>>>>>>>>>>>>>>>>>>>", input_shape)
+        raise TypeError
     x_out = get_conv_out_res(x, kernel_size, stride, padding, dilation)
     return (input_shape[0], c_out) + x_out
 

@@ -8,8 +8,14 @@ class Sequential(Module):
     def __init__(self, blueprint, *_, **__):
         super(Sequential, self).__init__()
         self.container = ModuleList()
-        for bp in blueprint['children']:
+
+        depth = blueprint['depth']
+        children = blueprint['children']
+        for i, bp in enumerate(children):
             self.container.append(make_module(bp))
+            if (i >= depth and
+                    children[-1]['output_shape'] == bp['output_shape']):
+                break
 
     def forward(self, x):
         raise NotImplementedError("Sequential forward")

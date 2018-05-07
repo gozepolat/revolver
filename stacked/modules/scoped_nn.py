@@ -20,7 +20,7 @@ class ScopedConv2d(Conv2d):
 
     @staticmethod
     def describe_default(prefix='conv', suffix='', parent=None,
-                         shape=None, in_channels=3, out_channels=3,
+                         input_shape=None, in_channels=3, out_channels=3,
                          kernel_size=3, stride=1, padding=1,
                          dilation=1, groups=1, bias=True, **__):
 
@@ -33,9 +33,9 @@ class ScopedConv2d(Conv2d):
         bp = Blueprint(prefix, suffix, parent, False,
                        ScopedConv2d, kwargs=kwargs)
 
-        assert(shape is not None)
-        bp['input_shape'] = shape
-        bp['output_shape'] = get_conv_out_shape(shape, out_channels,
+        assert(input_shape is not None)
+        bp['input_shape'] = input_shape
+        bp['output_shape'] = get_conv_out_shape(input_shape, out_channels,
                                                 kernel_size, stride,
                                                 padding, dilation)
         return bp
@@ -53,7 +53,7 @@ class ScopedConv3d2d(Conv3d2d):
 
     @staticmethod
     def describe_default(prefix='conv3d2d', suffix='', parent=None,
-                         shape=None, in_channels=3, out_channels=3,
+                         input_shape=None, in_channels=3, out_channels=3,
                          kernel_size=3, stride=1, padding=1,
                          dilation=1, groups=1, bias=True, **__):
 
@@ -66,20 +66,20 @@ class ScopedConv3d2d(Conv3d2d):
         bp = Blueprint(prefix, suffix, parent, False,
                        ScopedConv3d2d, kwargs=kwargs)
 
-        assert (shape is not None)
-        bp['input_shape'] = shape
+        assert (input_shape is not None)
+        bp['input_shape'] = input_shape
 
-        if len(shape) == 4:
-            shape = (shape[0], in_channels, shape[1] // in_channels,
-                     shape[2], shape[3])
-            shape = get_conv_out_shape(shape, out_channels,
-                                       kernel_size, stride,
-                                       padding, dilation)
-            bp['output_shape'] = (shape[0], shape[2] * out_channels,
-                                  shape[3], shape[4])
+        if len(input_shape) == 4:
+            input_shape = (input_shape[0], in_channels, input_shape[1] // in_channels,
+                           input_shape[2], input_shape[3])
+            input_shape = get_conv_out_shape(input_shape, out_channels,
+                                             kernel_size, stride,
+                                             padding, dilation)
+            bp['output_shape'] = (input_shape[0], input_shape[2] * out_channels,
+                                  input_shape[3], input_shape[4])
             return bp
 
-        bp['output_shape'] = get_conv_out_shape(shape, out_channels,
+        bp['output_shape'] = get_conv_out_shape(input_shape, out_channels,
                                                 kernel_size, stride,
                                                 padding, dilation)
         return bp

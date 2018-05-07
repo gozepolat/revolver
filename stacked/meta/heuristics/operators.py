@@ -7,7 +7,7 @@ import copy
 
 def log(log_func, msg):
     if common.DEBUG_HEURISTICS:
-        log_func(msg)
+        log_func("stacked.meta.heuristics.operators: %s" % msg)
 
 
 def mutate_sub(blueprint, key, diameter, p, p_decay):
@@ -18,23 +18,34 @@ def mutate_sub(blueprint, key, diameter, p, p_decay):
     element = blueprint[key]
     if issubclass(type(element), Blueprint) and len(element['mutables']) > 0:
         random_key = np.random.choice(element['mutables'].keys())
-        mutate(element, random_key, diameter, p, p_decay)
+        return mutate(element, random_key, diameter, p, p_decay)
+    return False
 
 
 def mutate_current(blueprint, key, diameter, p):
     """Mutate the current blueprint, or change uniqueness"""
     domain = blueprint['mutables'][key]
-    float_index = domain.get_normalized_index(blueprint[key])
+
+    def compare(bp1, bp2):
+        return bp1 == bp2
+
+    float_index = domain.get_normalized_index(blueprint[key], compare)
+
     if float_index >= 0.0:
         new_index, value = domain.pick_random_neighbor(float_index, diameter)
-    elif np.random.random() < p and isinstance(blueprint[key], Blueprint):
+    else:
+        new_index, value = domain.pick_random()
+
+    blueprint[key] = value
+    log(warning, 'Mutated %s, at key: %s with %s' % (blueprint['name'], key, value))
+
+    if np.random.random() < p and isinstance(blueprint[key], Blueprint):
         if blueprint[key]['unique']:
             blueprint[key].make_common()
         else:
             blueprint[key].make_unique()
-    else:
-        new_index, value = domain.pick_random()
-    blueprint[key] = value
+
+    return True
 
 
 def mutate(blueprint, key=None, diameter=1.0, p=0.05, p_decay=1.0):
@@ -51,31 +62,29 @@ def mutate(blueprint, key=None, diameter=1.0, p=0.05, p_decay=1.0):
     if key is None:
         if len(domains) == 0:
             log(warning, "Blueprint {} has no mutable".format(blueprint['name']))
-            return
+            return False
         # can be extended with score based choice
         key = np.random.choice(domains.keys())
 
-    assert (key in blueprint)
     if key not in domains or np.random.random() > p:
-        mutate_sub(blueprint, key, diameter, p * p_decay, p_decay)
-        return
+        return mutate_sub(blueprint, key, diameter, p * p_decay, p_decay)
 
-    mutate_current(blueprint, key, diameter, p)
+    return mutate_current(blueprint, key, diameter, p)
 
 
-def get_parent_uuids(blueprint):
-    return set([p.uuid for p in blueprint.get_parents()])
+def get_parent_ids(blueprint):
+    return set([id(p) for p in blueprint.get_parents()])
 
 
 def child_in_parents(blueprint1, blueprint2):
-    parents = get_parent_uuids(blueprint2)
-    return blueprint1.uuid in parents
+    parents = get_parent_ids(blueprint2)
+    return id(blueprint1) in parents
 
 
 def children_in_parents(children, parents):
-    parents = set([p.uuid for p in parents])
+    parents = set([id(p) for p in parents])
     for c in children:
-        if c.uuid in parents:
+        if id(c) in parents:
             return True
     return False
 
@@ -120,7 +129,7 @@ def swap_child(children1, children2, key1, key2):
 def override_child(children1, children2, key1, key2):
     """Override child in children2 with one from children1"""
     parent = children2[key2]['parent']
-    blueprint = children1[key1].clone()
+    blueprint = copy.deepcopy(children1[key1])
 
     if child_in_parents(blueprint, children2[key2]):
         return False
@@ -288,6 +297,8 @@ def op_over_item(blueprint1, blueprint2, key, fn=swap_child):
         key1 = blueprint1[key]
         key2 = blueprint2[key]
         if (key1['input_shape'] == key2['input_shape']
+                and key1['input_shape'] is not None
+                and key1['output_shape'] is not None
                 and key1['output_shape'] == key2['output_shape']):
             return fn(blueprint1, blueprint2, key, key)
     return False

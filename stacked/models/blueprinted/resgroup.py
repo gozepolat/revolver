@@ -3,6 +3,8 @@ from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint
 from stacked.models.blueprinted.resblock import ScopedResBlock
+from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
+    ScopedReLU, ScopedConv2d
 from six import add_metaclass
 
 
@@ -23,9 +25,12 @@ class ScopedResGroup(Sequential):
         return x
 
     @staticmethod
-    def describe_default(prefix, suffix, parent, group_depth, block_depth, conv_module,
-                         bn_module, act_module, ni, no, kernel_size, stride, padding,
-                         input_shape, dilation=1, groups=1, bias=True):
+    def describe_default(prefix, suffix, parent, input_shape,
+                         in_channels, out_channels, kernel_size, stride, padding,
+                         dilation=1, groups=1, bias=True,
+                         act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
+                         conv_module=ScopedConv2d, group_depth=1, block_depth=2,
+                         conv_args=None):
         """Create a default ResGroup blueprint
 
         Args:
@@ -37,8 +42,8 @@ class ScopedResGroup(Sequential):
             conv_module (type): CNN module to use in forward. e.g. ScopedConv2d
             bn_module (type): Batch normalization module. e.g. ScopedBatchNorm2d
             act_module (type): Activation module e.g ScopedReLU
-            ni (int): Number of channels in the input
-            no (int): Number of channels produced by the block
+            in_channels (int): Number of channels in the input
+            out_channels (int): Number of channels produced by the block
             kernel_size (int or tuple): Size of the convolving kernel. Default: 3
             stride (int or tuple, optional): Stride for the first convolution
             padding (int or tuple, optional): Padding for the first convolution
@@ -46,28 +51,34 @@ class ScopedResGroup(Sequential):
             dilation: see conv_module
             groups: see conv_module
             bias: see conv_module
+            conv_args: extra conv arguments to be used in children
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedResGroup)
         children = []
         default['input_shape'] = input_shape
         for i in range(group_depth):
             block_prefix = '%s/block' % prefix
-            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
+            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
+                                                  kernel_size, stride,
                                                   padding, dilation, groups, bias)
-            block = ScopedResBlock.describe_default(block_prefix, suffix, default,
-                                                    block_depth, conv_module, bn_module,
-                                                    act_module, ni, no, kernel_size,
-                                                    stride, padding, input_shape,
-                                                    dilation, groups, bias)
+
+            block = ScopedResBlock.describe_default(block_prefix, suffix,
+                                                    default, input_shape,
+                                                    in_channels, out_channels,
+                                                    kernel_size, stride, padding,
+                                                    dilation, groups, bias,
+                                                    act_module, bn_module, conv_module,
+                                                    block_depth, conv_args)
             input_shape = block['output_shape']
             children.append(block)
             padding = 1
             stride = 1
-            ni = no
-        default['children'] = children
+            in_channels = out_channels
 
+        default['children'] = children
+        default['depth'] = len(children)
         default['output_shape'] = input_shape
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
-                             'stride': stride, 'padding': padding, 'dilation': dilation,
-                             'groups': groups, 'bias': bias}
+                             'stride': stride, 'padding': padding,
+                             'dilation': dilation, 'groups': groups, 'bias': bias}
         return default

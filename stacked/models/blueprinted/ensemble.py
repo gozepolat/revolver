@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 from torch.nn import ModuleList
-from stacked.modules.scoped_nn import ParameterModule
+from stacked.modules.scoped_nn import ParameterModule, ScopedConv2d
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
 from six import add_metaclass
+import copy
 
 
 @add_metaclass(ScopedMeta)
 class ScopedEnsemble(Sequential):
     """Ensemble of modules with the same input / output shape"""
+
     def __init__(self, scope, blueprint, *_, **__):
         self.scope = scope
         super(ScopedEnsemble, self).__init__(blueprint)
@@ -51,7 +53,7 @@ class ScopedEnsemble(Sequential):
                                                  kwargs['bias'],)
         if parent is None:
             parent = blueprint['parent']
-        blueprint = blueprint.clone()
+        blueprint = copy.deepcopy(blueprint)
         blueprint['prefix'] = '%s/conv' % prefix
         blueprint.refresh_name()
 
@@ -69,13 +71,17 @@ class ScopedEnsemble(Sequential):
         ensemble['masks'] = Blueprint('%s/masks' % prefix, suffix, ensemble,
                                       False, ModuleList)
         masks = ensemble['masks']
+
         masks['children'] = [Blueprint('%s/masks/mask' % prefix, suffix,
                                        masks, True, ParameterModule,
                                        kwargs={'value': 1.0 / ensemble_size,
                                                'size': output_shape})
                              for _ in range(ensemble_size)]
+        masks['depth'] = len(masks['children'])
 
-        ensemble['children'] = [blueprint.clone() for _ in range(ensemble_size)]
+        ensemble['children'] = [copy.deepcopy(blueprint) for _ in range(ensemble_size)]
+        ensemble['depth'] = len(ensemble['children'])
+
         ensemble['kwargs'] = {'blueprint': ensemble,
                               'kernel_size': kwargs['kernel_size'],
                               'stride': kwargs['stride'],
@@ -86,3 +92,26 @@ class ScopedEnsemble(Sequential):
         ensemble['input_shape'] = input_shape
         ensemble['output_shape'] = output_shape
         return ensemble
+
+    @staticmethod
+    def describe_default(prefix='conv', suffix='', parent=None,
+                         shape=None, in_channels=3, out_channels=3,
+                         kernel_size=3, stride=1, padding=1,
+                         dilation=1, groups=1, bias=True,
+                         conv_module=ScopedConv2d,
+                         **__):
+        input_shape = shape
+        bp = conv_module.describe_default('%s/conv' % prefix,
+                                          suffix,
+                                          parent, input_shape,
+                                          in_channels,
+                                          out_channels,
+                                          kernel_size,
+                                          stride,
+                                          padding,
+                                          dilation,
+                                          groups,
+                                          bias)
+        return ScopedEnsemble.describe_from_blueprint(prefix, suffix,
+                                                      bp, parent,
+                                                      3)

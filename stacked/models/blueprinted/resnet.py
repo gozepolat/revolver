@@ -33,8 +33,10 @@ class ScopedResNet(Sequential):
     @staticmethod
     def function(conv, container, bn, act, linear, x):
         x = conv(x)
+
         for group in container:
             x = group(x)
+
         o = act(bn(x))
         o = F.avg_pool2d(o, o.size()[2], 1, 0)
         o = o.view(o.size(0), -1)
@@ -82,24 +84,27 @@ class ScopedResNet(Sequential):
     def __set_default_children(prefix, default, ni, widths, group_depth,
                                block_depth, conv_module, bn_module, act_module,
                                kernel_size, stride, padding, shape,
-                               dilation=1, groups=1, bias=True):
+                               dilation=1, groups=1, bias=True, conv_args=None):
         """Sequentially set children blueprints"""
         children = []
         for width in widths:
             no = width
             suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
                                                   padding, dilation, groups, bias)
+
             block = ScopedResGroup.describe_default('%s/group' % prefix, suffix,
-                                                    default, group_depth, block_depth,
-                                                    conv_module, bn_module, act_module,
+                                                    default, shape,
                                                     ni, no, kernel_size, stride, padding,
-                                                    shape, dilation, groups, bias)
+                                                    dilation, groups, bias,
+                                                    act_module, bn_module, conv_module,
+                                                    group_depth, block_depth, conv_args)
             shape = block['output_shape']
             children.append(block)
             padding = 1
             stride = 2
             ni = no
         default['children'] = children
+        default['depth'] = len(children)
         return shape
 
     @staticmethod

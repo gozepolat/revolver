@@ -71,12 +71,13 @@ class ScopedMetaMaskGenerator(Module):
         depth = 2
         assert (in_channels == out_channels)
         bp['conv'] = gen_module.describe_default('%s/conv' % prefix,
-                                                 suffix, bp, depth,
-                                                 conv_module, bn_module,
-                                                 act_module, in_channels,
+                                                 suffix, bp,  shape,
+                                                 in_channels,
                                                  out_channels, kernel_size,
-                                                 stride, padding, shape,
+                                                 stride, padding,
                                                  dilation, groups, bias,
+                                                 act_module, bn_module,
+                                                 conv_module, depth,
                                                  conv_args)
 
         bp['pre_conv'] = pre_conv.describe_default(prefix='pre_conv', suffix='',
@@ -123,18 +124,17 @@ class ScopedMetaMasked(Module):
                          gen_dilation=1, gen_groups=1, gen_bias=True,
                          gen_pre_conv=PreConvMask, **__):
         """Meta masks to model local rules"""
-
         kwargs = {'in_channels': in_channels,
                   'out_channels': out_channels,
                   'kernel_size': kernel_size, 'stride': stride,
                   'padding': padding, 'dilation': dilation,
                   'groups': groups, 'bias': bias}
 
-        if suffix == '':
-            suffix = "%d_%d_%d_%d_%d_%d_%d_%d" % (in_channels, out_channels,
-                                                  kernel_size, stride,
-                                                  kernel_size, dilation,
-                                                  groups, bias)
+        suffix = "%s_%d_%d_%d_%d_%d_%d_%d_%d" % (suffix, in_channels,
+                                                 out_channels,
+                                                 kernel_size, stride,
+                                                 kernel_size, dilation,
+                                                 groups, bias)
 
         bp = Blueprint(prefix, suffix, parent, False,
                        ScopedMetaMasked, kwargs=kwargs)
@@ -168,4 +168,48 @@ class ScopedMetaMasked(Module):
         bp['kwargs'] = {'blueprint': bp, 'kernel_size': kernel_size,
                         'stride': stride, 'padding': padding,
                         'dilation': dilation, 'groups': groups, 'bias': bias}
+        return bp
+
+    @staticmethod
+    def describe_from_blueprint(prefix='meta_layer', suffix='',
+                                blueprint=None, parent=None,
+                                generator=ScopedMetaMaskGenerator,
+                                mask_fn=MaskMultiplied,
+                                gen_bn_module=ScopedBatchNorm2d,
+                                gen_act_module=ScopedReLU,
+                                gen_conv=ScopedConv3d2d,
+                                gen_module=ScopedResBlock,
+                                gen_in_channels=2, gen_out_channels=2,
+                                gen_kernel_size=7, gen_stride=1,
+                                gen_dilation=1, gen_groups=1, gen_bias=True,
+                                gen_pre_conv=PreConvMask, **__):
+        input_shape = blueprint['input_shape']
+        output_shape = blueprint['output_shape']
+        kwargs = blueprint['kwargs']
+        if parent is None:
+            parent = blueprint['parent']
+
+        bp = ScopedMetaMasked.describe_default(prefix, suffix, parent,
+                                               input_shape, input_shape[1],
+                                               output_shape[1],
+                                               kwargs['kernel_size'],
+                                               kwargs['stride'],
+                                               kwargs['padding'],
+                                               kwargs['dilation'],
+                                               kwargs['groups'],
+                                               kwargs['bias'],
+                                               blueprint['type'],
+                                               generator,
+                                               mask_fn,
+                                               gen_bn_module,
+                                               gen_act_module,
+                                               gen_conv,
+                                               gen_module,
+                                               gen_in_channels,
+                                               gen_out_channels,
+                                               gen_kernel_size,
+                                               gen_stride,
+                                               gen_dilation,
+                                               gen_groups, gen_bias,
+                                               gen_pre_conv)
         return bp
