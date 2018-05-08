@@ -1,4 +1,5 @@
-from stacked.meta.blueprint import Blueprint
+from stacked.meta.blueprint import Blueprint, \
+    get_io_shape_indices, toggle_uniqueness, get_duplicates
 from stacked.utils import common
 from logging import warning
 import numpy as np
@@ -16,30 +17,26 @@ def mutate_sub(blueprint, key, diameter, p, p_decay):
      Mutate in blueprint[key], where the sub-element is randomly picked
     """
     element = blueprint[key]
-    if issubclass(type(element), Blueprint) and len(element['mutables']) > 0:
+
+    if (issubclass(type(element), Blueprint)
+            and len(element['mutables']) > 0):
         random_key = np.random.choice(element['mutables'].keys())
         return mutate(element, random_key, diameter, p, p_decay)
+
     return False
 
 
 def adjust_mutation(blueprint, key):
+    """Post mutation adjustments to the blueprint"""
     if key == 'depth':
         # shrink children size to the given depth
         new_children = []
         children = blueprint['children']
         new_depth = blueprint[key]
         remove_count = len(children) - new_depth
-        duplicates = []
-        prev_output_shape = prev_input_shape = None
-        for i, c in enumerate(children):
-            input_shape = c['input_shape']
-            output_shape = c['output_shape']
-            if (input_shape == prev_input_shape
-                    and output_shape == prev_output_shape):
-                duplicates.append(i-1)
-            prev_input_shape = input_shape
-            prev_output_shape = output_shape
 
+        io_indices = get_io_shape_indices(children)
+        duplicates = get_duplicates(io_indices)
         np.random.shuffle(duplicates)
         remove_set = set(duplicates[:remove_count])
 
@@ -65,20 +62,19 @@ def mutate_current(blueprint, key, diameter, p):
         new_index, value = domain.pick_random()
 
     blueprint[key] = value
-    log(warning, 'Mutated %s, at key: %s with %s' % (blueprint['name'], key, value))
+    log(warning, 'Mutated %s, at key: %s with %s'
+        % (blueprint['name'], key, value))
 
     adjust_mutation(blueprint, key)
 
-    if np.random.random() < p and isinstance(blueprint[key], Blueprint):
-        if blueprint[key]['unique']:
-            blueprint[key].make_common()
-        else:
-            blueprint[key].make_unique()
+    if np.random.random() < p:
+        toggle_uniqueness(blueprint, key)
 
     return True
 
 
-def mutate(blueprint, key=None, diameter=1.0, p=0.05, p_decay=1.0):
+def mutate(blueprint, key=None, diameter=1.0, p=0.05, p_decay=1.0,
+           choice_fn=lambda bp: np.random.choice(bp['mutables'].keys())):
     """Mutate the blueprint element given the key
 
     Args:
@@ -87,14 +83,16 @@ def mutate(blueprint, key=None, diameter=1.0, p=0.05, p_decay=1.0):
         diameter: [0.0, 1.0] if small close by values will be picked
         p: probability with which mutate will operate
         p_decay: Multiplier for p, when a component is being mutated instead
+        choice_fn: Function that picks component key to mutate
     """
     domains = blueprint['mutables']
+
     if key is None:
         if len(domains) == 0:
-            log(warning, "Blueprint {} has no mutable".format(blueprint['name']))
+            log(warning, "Blueprint {} not mutable".format(blueprint['name']))
             return False
-        # can be extended with score based choice
-        key = np.random.choice(domains.keys())
+
+        key = choice_fn(blueprint)
 
     if key not in domains or np.random.random() > p:
         return mutate_sub(blueprint, key, diameter, p * p_decay, p_decay)
@@ -113,9 +111,11 @@ def child_in_parents(blueprint1, blueprint2):
 
 def children_in_parents(children, parents):
     parents = set([id(p) for p in parents])
+
     for c in children:
         if id(c) in parents:
             return True
+
     return False
 
 
@@ -171,7 +171,8 @@ def override_child(children1, children2, key1, key2):
     return True
 
 
-def cross_children(children1, children2, index1, index2, ix1=None, ix2=None):
+def cross_children(children1, children2,
+                   index1, index2, ix1=None, ix2=None):
     parent1 = children1[0]['parent']
     parent2 = children2[0]['parent']
     parents1 = [parent1] + parent1.get_parents()
@@ -183,12 +184,14 @@ def cross_children(children1, children2, index1, index2, ix1=None, ix2=None):
     if children_in_parents(children1[index2:ix2], parents1):
         return False
 
-    common.swap_consecutive(children1, children2, index1, index2, ix1, ix2)
+    common.swap_consecutive(children1, children2,
+                            index1, index2, ix1, ix2)
     readjust_children(children1, parent1)
     readjust_children(children2, parent2)
 
 
-def override_children(children1, children2, index1, index2, ix1=None, ix2=None):
+def override_children(children1, children2,
+                      index1, index2, ix1=None, ix2=None):
     """Override some of elements in children2 with ones from children1"""
     parent2 = children2[0]['parent']
     parents = [parent2] + parent2.get_parents()
@@ -231,8 +234,9 @@ def search_exit(iterable1, iterable2, index1, index2):
     (index1, index2) is a hypothetical entry point
     """
     # shape1, shape2 switched due to cross_elements no being done
-    shapes2, shapes1, keys = pick_key_dict(iterable1, iterable2, 'output_shape',
-                                           'output_shape', index1, index2)
+    shapes2, shapes1, keys = pick_key_dict(iterable1, iterable2,
+                                           'output_shape', 'output_shape',
+                                           index1, index2)
 
     # search for a random exit point as if cross_elements was done
     ix1, ix2, key = pick_random_cross_indices(shapes1, shapes2, keys)
@@ -256,11 +260,13 @@ def crossover_children(iterable1, iterable2):
     """
     shapes1, shapes2, keys = pick_key_dict(iterable1, iterable2)
     index1, index2, key = pick_random_cross_indices(shapes1, shapes2, keys)
+
     if index1 is None or index2 is None:
         log(warning, "Children don't have matching input shape!")
         return False
 
     ix1, ix2, len1, len2 = search_exit(iterable1, iterable2, index1, index2)
+
     if (ix1 is None or ix2 is None or
             ix1 == len1 or ix2 == len2):
         if iterable1[-1]['output_shape'] == iterable2[-1]['output_shape']:
@@ -270,6 +276,7 @@ def crossover_children(iterable1, iterable2):
 
     cross_children(iterable1, iterable2, index1, index2)
     cross_children(iterable1, iterable2, ix1, ix2)
+
     return True
 
 
@@ -280,6 +287,7 @@ def copy_children(children1, children2):
     """
     shapes1, shapes2, keys = pick_key_dict(children1, children2)
     index1, index2, key = pick_random_cross_indices(shapes1, shapes2, keys)
+
     if index1 is None or index2 is None:
         log(warning, "Children don't have matching input shape!")
         return False
@@ -287,6 +295,7 @@ def copy_children(children1, children2):
     shapes1, shapes2, keys = pick_key_dict(children1, children2, 'output_shape',
                                            'output_shape', index1, index2)
     ix1, ix2, key = pick_random_cross_indices(shapes1, shapes2, keys)
+
     if (ix1 is None or ix2 is None or
             ix1 == len(children1) or ix2 == len(children2)):
         if children1[-1]['output_shape'] == children2[-1]['output_shape']:
@@ -295,6 +304,7 @@ def copy_children(children1, children2):
         return False
 
     override_children(children1, children2, index1, index2, ix1 + 1, ix2 + 1)
+
     return True
 
 
@@ -326,11 +336,13 @@ def op_over_item(blueprint1, blueprint2, key, fn=swap_child):
     if key in blueprint1 and key in blueprint2:
         key1 = blueprint1[key]
         key2 = blueprint2[key]
+
         if (key1['input_shape'] == key2['input_shape']
                 and key1['input_shape'] is not None
                 and key1['output_shape'] is not None
                 and key1['output_shape'] == key2['output_shape']):
             return fn(blueprint1, blueprint2, key, key)
+
     return False
 
 

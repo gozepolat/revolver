@@ -88,6 +88,7 @@ def make_mutable_and_randomly_unique(bp, p_unique, _):
 
 
 def generate(population_size):
+    """Randomly generate genotypes"""
     max_width = 4
     max_depth = 28
 
@@ -121,6 +122,7 @@ class Population(object):
         self.generate_new(population_size)
 
     def replace_individual(self, index, genotype, phenotype=None):
+        """Replace the individual at the given index with a new one"""
         self.genotypes[index] = genotype
         self.ids[index] = id(genotype)
 
@@ -130,6 +132,7 @@ class Population(object):
         self.phenotypes[index] = phenotype
 
     def add_individual(self, blueprint, phenotype=None):
+        """Add a single individual to the population"""
         if id(blueprint) in set(self.ids):
             log(warning, "Individual %s is already in population"
                 % blueprint['name'])
@@ -144,6 +147,7 @@ class Population(object):
         self.phenotypes.append(phenotype)
 
     def generate_new(self, population_size):
+        """Randomly generate genotypes and then create individuals"""
         genotypes = generate(population_size)
         for blueprint in genotypes:
             self.add_individual(blueprint)
@@ -156,10 +160,10 @@ class Population(object):
             update_score(bp, new_score, weight=weight)
 
     def get_average_score(self):
+        """Get average score for the population"""
         total_score = 0.0
         n = 1
 
-        assert(len(self.genotypes) > 0)
         for bp in self.genotypes:
             if 'score' in bp['meta']:
                 score = bp['meta']['score']
@@ -167,9 +171,13 @@ class Population(object):
                     total_score += score
                     n += 1
 
+        if total_score == 0:
+            return np.inf
+
         return total_score / n
 
     def get_the_best_index(self):
+        """Get the best scoring individual in the population"""
         best_score = np.inf
         index = 0
 
@@ -189,14 +197,16 @@ class Population(object):
 
         for bp in self.genotypes:
             score = bp['meta']['score']
+
             if min_score < score:
                 min_score2 = min_score
+                r2 = r1
                 min_score = score
                 r1 = i
-                r2 = r1
             elif min_score2 < score:
                 min_score2 = score
                 r2 = i
+
             i += 1
 
         return r1, r2
@@ -209,7 +219,7 @@ class Population(object):
         self.iteration += 1
         self.update_scores(self.iteration, score_fn)
 
-        # indices for replacement with new individuals
+        # bad scored indices to be replaced with new individuals
         r1, r2 = self.get_max_indices()
 
         selected_indices = [i for i in range(self.population_size)

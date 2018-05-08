@@ -3,6 +3,7 @@
     <words>
       <w>convdim</w>
       <w>evolvables</w>
+      <w>learnable</w>
       <w>mutables</w>
     </words>
   </dictionary>

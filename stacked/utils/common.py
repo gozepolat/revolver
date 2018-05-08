@@ -19,8 +19,8 @@ GUI = None
 SCOPE_DICTIONARY = dict()
 
 
-def get_cuda(param, dtype='float'):
-    return getattr(param.cuda(), dtype)()
+def get_cuda(param, _type='float'):
+    return getattr(param.cuda(), _type)()
 
 
 def imshow(img, duration=0.001):
@@ -36,16 +36,19 @@ def make_weights(num_input_filters,
                  num_out_filters,
                  kernel_width,
                  kernel_height, requires_grad=True):
-    dtype = Variable
-    if requires_grad:
-        dtype = Parameter
 
-    fan_in = math.sqrt(num_input_filters * kernel_width * kernel_height)
+    _type = Variable
+    if requires_grad:
+        _type = Parameter
+
+    fan_in = math.sqrt(num_input_filters * kernel_width
+                       * kernel_height)
     weights = torch.Tensor(num_out_filters,
                            num_input_filters,
                            kernel_width,
                            kernel_height).normal_(0, 2 / fan_in)
-    return dtype(get_cuda(weights), requires_grad=requires_grad)
+
+    return _type(get_cuda(weights), requires_grad=requires_grad)
 
 
 def replace_key(container, key, value):
@@ -58,13 +61,15 @@ def replace_key(container, key, value):
 
 def get_same_value_indices(container, key, ix=0):
     """Collect indices where value is the same for the given key"""
-    indices = {str(c[key]): [] for c in container[ix:] if c[key] is not None}
+    indices = {str(c[key]): [] for c in container[ix:]
+               if c[key] is not None}
     for i, c in enumerate(container[ix:]):
         indices[str(c[key])].append(i + ix)
     return indices
 
 
-def swap_consecutive(container1, container2, index1, index2, ix1=None, ix2=None):
+def swap_consecutive(container1, container2, index1, index2,
+                     ix1=None, ix2=None):
     """Swap all the elements after the entry point (index1, index2)"""
     tmp = [k for k in container1]
     container1[index1:ix1] = container2[index2:ix2]

@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 import common
-from logging import warning, info
+from logging import warning
 import numpy as np
 from transformer import normalize_index, denormalize_index, normalize_float, denormalize_float
 
 
 def log(log_func, msg):
     if common.DEBUG_DOMAIN:
-        log_func(msg)
+        log_func("stacked.utils.domain: %s" % msg)
 
 
 def is_inside(value, domain):

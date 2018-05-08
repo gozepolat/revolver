@@ -83,11 +83,31 @@ class ScopedConvUnit(Module):
                          stride, padding, dilation=1, groups=1, bias=True,
                          act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
                          conv_module=ScopedConv2d, conv_args=None):
-        """Create a default ScopedConvUnit blueprint"""
+        """Create a default ScopedConvUnit blueprint
+
+        Args:
+            prefix (str): Prefix from which the member scopes will be created
+            suffix (str): Suffix to append the name of the scoped object
+            parent (Blueprint): None or the instance of the parent blueprint
+            in_channels (int): Number of channels in the input
+            out_channels (int): Number of channels produced by the block
+            kernel_size (int or tuple): Size of the convolving kernel. Default: 3
+            stride (int or tuple, optional): Stride for the first convolution
+            padding (int or tuple, optional): Padding for the first convolution
+            input_shape (tuple): (N, C_{in}, H_{in}, W_{in})
+            dilation: Spacing between kernel elements.
+            groups: Number of blocked connections from input to output channels.
+            bias: Add a learnable bias if True
+            conv_module (type): CNN module to use in forward. e.g. ScopedConv2d
+            bn_module (type): Batch normalization module. e.g. ScopedBatchNorm2d
+            act_module (type): Activation module e.g ScopedReLU
+            conv_args: extra conv arguments to be used in children
+        """
         default = Blueprint(prefix, suffix, parent, False, ScopedConvUnit)
         default['input_shape'] = input_shape
 
-        ScopedConvUnit.set_unit_description(default, prefix, input_shape, in_channels, out_channels,
+        ScopedConvUnit.set_unit_description(default, prefix, input_shape,
+                                            in_channels, out_channels,
                                             kernel_size, stride, padding,
                                             conv_module, act_module, bn_module,
                                             dilation, groups, bias, conv_args)

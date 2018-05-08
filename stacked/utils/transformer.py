@@ -65,9 +65,6 @@ def normalize_float(value, low, high, mapper=None):
     """
     if mapper is not None:
         return mapper.forward(value, low, high)
-    if not (high >= low and high >= value >= low):
-        print (">>>>>>>>>>>>>>>>", high, low, value)
-        raw_input("dodo")
     assert (high >= low and high >= value >= low)
     width = (high - low)
     if width > 0:
@@ -128,7 +125,8 @@ def scalar_to_tensor(value, size):
     return torch.FloatTensor([float(value)]).expand(size)
 
 
-def scalar_to_cuda_parameter(value, size, requires_grad=False, dtype=torch.FloatTensor):
+def scalar_to_cuda_parameter(value, size, requires_grad=False,
+                             dtype=torch.FloatTensor):
     return Parameter(dtype([value]).cuda(),
                      requires_grad=requires_grad).expand(size)
 
@@ -145,5 +143,6 @@ def get_transformer(dataset="CIFAR10"):
             T.Normalize([129.3, 124.1, 112.4], [68.2, 65.4, 70.4]),
         ])
     else:
-        raise NotImplementedError("The dataset {} is not supported".format(dataset))
+        raise NotImplementedError(
+            "The dataset {} is not supported".format(dataset))
     return transformer

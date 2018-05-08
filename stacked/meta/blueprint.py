@@ -7,6 +7,7 @@ import tkinter as tk
 from stacked.utils import common
 from logging import warning, error
 from collections import Iterable
+import numpy as np
 import json
 import copy
 
@@ -44,6 +45,7 @@ class Blueprint(dict):
         if description is None:
             description = {}
         super(Blueprint, self).__init__(description)
+
         # set from args if not in description
         if 'args' not in self:
             if args is None:
@@ -115,7 +117,6 @@ class Blueprint(dict):
         if id(self) in id_set:
             log(error, "get_parents: Blueprint %s has cycles!!"
                 % self['name'])
-            raw_input("continue")
             return parents
 
         p = self['parent']
@@ -132,7 +133,6 @@ class Blueprint(dict):
         if id(self) in id_set:
             log(error, "get_acyclic_dict: Blueprint %s has cycles!!"
                 % self['name'])
-            raw_input("continue")
             return acyclic
 
         for k, v in self.items():
@@ -256,7 +256,8 @@ class Blueprint(dict):
                 % self['name'])
             self['unique'] = True
             return
-        log(warning, "Can make common, %s has no unique elements." % self['name'])
+        log(warning,
+            "Can make common, %s has no unique elements." % self['name'])
         index = self['name'].find('~')
         if index > 0:
             self['name'] = self['name'][0:index]
@@ -283,7 +284,8 @@ class Blueprint(dict):
             self['parent'].make_unique()
 
     def get_element(self, index):
-        if isinstance(index, string_types) or not isinstance(index, Iterable):
+        if (isinstance(index, string_types)
+                or not isinstance(index, Iterable)):
             index = [index]
 
         b = self
@@ -331,6 +333,42 @@ class Blueprint(dict):
         return self.button
 
 
+def get_duplicates(io_indices, one_out=1):
+    """Return indices of non-unique shaped elements"""
+    duplicates = []
+    for k, v in io_indices.items():
+        size = len(v)
+        if size > one_out:
+            cs = np.random.choice(v, size - one_out)
+            duplicates.extend(cs)
+
+    return duplicates
+
+
+def get_io_shape_indices(children):
+    """Return the indices of children with the same io shapes"""
+
+    def get_key(child):
+        return str(child['input_shape']) + str(child['output_shape'])
+
+    indices = {get_key(c): []
+               for c in children if c['input_shape'] is not None
+               and c['output_shape'] is not None}
+
+    for i, c in enumerate(children):
+        indices[get_key(c)].append(i)
+
+    return indices
+
+
+def toggle_uniqueness(blueprint, key):
+    if isinstance(blueprint[key], Blueprint):
+        if blueprint[key]['unique']:
+            blueprint[key].make_common()
+        else:
+            blueprint[key].make_unique()
+
+
 def make_module(blueprint):
     """Construct named (or scoped) object given the blueprint"""
     try:
@@ -370,10 +408,13 @@ def visualize(blueprint):
     visit_modules(blueprint, None, module_list, collect)
     for module in module_list:
         b = module.get_scope_button(master, info)
+
         # insert tabs before the button for hierarchical display
         text.insert("end", '\t' * len(module.get_parents()))
+
         # add the button
         text.window_create("end", window=b)
+
         # next line
         text.insert("end", "\n")
 

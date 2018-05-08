@@ -48,9 +48,9 @@ class ScopedResGroup(Sequential):
             stride (int or tuple, optional): Stride for the first convolution
             padding (int or tuple, optional): Padding for the first convolution
             input_shape (tuple): (N, C_{in}, H_{in}, W_{in})
-            dilation: see conv_module
-            groups: see conv_module
-            bias: see conv_module
+            dilation: Spacing between kernel elements.
+            groups: Number of blocked connections from input to output channels.
+            bias: Add a learnable bias if True
             conv_args: extra conv arguments to be used in children
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedResGroup)
@@ -78,7 +78,11 @@ class ScopedResGroup(Sequential):
         default['children'] = children
         default['depth'] = len(children)
         default['output_shape'] = input_shape
-        default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
-                             'stride': stride, 'padding': padding,
-                             'dilation': dilation, 'groups': groups, 'bias': bias}
+        default['kwargs'] = {'blueprint': default,
+                             'kernel_size': kernel_size,
+                             'stride': stride,
+                             'padding': padding,
+                             'dilation': dilation,
+                             'groups': groups,
+                             'bias': bias}
         return default

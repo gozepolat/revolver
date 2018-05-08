@@ -80,6 +80,7 @@ class ScopedResBlock(Sequential):
             unit_prefix = '%s/unit' % prefix
             suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
                                                   padding, dilation, groups, bias)
+
             unit = ScopedConvUnit.describe_default(unit_prefix, suffix, default, shape,
                                                    ni, no, kernel_size, stride, padding,
                                                    dilation, groups, bias, act_module,
@@ -113,21 +114,23 @@ class ScopedResBlock(Sequential):
             stride (int or tuple, optional): Stride for the first convolution
             padding (int or tuple, optional): Padding for the first convolution
             input_shape (tuple): (N, C_{in}, H_{in}, W_{in})
-            dilation (int): see conv_module,
-            groups (int): see conv_module,
-            bias (bool): see conv_module
+            dilation (int): Spacing between kernel elements.
+            groups: Number of blocked connections from input to output channels.
+            bias: Add a learnable bias if True
             conv_args: extra conv arguments to be used in self.conv and children
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedResBlock)
 
         input_shape = ScopedResBlock.__set_default_items(prefix, default, input_shape,
-                                                         in_channels, out_channels, kernel_size, stride,
+                                                         in_channels, out_channels,
+                                                         kernel_size, stride,
                                                          padding, conv_module, act_module,
                                                          bn_module, dilation, groups, bias,
                                                          conv_args)
-        # in_channels = no, and stride = 1 for children
+        # in_channels = out_channels, and stride = 1 for children
         input_shape = ScopedResBlock.__set_default_children(prefix, default, input_shape,
-                                                            out_channels, out_channels, kernel_size, 1,
+                                                            out_channels, out_channels,
+                                                            kernel_size, 1,
                                                             padding, conv_module, act_module,
                                                             bn_module, block_depth, dilation,
                                                             groups, bias, conv_args)
@@ -141,17 +144,20 @@ class ScopedResBlock(Sequential):
     def describe_from_blueprint(prefix, suffix, blueprint, parent, depth,
                                 kernel_size=None, stride=None, padding=None,
                                 dilation=None, groups=None, bias=None):
+
         kwargs = blueprint['kwargs']
         input_shape = blueprint['input_shape']
         output_shape = blueprint['output_shape']
 
-        # set values according to kwargs or the defaults
-        _kernel = kwargs['kernel_size'] if kernel_size is None else kernel_size
-        _stride = kwargs['stride'] if stride is None else stride
-        _padding = kwargs['padding'] if padding is None else padding
-        _dilation = kwargs['dilation'] if dilation is None else dilation
-        _groups = kwargs['groups'] if groups is None else groups
-        _bias = kwargs['bias'] if bias is None else bias
+        def override_default(key, default):
+            return kwargs[key] if default is None else default
+
+        _kernel = override_default('kernel_size', kernel_size)
+        _stride = override_default('stride', stride)
+        _padding = override_default('padding', padding)
+        _dilation = override_default('dilation', dilation)
+        _groups = override_default('groups', groups)
+        _bias = override_default('bias', bias)
 
         return ScopedResBlock.describe_default(prefix, suffix, parent,
                                                block_depth=depth,
