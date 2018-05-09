@@ -182,7 +182,7 @@ class Blueprint(dict):
                 continue
 
             if k == 'mutables':
-                copied[k] = {}  # self[k].copy()
+                copied[k] = {}
             elif k == 'kwargs':
                 copied[k] = self[k].copy()
                 if 'blueprint' in self[k]:

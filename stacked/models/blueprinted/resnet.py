@@ -61,6 +61,7 @@ class ScopedResNet(Sequential):
         # describe conv
         suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (shape[1], ni, kernel_size, 1,
                                               1, dilation, groups, bias)
+
         default['conv'] = conv_module.describe_default('%s/conv' % prefix, suffix,
                                                        default, shape,
                                                        in_channels=shape[1],
@@ -84,7 +85,7 @@ class ScopedResNet(Sequential):
     def __set_default_children(prefix, default, ni, widths, group_depth,
                                block_depth, conv_module, bn_module, act_module,
                                kernel_size, stride, padding, shape,
-                               dilation=1, groups=1, bias=True, conv_args=None):
+                               dilation=1, groups=1, bias=True, conv3d_args=None):
         """Sequentially set children blueprints"""
         children = []
         for width in widths:
@@ -97,12 +98,12 @@ class ScopedResNet(Sequential):
                                                     ni, no, kernel_size, stride, padding,
                                                     dilation, groups, bias,
                                                     act_module, bn_module, conv_module,
-                                                    group_depth, block_depth, conv_args)
+                                                    group_depth, block_depth, conv3d_args)
             shape = block['output_shape']
             children.append(block)
-            padding = 1
             stride = 2
             ni = no
+
         default['children'] = children
         default['depth'] = len(children)
         return shape
@@ -111,7 +112,7 @@ class ScopedResNet(Sequential):
     def __get_default(prefix, suffix, parent, shape, ni, no, kernel_size,
                       num_classes, bn_module, act_module, conv_module, linear_module,
                       widths, group_depth, block_depth, stride, padding,
-                      dilation=1, groups=1, bias=True):
+                      dilation=1, groups=1, bias=True, conv3d_args=None):
         """Set the items and the children of the default blueprint object"""
         default = Blueprint(prefix, suffix, parent, False, ScopedResNet)
         shape = ScopedResNet.__set_default_items(prefix, default, shape, ni, no,
@@ -123,7 +124,7 @@ class ScopedResNet(Sequential):
                                                     group_depth, block_depth, conv_module,
                                                     bn_module, act_module, kernel_size,
                                                     stride, padding, shape, dilation,
-                                                    groups, bias)
+                                                    groups, bias, conv3d_args)
 
         default['linear']['input_shape'] = (shape[0], shape[1])
         default['linear']['output_shape'] = (shape[0], num_classes)
@@ -139,7 +140,8 @@ class ScopedResNet(Sequential):
                          block_depth=2, conv_module=ScopedConv2d,
                          bn_module=ScopedBatchNorm2d, linear_module=ScopedLinear,
                          act_module=ScopedReLU, kernel_size=3, padding=1,
-                         input_shape=None, dilation=1, groups=1, bias=True):
+                         input_shape=None, dilation=1, groups=1, bias=True,
+                         conv3d_args=None):
         """Create a default ResBlock blueprint
 
         Args:
@@ -158,9 +160,10 @@ class ScopedResNet(Sequential):
             kernel_size (int or tuple): Size of the convolving kernel.
             padding (int or tuple, optional): Padding for the first convolution
             input_shape (tuple): (N, C_{in}, H_{in}, W_{in})
-            dilation: see conv_module
-            groups: see conv_module
-            bias: see conv_module
+            dilation (int): Spacing between kernel elements.
+            groups: Number of blocked connections from input to output channels.
+            bias: Add a learnable bias if True
+            conv3d_args: extra conv arguments to be used in children
         """
         if input_shape is None:
             # assume batch_size = 1, in_channels: 3, h: 32, and w : 32
@@ -181,5 +184,5 @@ class ScopedResNet(Sequential):
                                              conv_module, linear_module,
                                              widths, group_depth,
                                              block_depth, stride, padding,
-                                             dilation, groups, bias)
+                                             dilation, groups, bias, conv3d_args)
         return default

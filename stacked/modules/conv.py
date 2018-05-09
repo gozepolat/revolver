@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from torch.nn import Module, Conv3d
-from math import floor
 
 
 def _repeat_in_array(value, length):
@@ -17,8 +16,9 @@ def get_conv_out_res(x, kernel_size, stride, padding, dilation):
     stride = _repeat_in_array(stride, length)
     padding = _repeat_in_array(padding, length)
     dilation = _repeat_in_array(dilation, length)
-    return tuple(floor((x_in + 2 * padding[i] - dilation[i] *
-                        (kernel_size[i] - 1) - 1) / stride[i] + 1)
+
+    return tuple(int((x_in + 2 * padding[i] - dilation[i] *
+                     (kernel_size[i] - 1) - 1) / stride[i] + 1)
                  for i, x_in in enumerate(x))
 
 
@@ -27,12 +27,10 @@ def get_conv_out_shape(input_shape, c_out, kernel_size=3,
     """Given input shape and conv arguments, get the output shape"""
     if input_shape is None:
         return None
-    try:
-        x = input_shape[2:]
-    except TypeError:
-        print(">>>>>>>>>>>>>>>>>>>>>>>", input_shape)
-        raise TypeError
+
+    x = input_shape[2:]
     x_out = get_conv_out_res(x, kernel_size, stride, padding, dilation)
+
     return (input_shape[0], c_out) + x_out
 
 

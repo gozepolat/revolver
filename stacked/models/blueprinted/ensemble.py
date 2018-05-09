@@ -42,7 +42,6 @@ class ScopedEnsemble(Sequential):
         output_shape = blueprint['output_shape']
         kwargs = blueprint['kwargs']
 
-        prefix = "%s/%s" % (blueprint['prefix'], prefix)
         suffix = "%s_%d_%d_%d_%d_%d_%d_%d_%d" % (suffix, input_shape[1],
                                                  output_shape[1],
                                                  kwargs['kernel_size'],
@@ -101,7 +100,7 @@ class ScopedEnsemble(Sequential):
                          conv_module=ScopedConv2d,
                          **__):
         input_shape = shape
-        bp = conv_module.describe_default('%s/conv' % prefix,
+        bp = conv_module.describe_default(prefix,
                                           suffix,
                                           parent, input_shape,
                                           in_channels,
@@ -113,5 +112,4 @@ class ScopedEnsemble(Sequential):
                                           groups,
                                           bias)
         return ScopedEnsemble.describe_from_blueprint(prefix, suffix,
-                                                      bp, parent,
-                                                      3)
+                                                      bp, parent, 3)

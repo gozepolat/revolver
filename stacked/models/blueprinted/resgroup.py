@@ -26,11 +26,11 @@ class ScopedResGroup(Sequential):
 
     @staticmethod
     def describe_default(prefix, suffix, parent, input_shape,
-                         in_channels, out_channels, kernel_size, stride, padding,
+                         in_channels, out_channels, kernel_size, stride, padding=1,
                          dilation=1, groups=1, bias=True,
                          act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
                          conv_module=ScopedConv2d, group_depth=1, block_depth=2,
-                         conv_args=None):
+                         conv3d_args=None):
         """Create a default ResGroup blueprint
 
         Args:
@@ -51,7 +51,7 @@ class ScopedResGroup(Sequential):
             dilation: Spacing between kernel elements.
             groups: Number of blocked connections from input to output channels.
             bias: Add a learnable bias if True
-            conv_args: extra conv arguments to be used in children
+            conv3d_args: extra conv arguments to be used in children
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedResGroup)
         children = []
@@ -68,10 +68,11 @@ class ScopedResGroup(Sequential):
                                                     kernel_size, stride, padding,
                                                     dilation, groups, bias,
                                                     act_module, bn_module, conv_module,
-                                                    block_depth, conv_args)
+                                                    block_depth, conv3d_args)
             input_shape = block['output_shape']
             children.append(block)
-            padding = 1
+
+            # for the next groups, stride and in_channels are changed
             stride = 1
             in_channels = out_channels
 

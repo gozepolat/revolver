@@ -52,8 +52,9 @@ def make_weights(num_input_filters,
 
 
 def replace_key(container, key, value):
-    if not isinstance(container, dict):
+    if not isinstance(container, dict) or key not in container:
         return container
+
     new_dict = {k: v for k, v in container.items()}
     new_dict[key] = value
     return new_dict

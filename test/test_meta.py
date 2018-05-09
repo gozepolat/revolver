@@ -3,6 +3,8 @@ from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.utils import transformer, common
 from stacked.meta.blueprint import visualize
+from stacked.modules.scoped_nn import ScopedConv2d
+from stacked.meta.blueprint import visit_modules
 from PIL import Image
 import glob
 
@@ -24,7 +26,7 @@ class TestScopedMetaMasked(unittest.TestCase):
             self.assertEqual(out.size(), self.out_size)
 
     def test_replace_conv_with_meta_layer(self):
-        common.BLUEPRINT_GUI = False
+        common.BLUEPRINT_GUI = True
         if common.BLUEPRINT_GUI and common.GUI is None:
             from tkinter import Tk
             common.GUI = Tk()
@@ -34,7 +36,16 @@ class TestScopedMetaMasked(unittest.TestCase):
                                            input_shape=(1, 3, 32, 32),
                                            num_classes=10)
         if common.BLUEPRINT_GUI:
+
+            def make_conv2d_unique(bp, _, __):
+                if issubclass(bp['type'], ScopedConv2d):
+                    bp.make_unique()
+
+            visit_modules(bp, None, None, make_conv2d_unique)
             visualize(bp)
         self.model_run(ScopedResNet('ResNet_meta', bp).cuda())
+
+        common.BLUEPRINT_GUI = False
+        common.GUI = None
 
 

@@ -17,12 +17,12 @@ class PreConvMask(Module):
     def __init__(self, scope, blueprint, *_, **__):
         super(PreConvMask, self).__init__()
         self.scope = scope
-        self.scalar = Parameter(torch.FloatTensor([blueprint['scalar']]).cuda(),
+        self.scalar = Parameter(torch.FloatTensor([blueprint['scalar']]),
                                 requires_grad=True)
         self.function = make_module(blueprint['function'])
 
     def forward(self, module_out, mask):
-        return self.function(module_out, mask, self.scalar)
+        return self.function(module_out, mask, self.scalar.expand_as(mask))
 
     @staticmethod
     def describe_default(prefix='pre_conv', suffix='', parent=None,

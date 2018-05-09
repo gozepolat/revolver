@@ -54,6 +54,7 @@ class ScopedConv2d(Conv2d):
         bp['output_shape'] = get_conv_out_shape(input_shape, out_channels,
                                                 kernel_size, stride,
                                                 padding, dilation)
+        assert(in_channels == bp['input_shape'][1])
         return bp
 
 

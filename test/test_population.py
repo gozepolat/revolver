@@ -50,10 +50,7 @@ class TestPopulation(unittest.TestCase):
 
     def test_population_convergence(self):
         common.BLUEPRINT_GUI = False
-        p = population.Population(7)
-        names = [bp['name'] for bp in p.genotypes]
-        new_names = [bp['name'] for bp in p.genotypes]
-        self.assertEqual(names, new_names)
+        p = population.Population(70)
 
         p.evolve_generation()
         p.evolve_generation()
@@ -67,8 +64,6 @@ class TestPopulation(unittest.TestCase):
         index = p.get_the_best_index()
         best_final = p.genotypes[index]['meta']['score']
 
-        new_names = [bp['name'] for bp in p.genotypes]
-        self.assertNotEqual(names, new_names)
         self.assertTrue(best_init > best_final)
-        for model in p.phenotypes:
+        for model, bp in zip(p.phenotypes, p.genotypes):
             self.model_run(model)

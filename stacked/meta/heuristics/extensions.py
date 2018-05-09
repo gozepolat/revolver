@@ -28,7 +28,6 @@ def extend_conv_mutables(blueprint, ensemble_size=5, block_depth=2):
     ensemble = ScopedEnsemble.describe_from_blueprint(prefix, '_ensemble',
                                                       conv, parent,
                                                       ensemble_size)
-
     res_block = ScopedResBlock.describe_from_blueprint(prefix, "_block",
                                                        conv, parent,
                                                        block_depth)
@@ -36,6 +35,7 @@ def extend_conv_mutables(blueprint, ensemble_size=5, block_depth=2):
     meta = ScopedMetaMasked.describe_from_blueprint(prefix, '_meta',
                                                     conv, parent)
     mutables = [conv, res_block, ensemble, meta]
+
     if 'conv' in blueprint['mutables']:
         elements = blueprint['mutables']['conv'].elements
         mutables = append_mutables(elements, mutables)
@@ -43,10 +43,9 @@ def extend_conv_mutables(blueprint, ensemble_size=5, block_depth=2):
     blueprint['mutables']['conv'] = ClosedList(mutables)
 
 
-def extend_depth_mutables(blueprint):
+def extend_depth_mutables(blueprint, min_depth=2):
     if 'depth' not in blueprint or len(blueprint['children']) == 0:
         return
 
-    min_depth = 2
     max_depth = len(blueprint['children'])
     blueprint['mutables']['depth'] = ClosedInterval(min_depth, max_depth)
