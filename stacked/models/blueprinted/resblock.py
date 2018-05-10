@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
-    ScopedReLU, ScopedConv2d
+    ScopedReLU, ScopedTanh, ScopedConv2d
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
@@ -131,7 +131,7 @@ class ScopedResBlock(Sequential):
         input_shape = ScopedResBlock.__set_default_children(prefix, default, input_shape,
                                                             out_channels, out_channels,
                                                             kernel_size, 1,
-                                                            padding, conv_module, act_module,
+                                                            padding, conv_module, ScopedTanh,
                                                             bn_module, block_depth, dilation,
                                                             groups, bias, conv3d_args)
         default['output_shape'] = input_shape

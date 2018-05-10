@@ -22,7 +22,8 @@ class PreConvMask(Module):
         self.function = make_module(blueprint['function'])
 
     def forward(self, module_out, mask):
-        return self.function(module_out, mask, self.scalar.expand_as(mask))
+        return self.function(module_out, mask,
+                             self.scalar.expand_as(module_out))
 
     @staticmethod
     def describe_default(prefix='pre_conv', suffix='', parent=None,
@@ -42,12 +43,12 @@ class ScopedMetaMaskGenerator(Module):
         self.scope = scope
         self.conv = make_module(blueprint['conv'])
         self.mask = get_cuda(
-            kaiming_normal(torch.ones(blueprint['input_shape'])))
+            kaiming_normal(torch.ones(blueprint['input_shape'][1:])))
         self.pre_conv = make_module(blueprint['pre_conv'])
 
     def forward(self, x):
         mask = self.function(x, self.conv, self.pre_conv, self.mask)
-        self.mask = mask.data
+        self.mask = torch.mean(mask.data, dim=0)
         return mask
 
     @staticmethod

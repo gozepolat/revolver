@@ -40,9 +40,12 @@ class ScopedConvUnit(Module):
         """Set descriptions for act, bn, and conv"""
         suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
                                               padding, dilation, groups, bias)
+        kwargs = None
+        if issubclass(act_module, ScopedReLU):
+            kwargs = {'inplace': True}
 
         default['act'] = Blueprint('%s/act' % prefix, suffix, default,
-                                   False, act_module, kwargs={'inplace': True})
+                                   False, act_module, kwargs=kwargs)
 
         default['bn'] = Blueprint('%s/bn' % prefix, suffix, default,
                                   False, bn_module, kwargs={'num_features': ni})

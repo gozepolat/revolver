@@ -56,8 +56,12 @@ class ScopedResNet(Sequential):
         default['input_shape'] = shape
         default['bn'] = Blueprint('%s/bn' % prefix, '%d' % no, default, False,
                                   bn_module, kwargs={'num_features': no})
+        kwargs = None
+        if issubclass(act_module, ScopedReLU):
+            kwargs = {'inplace': True}
+
         default['act'] = Blueprint('%s/act' % prefix, '%d' % no, default, False,
-                                   act_module, kwargs={'inplace': True})
+                                   act_module, kwargs=kwargs)
         # describe conv
         suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (shape[1], ni, kernel_size, 1,
                                               1, dilation, groups, bias)

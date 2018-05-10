@@ -4,7 +4,7 @@ from stacked.utils.transformer import scalar_to_tensor
 from stacked.meta.blueprint import Blueprint
 from torch.nn import Conv2d, Conv3d, BatchNorm2d, \
     BatchNorm3d, Linear, Module, ModuleList, Parameter, \
-    ParameterList, ReLU
+    ParameterList, ReLU, Tanh
 from stacked.modules.conv import Conv3d2d, get_conv_out_shape
 
 
@@ -184,6 +184,13 @@ class ScopedParameter(Parameter):
 class ScopedReLU(ReLU):
     def __init__(self, scope, *args, **kwargs):
         super(ScopedReLU, self).__init__(*args, **kwargs)
+        self.scope = scope
+
+
+@add_metaclass(ScopedMeta)
+class ScopedTanh(Tanh):
+    def __init__(self, scope, *args, **kwargs):
+        super(ScopedTanh, self).__init__(*args, **kwargs)
         self.scope = scope
 
 
