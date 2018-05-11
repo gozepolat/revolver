@@ -27,7 +27,7 @@ class ScopedOptimizerMaker:
     def describe_default(prefix, suffix, parent, optimizer_type):
         default = Blueprint(prefix, suffix, parent, False, ScopedOptimizerMaker)
 
-        default['optimizer']['optimizer_type'] = optimizer_type
+        default['optimizer_type'] = optimizer_type
 
         default['kwargs'] = {'blueprint': default}
         return default
@@ -40,10 +40,10 @@ class ScopedDataLoader(DataLoader):
                                  '.', blueprint['train_mode'],
                                  blueprint['crop_size'])
         super(ScopedDataLoader, self).__init__(dataset,
-                                               blueprint['batch_size'],
-                                               blueprint['train_mode'],
-                                               blueprint['num_thread'],
-                                               torch.cuda.is_available())
+                                               batch_size=blueprint['batch_size'],
+                                               shuffle=blueprint['train_mode'],
+                                               num_workers=blueprint['num_thread'],
+                                               pin_memory=torch.cuda.is_available())
         self.scope = scope
 
     @staticmethod
@@ -74,7 +74,9 @@ class ScopedCriterion:
     def describe_default(prefix, suffix, parent,
                          criterion=F.cross_entropy):
         default = Blueprint(prefix, suffix, parent, False, ScopedCriterion)
+
         default['criterion'] = criterion
+
         default['kwargs'] = {'blueprint': default}
         return default
 
@@ -87,8 +89,8 @@ class ScopedNetRunner:
         self.net = None
 
     def __call__(self, sample):
-        x_input = Variable(getattr(sample[0].cuda(), 'float'))
-        y_targets = Variable(getattr(sample[1].cuda(), 'long'))
+        x_input = Variable(getattr(sample[0].cuda(), 'float')())
+        y_targets = Variable(getattr(sample[1].cuda(), 'long')())
         y_out = self.net(x_input)
         return self.loss_func(y_out, y_targets), y_out
 
@@ -115,7 +117,8 @@ class ScopedEpochEngine(EpochEngine):
         train_loader = make_module(blueprint['train_loader'])
         test_loader = make_module(blueprint['test_loader'])
 
-        net = make_module(blueprint['net'])
+        net = make_module(blueprint['net']).cuda()
+
         net_runner = make_module(blueprint['net_runner'])
         net_runner.net = net
 
@@ -140,7 +143,7 @@ class ScopedEpochEngine(EpochEngine):
         self.hooks['on_start'] = hooks.on_start
 
         self.set_state(net_runner, train_loader,
-                       blueprint(['max_epoch']), optimizer_maker(net, lr),
+                       blueprint['max_epoch'], optimizer_maker(net, lr),
                        epoch=0, t=0, train=True)
 
         self.hook('on_start', self.state)
@@ -219,14 +222,14 @@ class ScopedEpochEngine(EpochEngine):
                                                               suffix, default, dataset,
                                                               False, batch_size, num_thread,
                                                               crop_size)
-        if logger is not None:
-            default['logger'] = Blueprint("%s/optimizer" % prefix, suffix, default)
+        if logger is None:
+            default['logger'] = Blueprint("%s/logger" % prefix, suffix, default)
         else:
             # make_module will return None
-            default['logger'] = logger.describe_default("%s/optimizer" % prefix, suffix,
+            default['logger'] = logger.describe_default("%s/logger" % prefix, suffix,
                                                         default)
 
-        default['optimizer_maker'] = optimizer_maker.describe_default("%s/optimizer" % prefix,
+        default['optimizer_maker'] = optimizer_maker.describe_default("%s/optimizer_maker" % prefix,
                                                                       suffix, default, optimizer_type)
 
         if net_blueprint is not None:
@@ -241,4 +244,7 @@ class ScopedEpochEngine(EpochEngine):
                                                            kernel_size, padding,
                                                            input_shape, dilation, groups,
                                                            bias, conv3d_args)
+
+        default['kwargs'] = {'blueprint': default}
+        return default
 

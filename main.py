@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 from stacked.models.blueprinted.optimizer import ScopedEpochEngine
 from stacked.models.blueprinted.resnet import ScopedResNet
+from stacked.utils import common
 import argparse
 import json
+import os
 
-if __name__ == '__main__':
+
+def parse_args():
     parser = argparse.ArgumentParser(description='In construction..')
 
     parser.add_argument('--depth', default=22, type=int)
@@ -27,23 +30,38 @@ if __name__ == '__main__':
                         help='id(s) for CUDA_VISIBLE_DEVICES')
 
     parsed = parser.parse_args()
+    return parsed
+
+
+if __name__ == '__main__':
+    parsed = parse_args()
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = parsed.gpu_id
 
     num_classes = 10 if parsed.dataset == 'CIFAR10' else 100
-    epoch_step = json.loads(parsed.epoch_step)
+    lr_drop_epochs = json.loads(parsed.lr_drop_epochs)
     skeleton = json.loads(parsed.skeleton)
 
+    common.BLUEPRINT_GUI = False
+    input_shape = (parsed.batch_size, 3, 32, 32)
     resnet = ScopedResNet.describe_default(prefix='ResNet', num_classes=num_classes,
                                            depth=parsed.depth, width=parsed.width,
                                            block_depth=parsed.block_depth,
-                                           skeleton=skeleton)
+                                           skeleton=skeleton, input_shape=input_shape)
 
     engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
-                                                          suffix='', parent=None,
                                                           net_blueprint=resnet,
                                                           max_epoch=parsed.epochs,
                                                           batch_size=parsed.batch_size,
                                                           learning_rate=parsed.lr,
                                                           lr_decay_ratio=parsed.lr_decay_ratio,
-                                                          lr_drop_epochs=parsed.lr_drop_epochs,
+                                                          lr_drop_epochs=lr_drop_epochs,
                                                           dataset=parsed.dataset,
                                                           num_thread=parsed.num_thread)
+
+    engine = ScopedEpochEngine(engine_blueprint['name'], engine_blueprint)
+
+    for _ in range(parsed.epochs):
+        engine.train_one_epoch()
+
+    engine.hook('on_end', engine.state)

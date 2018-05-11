@@ -104,6 +104,11 @@ class EngineEventHooks(object):
         assert (net_runner is not None)
         assert (make_optimizer is not None)
 
+        num_parameters = sum(p.numel() for p in net.parameters())
+
+        print('\nTotal number of parameters in model with id: {} is: {}'
+              .format(train_id, num_parameters))
+
         # defaults
         if average_loss_meter is None:
             average_loss_meter = tnt.meter.AverageValueMeter()
@@ -125,74 +130,62 @@ class EngineEventHooks(object):
                 print('==> id: %s (%d/%d), test_acc: \33[91m%.2f\033[0m' %
                       (train_id, _state['epoch'], _state['maxepoch'],
                        _stats['test_acc']))
+                print(_stats)
 
             logger = print_log
 
-        class G(object):
-            epoch = epoch
-            lr = learning_rate
+        # change epoch and lr in the class definitions
+        g = {'epoch': epoch, 'lr': learning_rate}
 
-        class Hook:
-            def __init__(self, *_, **__):
-                pass
+        def on_sample(state):
+            state['sample'].append(state['train'])
 
-            def __call__(self, state):
-                raise NotImplementedError("Hook not implemented")
+        def on_forward(state):
+            state['sample'].append(state['train'])
+            accuracy_meter.add(state['output'].data,
+                               torch.LongTensor(state['sample'][1]))
+            average_loss_meter.add(state['loss'].item())
 
-        class OnSample(Hook):
-            def __call__(self, state):
-                state['sample'].append(state['train'])
+        def on_start(state):
+            state['epoch'] = g['epoch']
 
-        class OnForward(Hook):
-            def __call__(self, state):
-                state['sample'].append(state['train'])
-                accuracy_meter.add(state['output'].data,
-                                   torch.LongTensor(state['sample'][1]))
-                average_loss_meter.add(state['loss'].item())
+        def on_start_epoch(state):
+            accuracy_meter.reset()
+            average_loss_meter.reset()
+            train_timer.reset()
 
-        class OnStart(Hook):
-            def __call__(self, state):
-                state['epoch'] = G.epoch
+            state['iterator'] = tqdm(train_loader)
 
-        class OnStartEpoch(Hook):
-            def __call__(self, state):
-                accuracy_meter.reset()
-                average_loss_meter.reset()
-                train_timer.reset()
+            g['epoch'] = state['epoch'] + 1
+            if epoch in lr_drop_epochs:
+                g['lr'] = state['optimizer'].param_groups[0]['lr']
+                state['optimizer'] = make_optimizer(net, g['lr'] * lr_decay_ratio)
 
-                state['iterator'] = tqdm(train_loader)
+        def on_end_epoch(state):
+            train_loss = average_loss_meter.value()
+            train_acc = accuracy_meter.value()
+            train_time = train_timer.value()
 
-                G.epoch = state['epoch'] + 1
-                if epoch in lr_drop_epochs:
-                    G.lr = state['optimizer'].param_groups[0]['lr']
-                    state['optimizer'] = make_optimizer(net, G.lr * lr_decay_ratio)
+            average_loss_meter.reset()
+            accuracy_meter.reset()
+            test_timer.reset()
 
-        class OnEndEpoch(Hook):
-            def __call__(self, state):
-                train_loss = average_loss_meter.value()
-                train_acc = accuracy_meter.value()
-                train_time = train_timer.value()
+            engine.test(net_runner, test_loader)
 
-                average_loss_meter.reset()
-                accuracy_meter.reset()
-                test_timer.reset()
+            test_acc = accuracy_meter.value()[0]
+            logger(state, {
+                "train_loss": train_loss[0],
+                "train_acc": train_acc[0],
+                "test_loss": average_loss_meter.value()[0],
+                "test_acc": test_acc,
+                "epoch": state['epoch'],
+                "train_time": train_time,
+                "test_time": test_timer.value(),
+            })
 
-                engine.test(net_runner, test_loader)
-
-                test_acc = accuracy_meter.value()[0]
-                logger(state, {
-                    "train_loss": train_loss[0],
-                    "train_acc": train_acc[0],
-                    "test_loss": average_loss_meter.value()[0],
-                    "test_acc": test_acc,
-                    "epoch": state['epoch'],
-                    "train_time": train_time,
-                    "test_time": test_timer.value(),
-                })
-
-        self.on_start = OnStart
-        self.on_sample = OnSample
-        self.on_forward = OnForward
-        self.on_start_epoch = OnStartEpoch
-        self.on_end_epoch = OnEndEpoch
+        self.on_start = on_start
+        self.on_sample = on_sample
+        self.on_forward = on_forward
+        self.on_start_epoch = on_start_epoch
+        self.on_end_epoch = on_end_epoch
 

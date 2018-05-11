@@ -17,7 +17,7 @@ class ScopedResNet(Sequential):
         scope (string): Scope for the self (ScopedResBlock instance)
         blueprint: Description of the scopes and member module types
     """
-    def __init__(self, scope, blueprint):
+    def __init__(self, scope, blueprint, *_, **__):
         super(ScopedResNet, self).__init__(blueprint)
         self.scope = scope
 
