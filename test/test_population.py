@@ -3,7 +3,6 @@ from stacked.meta.heuristics import population
 from stacked.utils import transformer, common
 from PIL import Image
 import glob
-import numpy as np
 
 
 class TestPopulation(unittest.TestCase):
@@ -66,4 +65,9 @@ class TestPopulation(unittest.TestCase):
 
         self.assertTrue(best_init > best_final)
         for model, bp in zip(p.phenotypes, p.genotypes):
-            self.model_run(model)
+            try:
+                self.model_run(model)
+            except RuntimeError as r:
+                print "Runtime error {}".format(r.message)
+                raw_input("Model that caused runtime error: %s" % bp)
+                raise r

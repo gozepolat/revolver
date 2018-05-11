@@ -27,7 +27,7 @@ class PreConvMask(Module):
 
     @staticmethod
     def describe_default(prefix='pre_conv', suffix='', parent=None,
-                         scalar=0.0000001):
+                         scalar=0.01):
         bp = Blueprint(prefix, suffix, parent, False, PreConvMask)
         bp['scalar'] = scalar
         bp['function'] = Blueprint(prefix, suffix, bp, False,
@@ -53,7 +53,7 @@ class ScopedMetaMaskGenerator(Module):
 
     @staticmethod
     def function(x, conv, pre_conv, mask):
-        return conv(pre_conv(x, mask))
+        return conv(pre_conv(x, mask.expand_as(x)))
 
     @staticmethod
     def describe_default(prefix='gen', suffix='', parent=None,
@@ -82,7 +82,7 @@ class ScopedMetaMaskGenerator(Module):
                                                  conv_args)
 
         bp['pre_conv'] = pre_conv.describe_default(prefix='pre_conv', suffix='',
-                                                   parent=bp, scalar=0.0000001)
+                                                   parent=bp, scalar=0.01)
         bp['input_shape'] = shape
         bp['output_shape'] = shape
         assert (bp['conv']['output_shape'] == shape)

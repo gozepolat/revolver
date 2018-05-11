@@ -30,7 +30,7 @@ class MaskMultipliedSummed(Mask):
 
 class MaskScalarMultipliedSummed(Mask):
     def __call__(self, module_out, mask, *args):
-        return module_out * args[0] + mask
+        return module_out * args[0] + mask * (1 - args[0])
 
 
 class MaskPowered(Mask):
@@ -41,4 +41,8 @@ class MaskPowered(Mask):
 class MaskSummed(Mask):
     def __call__(self, module_out, mask, *_):
         return module_out + mask
+
+
+
+
 
