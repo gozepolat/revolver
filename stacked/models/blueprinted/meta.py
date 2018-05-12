@@ -53,7 +53,9 @@ class ScopedMetaMaskGenerator(Module):
 
     @staticmethod
     def function(x, conv, pre_conv, mask):
-        return conv(pre_conv(x, mask.expand_as(x)))
+        return conv(mask.expand_as(x).contiguous())
+        # alternatively, used pre_conv
+        #return conv(pre_conv(x, mask.expand_as(x)))
 
     @staticmethod
     def describe_default(prefix='gen', suffix='', parent=None,

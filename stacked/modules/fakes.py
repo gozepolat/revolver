@@ -13,7 +13,7 @@ class MaskMultiplied(Mask):
 
 class MaskIdentity(Mask):
     def __call__(self, module_out, mask, *_):
-        return module_out
+        return mask
 
 
 class MaskHarmonicMean(Mask):

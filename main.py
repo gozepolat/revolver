@@ -1,10 +1,17 @@
 # -*- coding: utf-8 -*-
 from stacked.models.blueprinted.optimizer import ScopedEpochEngine
 from stacked.models.blueprinted.resnet import ScopedResNet
+from stacked.models.blueprinted.meta import ScopedMetaMasked
+from stacked.modules.scoped_nn import ScopedConv2d
+from stacked.meta.blueprint import make_module, visit_modules
 from stacked.utils import common
 import argparse
 import json
 import os
+import torch.backends.cudnn as cudnn
+
+
+cudnn.benchmark = True
 
 
 def parse_args():
@@ -47,7 +54,14 @@ if __name__ == '__main__':
     resnet = ScopedResNet.describe_default(prefix='ResNet', num_classes=num_classes,
                                            depth=parsed.depth, width=parsed.width,
                                            block_depth=parsed.block_depth,
+                                           conv_module=ScopedMetaMasked,
                                            skeleton=skeleton, input_shape=input_shape)
+
+    def make_conv2d_unique(bp, _, __):
+        if issubclass(bp['type'], ScopedConv2d):
+            bp.make_unique()
+
+    visit_modules(resnet, None, None, make_conv2d_unique)
 
     engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
                                                           net_blueprint=resnet,
@@ -59,7 +73,7 @@ if __name__ == '__main__':
                                                           dataset=parsed.dataset,
                                                           num_thread=parsed.num_thread)
 
-    engine = ScopedEpochEngine(engine_blueprint['name'], engine_blueprint)
+    engine = make_module(engine_blueprint)
 
     for _ in range(parsed.epochs):
         engine.train_one_epoch()
