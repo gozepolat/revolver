@@ -19,15 +19,28 @@ class ScopedOptimizerMaker:
     def __init__(self, scope, blueprint, *_, **__):
         self.scope = scope
         self.optimizer_type = blueprint['optimizer_type']
+        self.optimizer_parameter_picker = blueprint['optimizer_parameter_picker']
 
     def __call__(self, model, *args, **kwargs):
-        return self.optimizer_type(model.parameters(), *args, **kwargs)
+        params = self.optimizer_parameter_picker(model)
+
+        print("Making new optimizer!! with lr %f" % args[0])
+        return self.optimizer_type(params, *args, **kwargs)
 
     @staticmethod
-    def describe_default(prefix, suffix, parent, optimizer_type):
+    def describe_default(prefix, suffix, parent,
+                         optimizer_type, optimizer_parameter_picker):
         default = Blueprint(prefix, suffix, parent, False, ScopedOptimizerMaker)
 
         default['optimizer_type'] = optimizer_type
+
+        if optimizer_parameter_picker is None:
+            def get_all_parameters(model):
+                return model.parameters()
+
+            optimizer_parameter_picker = get_all_parameters
+
+        default['optimizer_parameter_picker'] = optimizer_parameter_picker
 
         default['kwargs'] = {'blueprint': default}
         return default
@@ -157,7 +170,8 @@ class ScopedEpochEngine(EpochEngine):
                          act_module=ScopedReLU, kernel_size=3, padding=1,
                          input_shape=None, dilation=1, groups=1, bias=True,
                          conv3d_args=None, optimizer_maker=ScopedOptimizerMaker,
-                         optimizer_type=SGD, max_epoch=200, batch_size=128,
+                         optimizer_type=SGD, optimizer_parameter_picker=None,
+                         max_epoch=200, batch_size=128,
                          learning_rate=0.1, lr_decay_ratio=0.2,
                          lr_drop_epochs=(60, 120, 160), logger=None,
                          data_loader=ScopedDataLoader, dataset="CIFAR10",
@@ -188,6 +202,7 @@ class ScopedEpochEngine(EpochEngine):
             conv3d_args: extra conv arguments to be used in children
             optimizer_maker: Functor that will return an optimizer
             optimizer_type: Type of the optimizer that will be returned
+            optimizer_parameter_picker: Function to pick the parameters to be optimized
             max_epoch: Maximum number of epochs for training
             batch_size: Batch size for training
             learning_rate: Initial learning rate for training
@@ -230,7 +245,8 @@ class ScopedEpochEngine(EpochEngine):
                                                         default)
 
         default['optimizer_maker'] = optimizer_maker.describe_default("%s/optimizer_maker" % prefix,
-                                                                      suffix, default, optimizer_type)
+                                                                      suffix, default, optimizer_type,
+                                                                      optimizer_parameter_picker)
 
         if net_blueprint is not None:
             default['net'] = net_blueprint

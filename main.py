@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument('--epochs', default=3, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('--weight_decay', default=0.0005, type=float)
-    parser.add_argument('--lr_drop_epochs', default='[60,120,160]', type=str,
+    parser.add_argument('--lr_drop_epochs', default='[1,2,3]', type=str,
                         help='json list with epochs to drop lr on')
     parser.add_argument('--lr_decay_ratio', default=0.2, type=float)
     parser.add_argument('--gpu_id', default='0', type=str,
@@ -63,19 +63,45 @@ if __name__ == '__main__':
 
     visit_modules(resnet, None, None, make_conv2d_unique)
 
-    engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
-                                                          net_blueprint=resnet,
-                                                          max_epoch=parsed.epochs,
-                                                          batch_size=parsed.batch_size,
-                                                          learning_rate=parsed.lr,
-                                                          lr_decay_ratio=parsed.lr_decay_ratio,
-                                                          lr_drop_epochs=lr_drop_epochs,
-                                                          dataset=parsed.dataset,
-                                                          num_thread=parsed.num_thread)
+    def common_picker(model):
+        for k, v in model.named_parameters():
+            if 'generator' not in k:
+                yield v
 
-    engine = make_module(engine_blueprint)
+    def generator_picker(model):
+        for k, v in model.named_parameters():
+            if 'generator' in k:
+                yield v
+
+    common_engine_blueprint = ScopedEpochEngine.describe_default(prefix='CommonEpochEngine',
+                                                                 net_blueprint=resnet,
+                                                                 max_epoch=parsed.epochs,
+                                                                 batch_size=parsed.batch_size,
+                                                                 learning_rate=parsed.lr,
+                                                                 lr_decay_ratio=parsed.lr_decay_ratio,
+                                                                 lr_drop_epochs=lr_drop_epochs,
+                                                                 dataset=parsed.dataset,
+                                                                 num_thread=parsed.num_thread,
+                                                                 optimizer_parameter_picker=common_picker)
+
+    # accesses the same resnet model instance
+    generator_engine_blueprint = ScopedEpochEngine.describe_default(prefix='GeneratorEpochEngine',
+                                                                    net_blueprint=resnet,
+                                                                    max_epoch=parsed.epochs,
+                                                                    batch_size=parsed.batch_size,
+                                                                    learning_rate=parsed.lr,
+                                                                    lr_decay_ratio=parsed.lr_decay_ratio,
+                                                                    lr_drop_epochs=lr_drop_epochs,
+                                                                    dataset=parsed.dataset,
+                                                                    num_thread=parsed.num_thread,
+                                                                    optimizer_parameter_picker=generator_picker)
+
+    common_engine = make_module(common_engine_blueprint)
+    generator_engine = make_module(generator_engine_blueprint)
 
     for _ in range(parsed.epochs):
-        engine.train_one_epoch()
+        common_engine.train_one_epoch()
+        generator_engine.train_one_epoch()
 
-    engine.hook('on_end', engine.state)
+    generator_engine.hook('on_end', generator_engine.state)
+    common_engine.hook('on_end', common_engine.state)

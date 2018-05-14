@@ -25,7 +25,12 @@ class MaskMultipliedSummed(Mask):
     def __call__(self, module_out, mask, *args):
         # x, module_out and mask should have the same size
         x = args[0]
-        return x + module_out * mask
+        return module_out * mask + x
+
+
+class MaskSummedMultiplied(Mask):
+    def __call__(self, module_out, mask, *args):
+        return module_out * (mask + 1.0)
 
 
 class MaskScalarMultipliedSummed(Mask):

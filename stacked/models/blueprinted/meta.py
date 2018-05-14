@@ -3,12 +3,12 @@ import torch
 from torch.nn import Module, Parameter
 from torch.nn.init import kaiming_normal
 from stacked.modules.scoped_nn import ScopedConv2d, \
-    ScopedBatchNorm2d, ScopedReLU, ScopedConv3d2d
+    ScopedBatchNorm2d, ScopedReLU, ScopedConv3d2d, ScopedTanh
 from stacked.meta.scope import ScopedMeta
 from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.utils.transformer import get_cuda
-from stacked.modules.fakes import MaskMultiplied, MaskScalarMultipliedSummed
+from stacked.modules.fakes import MaskSummedMultiplied, MaskScalarMultipliedSummed
 from six import add_metaclass
 
 
@@ -53,9 +53,7 @@ class ScopedMetaMaskGenerator(Module):
 
     @staticmethod
     def function(x, conv, pre_conv, mask):
-        return conv(mask.expand_as(x).contiguous())
-        # alternatively, used pre_conv
-        #return conv(pre_conv(x, mask.expand_as(x)))
+        return conv(pre_conv(x, mask.expand_as(x)))
 
     @staticmethod
     def describe_default(prefix='gen', suffix='', parent=None,
@@ -66,7 +64,7 @@ class ScopedMetaMaskGenerator(Module):
                          act_module=ScopedReLU,
                          conv_module=ScopedConv3d2d,
                          gen_module=ScopedResBlock,
-                         pre_conv=MaskScalarMultipliedSummed,
+                         pre_conv=PreConvMask,
                          conv_args=None, **__):
         bp = Blueprint(prefix, suffix, parent, False,
                        ScopedMetaMaskGenerator)
@@ -108,6 +106,7 @@ class ScopedMetaMasked(Module):
     @staticmethod
     def function(x, mask_fn, generator, conv):
         out = conv(x)
+        # out * (generator(out) + 1.0)
         return mask_fn(out, generator(out), x)
 
     @staticmethod
@@ -117,9 +116,9 @@ class ScopedMetaMasked(Module):
                          dilation=1, groups=1, bias=True,
                          conv_module=ScopedConv2d,
                          generator=ScopedMetaMaskGenerator,
-                         mask_fn=MaskMultiplied,
+                         mask_fn=MaskSummedMultiplied,
                          gen_bn_module=ScopedBatchNorm2d,
-                         gen_act_module=ScopedReLU,
+                         gen_act_module=ScopedTanh,
                          gen_conv=ScopedConv3d2d,
                          gen_module=ScopedResBlock,
                          gen_in_channels=2, gen_out_channels=2,
@@ -177,12 +176,12 @@ class ScopedMetaMasked(Module):
     def describe_from_blueprint(prefix='meta_layer', suffix='',
                                 blueprint=None, parent=None,
                                 generator=ScopedMetaMaskGenerator,
-                                mask_fn=MaskMultiplied,
+                                mask_fn=MaskSummedMultiplied,
                                 gen_bn_module=ScopedBatchNorm2d,
                                 gen_act_module=ScopedReLU,
                                 gen_conv=ScopedConv3d2d,
                                 gen_module=ScopedResBlock,
-                                gen_in_channels=2, gen_out_channels=2,
+                                gen_in_channels=1, gen_out_channels=1,
                                 gen_kernel_size=7, gen_stride=1,
                                 gen_dilation=1, gen_groups=1, gen_bias=True,
                                 gen_pre_conv=PreConvMask, **__):
