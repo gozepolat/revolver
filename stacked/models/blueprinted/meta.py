@@ -6,9 +6,10 @@ from stacked.modules.scoped_nn import ScopedConv2d, \
     ScopedBatchNorm2d, ScopedReLU, ScopedConv3d2d, ScopedTanh
 from stacked.meta.scope import ScopedMeta
 from stacked.models.blueprinted.resblock import ScopedResBlock
+from stacked.models.blueprinted.conv_unit import ScopedConvUnit
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.utils.transformer import get_cuda
-from stacked.modules.fakes import MaskSummedMultiplied, MaskScalarMultipliedSummed
+from stacked.modules.fakes import MaskMultiplied, MaskScalarMultipliedSummed
 from six import add_metaclass
 
 
@@ -71,15 +72,17 @@ class ScopedMetaMaskGenerator(Module):
 
         depth = 2
         assert (in_channels == out_channels)
-        bp['conv'] = gen_module.describe_default('%s/conv' % prefix,
-                                                 suffix, bp,  shape,
-                                                 in_channels,
-                                                 out_channels, kernel_size,
-                                                 stride, padding,
-                                                 dilation, groups, bias,
-                                                 act_module, bn_module,
-                                                 conv_module, depth,
-                                                 conv_args)
+        bp['conv'] = gen_module.describe_default(prefix='%s/conv' % prefix,
+                                                 suffix=suffix, parent=bp,  input_shape=shape,
+                                                 in_channels=in_channels,
+                                                 out_channels=out_channels,
+                                                 kernel_size=kernel_size,
+                                                 stride=stride, padding=padding,
+                                                 dilation=dilation, groups=groups,
+                                                 bias=bias, act_module=act_module,
+                                                 bn_module=bn_module,
+                                                 conv_module=conv_module, depth=depth,
+                                                 conv_args=conv_args)
 
         bp['pre_conv'] = pre_conv.describe_default(prefix='pre_conv', suffix='',
                                                    parent=bp, scalar=0.01)
@@ -106,7 +109,6 @@ class ScopedMetaMasked(Module):
     @staticmethod
     def function(x, mask_fn, generator, conv):
         out = conv(x)
-        # out * (generator(out) + 1.0)
         return mask_fn(out, generator(out), x)
 
     @staticmethod
@@ -116,11 +118,11 @@ class ScopedMetaMasked(Module):
                          dilation=1, groups=1, bias=True,
                          conv_module=ScopedConv2d,
                          generator=ScopedMetaMaskGenerator,
-                         mask_fn=MaskSummedMultiplied,
+                         mask_fn=MaskMultiplied,
                          gen_bn_module=ScopedBatchNorm2d,
                          gen_act_module=ScopedTanh,
                          gen_conv=ScopedConv3d2d,
-                         gen_module=ScopedResBlock,
+                         gen_module=ScopedConvUnit,
                          gen_in_channels=2, gen_out_channels=2,
                          gen_kernel_size=7, gen_stride=1,
                          gen_dilation=1, gen_groups=1, gen_bias=True,
@@ -176,11 +178,11 @@ class ScopedMetaMasked(Module):
     def describe_from_blueprint(prefix='meta_layer', suffix='',
                                 blueprint=None, parent=None,
                                 generator=ScopedMetaMaskGenerator,
-                                mask_fn=MaskSummedMultiplied,
+                                mask_fn=MaskMultiplied,
                                 gen_bn_module=ScopedBatchNorm2d,
                                 gen_act_module=ScopedReLU,
                                 gen_conv=ScopedConv3d2d,
-                                gen_module=ScopedResBlock,
+                                gen_module=ScopedConvUnit,
                                 gen_in_channels=1, gen_out_channels=1,
                                 gen_kernel_size=7, gen_stride=1,
                                 gen_dilation=1, gen_groups=1, gen_bias=True,

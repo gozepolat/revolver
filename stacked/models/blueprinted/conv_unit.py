@@ -88,7 +88,7 @@ class ScopedConvUnit(Module):
                          in_channels, out_channels, kernel_size,
                          stride, padding, dilation=1, groups=1, bias=True,
                          act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
-                         conv_module=ScopedConv2d, conv_args=None):
+                         conv_module=ScopedConv2d, conv_args=None, *_, **__):
         """Create a default ScopedConvUnit blueprint
 
         Args:

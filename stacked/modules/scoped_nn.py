@@ -12,7 +12,7 @@ from stacked.modules.conv import Conv3d2d, get_conv_out_shape
 class ScopedConv2d(Conv2d):
     def __init__(self, scope, in_channels, out_channels,
                  kernel_size, stride=1, padding=0,
-                 dilation=1, groups=1, bias=True, **__):
+                 dilation=1, groups=1, bias=True, *_, **__):
 
         super(ScopedConv2d, self).__init__(in_channels, out_channels,
                                            kernel_size, stride, padding,
@@ -23,7 +23,7 @@ class ScopedConv2d(Conv2d):
     def describe_default(prefix='conv', suffix='', parent=None,
                          input_shape=None, in_channels=3, out_channels=3,
                          kernel_size=3, stride=1, padding=1,
-                         dilation=1, groups=1, bias=True, **__):
+                         dilation=1, groups=1, bias=True, *_, **__):
         """Create a default ScopedConv2d blueprint
 
         Args:
@@ -61,7 +61,7 @@ class ScopedConv2d(Conv2d):
 @add_metaclass(ScopedMeta)
 class ScopedConv3d2d(Conv3d2d):
     def __init__(self, scope, in_channels, out_channels, kernel_size=3,
-                 stride=1, padding=0, dilation=1, groups=1, bias=True, **__):
+                 stride=1, padding=0, dilation=1, groups=1, bias=True, *_, **__):
 
         super(ScopedConv3d2d, self).__init__(in_channels, out_channels,
                                              kernel_size, stride, padding,
@@ -72,7 +72,7 @@ class ScopedConv3d2d(Conv3d2d):
     def describe_default(prefix='conv3d2d', suffix='', parent=None,
                          input_shape=None, in_channels=3, out_channels=3,
                          kernel_size=3, stride=1, padding=1,
-                         dilation=1, groups=1, bias=True, **__):
+                         dilation=1, groups=1, bias=True, *_, **__):
         """Create a default ScopedConv3d2d blueprint
 
         Args:

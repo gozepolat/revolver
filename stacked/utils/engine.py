@@ -1,7 +1,14 @@
 import torch
 import torchnet as tnt
-from tqdm import tqdm
 from stacked.meta.scope import generate_random_scope
+from stacked.utils import common
+from logging import warning
+import numpy as np
+
+
+def log(log_func, msg):
+    if common.DEBUG_ENGINE:
+        log_func("stacked.utils.engine: %s" % msg)
 
 
 class EpochEngine(object):
@@ -13,9 +20,8 @@ class EpochEngine(object):
         if name in self.hooks:
             self.hooks[name](state)
 
-    def train_one_epoch(self):
-        self.hook('on_start_epoch', self.state)
-        for sample in self.state['iterator']:
+    def train_n_samples(self, n):
+        for i, sample in enumerate(self.state['iterator']):
             self.state['sample'] = sample
             self.hook('on_sample', self.state)
 
@@ -35,10 +41,21 @@ class EpochEngine(object):
             self.state['optimizer'].step(closure)
             self.hook('on_update', self.state)
             self.state['t'] += 1
+            if i < n:
+                break
 
+    def start_epoch(self):
+        self.hook('on_start_epoch', self.state)
+
+    def end_epoch(self):
         self.state['epoch'] += 1
         self.hook('on_end_epoch', self.state)
         return self.state
+
+    def train_one_epoch(self, n=np.inf):
+        self.start_epoch()
+        self.train_n_samples(n)
+        return self.end_epoch()
 
     def set_state(self, network, iterator, maxepoch, optimizer, epoch=0, t=0, train=True):
         self.state = {
@@ -106,8 +123,8 @@ class EngineEventHooks(object):
 
         num_parameters = sum(p.numel() for p in net.parameters())
 
-        print('\nTotal number of parameters in model with id: {} is: {}'
-              .format(train_id, num_parameters))
+        log(warning, '\nTotal number of parameters in model with id: {} is: {}'
+            .format(train_id, num_parameters))
 
         # defaults
         if average_loss_meter is None:
@@ -127,10 +144,10 @@ class EngineEventHooks(object):
 
         if logger is None:
             def print_log(_state, _stats):
-                print('==> id: %s (%d/%d), test_acc: \33[91m%.2f\033[0m' %
-                      (train_id, _state['epoch'], _state['maxepoch'],
-                       _stats['test_acc']))
-                print(_stats)
+                log(warning, '==> id: %s (%d/%d), test_acc: \33[91m%.2f\033[0m' %
+                    (train_id, _state['epoch'], _state['maxepoch'],
+                     _stats['test_acc']))
+                log(warning, _stats)
 
             logger = print_log
 
@@ -154,10 +171,10 @@ class EngineEventHooks(object):
             average_loss_meter.reset()
             train_timer.reset()
 
-            state['iterator'] = tqdm(train_loader)
+            state['iterator'] = train_loader
 
             g['epoch'] = state['epoch'] + 1
-            if epoch in lr_drop_epochs:
+            if g['epoch'] in lr_drop_epochs:
                 g['lr'] = state['optimizer'].param_groups[0]['lr']
                 state['optimizer'] = make_optimizer(net, g['lr'] * lr_decay_ratio)
 
@@ -188,4 +205,3 @@ class EngineEventHooks(object):
         self.on_forward = on_forward
         self.on_start_epoch = on_start_epoch
         self.on_end_epoch = on_end_epoch
-

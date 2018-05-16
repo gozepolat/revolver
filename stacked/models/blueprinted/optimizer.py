@@ -10,8 +10,15 @@ from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
     ScopedReLU, ScopedConv2d, ScopedLinear
 from stacked.utils.engine import EpochEngine, EngineEventHooks
 from stacked.utils.dataset import create_dataset
+from stacked.utils import common
+from logging import warning
 from six import add_metaclass
 from torch.optim import SGD
+
+
+def log(log_func, msg):
+    if common.DEBUG_OPTIMIZER:
+        log_func("stacked.meta.optimizer: %s" % msg)
 
 
 @add_metaclass(ScopedMeta)
@@ -21,11 +28,10 @@ class ScopedOptimizerMaker:
         self.optimizer_type = blueprint['optimizer_type']
         self.optimizer_parameter_picker = blueprint['optimizer_parameter_picker']
 
-    def __call__(self, model, *args, **kwargs):
+    def __call__(self, model, lr, *args, **kwargs):
         params = self.optimizer_parameter_picker(model)
-
-        print("Making new optimizer!! with lr %f" % args[0])
-        return self.optimizer_type(params, *args, **kwargs)
+        log(warning, "Making new optimizer!! with lr %f" % lr)
+        return self.optimizer_type(params, lr, *args, **kwargs)
 
     @staticmethod
     def describe_default(prefix, suffix, parent,
@@ -263,4 +269,3 @@ class ScopedEpochEngine(EpochEngine):
 
         default['kwargs'] = {'blueprint': default}
         return default
-
