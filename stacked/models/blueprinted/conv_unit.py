@@ -4,6 +4,7 @@ from stacked.meta.scope import ScopedMeta
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.modules.scoped_nn import ScopedReLU, \
     ScopedConv2d, ScopedBatchNorm2d
+from stacked.utils.transformer import all_to_none
 from six import add_metaclass
 
 
@@ -29,13 +30,15 @@ class ScopedConvUnit(Module):
 
     @staticmethod
     def function(bn, act, conv, x):
-        x = act(bn(x))
+        if bn is not None:
+            x = bn(x)
+        x = act(x)
         x = conv(x)
         return x
 
     @staticmethod
     def set_unit_description(default, prefix, input_shape, ni, no, kernel_size,
-                             stride, padding, conv_module, act_module, bn_module,
+                             stride, padding, conv_module, act_module, bn_module=all_to_none,
                              dilation=1, groups=1, bias=True, conv3d_args=None):
         """Set descriptions for act, bn, and conv"""
         suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
@@ -55,21 +58,26 @@ class ScopedConvUnit(Module):
         else:
             conv3d_args = conv3d_args.copy()
 
-        if 'in_channels' not in conv3d_args:
+        def need_to_set(key):
+            if key not in conv3d_args or issubclass(conv_module, ScopedConv2d):
+                return True
+            return False
+
+        if need_to_set('in_channels'):
             conv3d_args['in_channels'] = ni
-        if 'out_channels' not in conv3d_args:
+        if need_to_set('out_channels'):
             conv3d_args['out_channels'] = no
-        if 'kernel_size' not in conv3d_args:
+        if need_to_set('kernel_size'):
             conv3d_args['kernel_size'] = kernel_size
-        if 'stride' not in conv3d_args:
+        if need_to_set('stride'):
             conv3d_args['stride'] = stride
-        if 'padding' not in conv3d_args:
+        if need_to_set('padding'):
             conv3d_args['padding'] = padding
-        if 'dilation' not in conv3d_args:
+        if need_to_set('dilation'):
             conv3d_args['dilation'] = dilation
-        if 'groups' not in conv3d_args:
+        if need_to_set('groups'):
             conv3d_args['groups'] = groups
-        if 'bias' not in conv3d_args:
+        if need_to_set('bias'):
             conv3d_args['bias'] = bias
 
         default['conv'] = conv_module.describe_default('%s/conv' % prefix, suffix,

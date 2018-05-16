@@ -3,12 +3,12 @@ import torch
 from torch.nn import Module, Parameter
 from torch.nn.init import kaiming_normal
 from stacked.modules.scoped_nn import ScopedConv2d, \
-    ScopedBatchNorm2d, ScopedReLU, ScopedConv3d2d, ScopedTanh
+    ScopedReLU, ScopedConv3d2d, ScopedTanh
 from stacked.meta.scope import ScopedMeta
 from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.models.blueprinted.conv_unit import ScopedConvUnit
 from stacked.meta.blueprint import Blueprint, make_module
-from stacked.utils.transformer import get_cuda
+from stacked.utils.transformer import get_cuda, all_to_none
 from stacked.modules.fakes import MaskMultiplied, MaskScalarMultipliedSummed
 from six import add_metaclass
 
@@ -29,7 +29,7 @@ class PreConvMask(Module):
     @staticmethod
     def describe_default(prefix='pre_conv', suffix='', parent=None,
                          scalar=0.01):
-        bp = Blueprint(prefix, suffix, parent, False, PreConvMask)
+        bp = Blueprint(prefix, suffix, parent, True, PreConvMask)
         bp['scalar'] = scalar
         bp['function'] = Blueprint(prefix, suffix, bp, False,
                                    MaskScalarMultipliedSummed)
@@ -61,13 +61,13 @@ class ScopedMetaMaskGenerator(Module):
                          shape=None, in_channels=3, out_channels=3,
                          kernel_size=3, stride=1,
                          padding=1, dilation=1, groups=1,
-                         bias=True, bn_module=ScopedBatchNorm2d,
+                         bias=True, bn_module=all_to_none,
                          act_module=ScopedReLU,
                          conv_module=ScopedConv3d2d,
                          gen_module=ScopedResBlock,
                          pre_conv=PreConvMask,
                          conv_args=None, **__):
-        bp = Blueprint(prefix, suffix, parent, False,
+        bp = Blueprint(prefix, suffix, parent, True,
                        ScopedMetaMaskGenerator)
 
         depth = 2
@@ -119,11 +119,11 @@ class ScopedMetaMasked(Module):
                          conv_module=ScopedConv2d,
                          generator=ScopedMetaMaskGenerator,
                          mask_fn=MaskMultiplied,
-                         gen_bn_module=ScopedBatchNorm2d,
+                         gen_bn_module=all_to_none,
                          gen_act_module=ScopedTanh,
                          gen_conv=ScopedConv3d2d,
                          gen_module=ScopedConvUnit,
-                         gen_in_channels=2, gen_out_channels=2,
+                         gen_in_channels=1, gen_out_channels=1,
                          gen_kernel_size=7, gen_stride=1,
                          gen_dilation=1, gen_groups=1, gen_bias=True,
                          gen_pre_conv=PreConvMask, **__):
@@ -140,7 +140,7 @@ class ScopedMetaMasked(Module):
                                                  kernel_size, dilation,
                                                  groups, bias)
 
-        bp = Blueprint(prefix, suffix, parent, False,
+        bp = Blueprint(prefix, suffix, parent, True,
                        ScopedMetaMasked, kwargs=kwargs)
 
         bp['mask_fn'] = Blueprint('%s/mask_fn' % prefix, suffix, bp,
@@ -156,7 +156,6 @@ class ScopedMetaMasked(Module):
                   'kernel_size': gen_kernel_size, 'stride': gen_stride,
                   'padding': gen_kernel_size // 2, 'dilation': gen_dilation,
                   'groups': gen_groups, 'bias': gen_bias}
-
         bp['generator'] = generator.describe_default('%s/gen' % prefix, suffix,
                                                      bp, out_shape, out_channels,
                                                      out_channels, kernel_size,
@@ -165,7 +164,6 @@ class ScopedMetaMasked(Module):
                                                      gen_act_module, gen_conv,
                                                      gen_module, gen_pre_conv,
                                                      conv_args=kwargs)
-
         assert (shape is not None)
         bp['input_shape'] = shape
         bp['output_shape'] = out_shape
@@ -173,13 +171,12 @@ class ScopedMetaMasked(Module):
                         'stride': stride, 'padding': padding,
                         'dilation': dilation, 'groups': groups, 'bias': bias}
         return bp
-
     @staticmethod
     def describe_from_blueprint(prefix='meta_layer', suffix='',
                                 blueprint=None, parent=None,
                                 generator=ScopedMetaMaskGenerator,
                                 mask_fn=MaskMultiplied,
-                                gen_bn_module=ScopedBatchNorm2d,
+                                gen_bn_module=all_to_none,
                                 gen_act_module=ScopedReLU,
                                 gen_conv=ScopedConv3d2d,
                                 gen_module=ScopedConvUnit,
@@ -187,14 +184,11 @@ class ScopedMetaMasked(Module):
                                 gen_kernel_size=7, gen_stride=1,
                                 gen_dilation=1, gen_groups=1, gen_bias=True,
                                 gen_pre_conv=PreConvMask, **__):
-
         input_shape = blueprint['input_shape']
         output_shape = blueprint['output_shape']
         kwargs = blueprint['kwargs']
-
         if parent is None:
             parent = blueprint['parent']
-
         bp = ScopedMetaMasked.describe_default(prefix, suffix, parent,
                                                input_shape, input_shape[1],
                                                output_shape[1],

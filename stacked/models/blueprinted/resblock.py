@@ -37,7 +37,10 @@ class ScopedResBlock(Sequential):
 
     @staticmethod
     def function(bn, act, conv, container, convdim, x):
-        o = act(bn(x))
+        if bn is not None:
+            x = bn(x)
+
+        o = act(x)
         z = conv(o)
 
         for unit in container:
@@ -96,8 +99,9 @@ class ScopedResBlock(Sequential):
     def describe_default(prefix, suffix, parent, input_shape, in_channels,
                          out_channels, kernel_size, stride, padding,
                          dilation=1, groups=1, bias=True,
-                         act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
-                         conv_module=ScopedConv2d, block_depth=2, conv3d_args=None):
+                         act_module=ScopedReLU, bn_module=all_to_none,
+                         conv_module=ScopedConv2d, block_depth=2, conv3d_args=None,
+                         *_, **__):
         """Create a default ScopedResBlock blueprint
 
         Args:
