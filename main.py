@@ -2,7 +2,7 @@
 from stacked.models.blueprinted.optimizer import ScopedEpochEngine
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.meta import ScopedMetaMasked
-from stacked.modules.scoped_nn import ScopedConv2d
+from stacked.modules.scoped_nn import ScopedConv2d, ScopedBatchNorm2d
 from stacked.meta.blueprint import make_module, visit_modules
 from stacked.utils import common
 import argparse
@@ -63,7 +63,7 @@ if __name__ == '__main__':
                                            skeleton=skeleton, input_shape=input_shape)
 
     def make_conv2d_unique(bp, _, __):
-        if issubclass(bp['type'], ScopedConv2d):
+        if issubclass(bp['type'], ScopedConv2d) or issubclass(bp['type'], ScopedBatchNorm2d):
             bp.make_unique()
 
     visit_modules(resnet, None, None, make_conv2d_unique)
@@ -82,7 +82,7 @@ if __name__ == '__main__':
                                                                  net_blueprint=resnet,
                                                                  max_epoch=parsed.epochs,
                                                                  batch_size=parsed.batch_size,
-                                                                 learning_rate=parsed.lr * 0.3,
+                                                                 learning_rate=parsed.lr * 0.2,
                                                                  lr_decay_ratio=parsed.lr_decay_ratio,
                                                                  lr_drop_epochs=lr_drop_epochs,
                                                                  dataset=parsed.dataset,
@@ -104,14 +104,21 @@ if __name__ == '__main__':
     common_engine = make_module(common_engine_blueprint)
     generator_engine = make_module(generator_engine_blueprint)
 
-    for _ in range(parsed.epochs):
+    for j in range(parsed.epochs):
         common_engine.start_epoch()
         generator_engine.start_epoch()
+
+        # train back and forth
         for i in range(23):
             common_engine.train_n_samples(128 * 17)
             generator_engine.train_n_samples(128 * 17)
-        common_engine.end_epoch()
-        generator_engine.end_epoch()
+
+        # test every fourth epoch
+        if j % 4 == 3:
+            common_engine.end_epoch()
+        else:
+            common_engine.state['epoch'] += 1
+        generator_engine.state['epoch'] += 1
 
     common_engine.hook('on_end', common_engine.state)
     generator_engine.hook('on_end', generator_engine.state)

@@ -72,7 +72,8 @@ class ScopedConv3d2d(Conv3d2d):
     def describe_default(prefix='conv3d2d', suffix='', parent=None,
                          input_shape=None, in_channels=3, out_channels=3,
                          kernel_size=3, stride=1, padding=1,
-                         dilation=1, groups=1, bias=True, *_, **__):
+                         dilation=1, groups=1, bias=True,
+                         conv3d_args=None, *_, **__):
         """Create a default ScopedConv3d2d blueprint
 
         Args:
@@ -88,18 +89,26 @@ class ScopedConv3d2d(Conv3d2d):
             dilation: Spacing between kernel elements.
             groups: Number of blocked connections from input to output channels.
             bias: Add a learnable bias if True
+            conv3d_args: direct conv arguments to be used as kwargs
         """
-        kwargs = {'in_channels': in_channels,
-                  'out_channels': out_channels,
-                  'kernel_size': kernel_size, 'stride': stride,
-                  'padding': padding, 'dilation': dilation,
-                  'groups': groups, 'bias': bias}
+        conv3d_args = ScopedConv3d2d.adjust_args(conv3d_args, ScopedConv3d2d,
+                                                 in_channels, out_channels,
+                                                 kernel_size, stride, padding,
+                                                 dilation, groups, bias)
 
         bp = Blueprint(prefix, suffix, parent, False,
-                       ScopedConv3d2d, kwargs=kwargs)
+                       ScopedConv3d2d, kwargs=conv3d_args)
 
         assert (input_shape is not None)
         bp['input_shape'] = input_shape
+
+        # override with conv3d_args
+        in_channels = conv3d_args['in_channels']
+        out_channels = conv3d_args['out_channels']
+        kernel_size = conv3d_args['kernel_size']
+        stride = conv3d_args['stride']
+        padding = conv3d_args['padding']
+        dilation = conv3d_args['dilation']
 
         if len(input_shape) == 4:
             input_shape = (input_shape[0], in_channels,
@@ -119,6 +128,39 @@ class ScopedConv3d2d(Conv3d2d):
                                                 kernel_size, stride,
                                                 padding, dilation)
         return bp
+
+    @staticmethod
+    def adjust_args(conv_args, conv_module, in_channels, out_channels,
+                    kernel_size, stride, padding, dilation, groups, bias):
+        """Update the conv_args if the given conv module has missing keys"""
+        if conv_args is None:
+            conv_args = dict()
+        else:
+            conv_args = conv_args.copy()
+
+        def need_to_set(key):
+            if key not in conv_args or issubclass(conv_module, ScopedConv2d):
+                return True
+            return False
+
+        if need_to_set('in_channels'):
+            conv_args['in_channels'] = in_channels
+        if need_to_set('out_channels'):
+            conv_args['out_channels'] = out_channels
+        if need_to_set('kernel_size'):
+            conv_args['kernel_size'] = kernel_size
+        if need_to_set('stride'):
+            conv_args['stride'] = stride
+        if need_to_set('padding'):
+            conv_args['padding'] = padding
+        if need_to_set('dilation'):
+            conv_args['dilation'] = dilation
+        if need_to_set('groups'):
+            conv_args['groups'] = groups
+        if need_to_set('bias'):
+            conv_args['bias'] = bias
+
+        return conv_args
 
 
 @add_metaclass(ScopedMeta)

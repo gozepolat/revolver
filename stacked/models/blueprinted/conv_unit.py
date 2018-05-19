@@ -3,7 +3,7 @@ from torch.nn import Module
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.modules.scoped_nn import ScopedReLU, \
-    ScopedConv2d, ScopedBatchNorm2d
+    ScopedConv2d, ScopedBatchNorm2d, ScopedConv3d2d
 from stacked.utils.transformer import all_to_none
 from six import add_metaclass
 
@@ -53,32 +53,9 @@ class ScopedConvUnit(Module):
         default['bn'] = Blueprint('%s/bn' % prefix, suffix, default,
                                   False, bn_module, kwargs={'num_features': ni})
 
-        if conv3d_args is None:
-            conv3d_args = dict()
-        else:
-            conv3d_args = conv3d_args.copy()
-
-        def need_to_set(key):
-            if key not in conv3d_args or issubclass(conv_module, ScopedConv2d):
-                return True
-            return False
-
-        if need_to_set('in_channels'):
-            conv3d_args['in_channels'] = ni
-        if need_to_set('out_channels'):
-            conv3d_args['out_channels'] = no
-        if need_to_set('kernel_size'):
-            conv3d_args['kernel_size'] = kernel_size
-        if need_to_set('stride'):
-            conv3d_args['stride'] = stride
-        if need_to_set('padding'):
-            conv3d_args['padding'] = padding
-        if need_to_set('dilation'):
-            conv3d_args['dilation'] = dilation
-        if need_to_set('groups'):
-            conv3d_args['groups'] = groups
-        if need_to_set('bias'):
-            conv3d_args['bias'] = bias
+        conv3d_args = ScopedConv3d2d.adjust_args(conv3d_args, conv_module, ni, no,
+                                                 kernel_size, stride, padding,
+                                                 dilation, groups, bias)
 
         default['conv'] = conv_module.describe_default('%s/conv' % prefix, suffix,
                                                        default, input_shape,
@@ -96,7 +73,7 @@ class ScopedConvUnit(Module):
                          in_channels, out_channels, kernel_size,
                          stride, padding, dilation=1, groups=1, bias=True,
                          act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
-                         conv_module=ScopedConv2d, conv_args=None, *_, **__):
+                         conv_module=ScopedConv2d, conv3d_args=None, *_, **__):
         """Create a default ScopedConvUnit blueprint
 
         Args:
@@ -115,7 +92,7 @@ class ScopedConvUnit(Module):
             conv_module (type): CNN module to use in forward. e.g. ScopedConv2d
             bn_module (type): Batch normalization module. e.g. ScopedBatchNorm2d
             act_module (type): Activation module e.g ScopedReLU
-            conv_args: extra conv arguments to be used in children
+            conv3d_args: extra conv arguments to be used in children
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedConvUnit)
         default['input_shape'] = input_shape
@@ -124,7 +101,7 @@ class ScopedConvUnit(Module):
                                             in_channels, out_channels,
                                             kernel_size, stride, padding,
                                             conv_module, act_module, bn_module,
-                                            dilation, groups, bias, conv_args)
+                                            dilation, groups, bias, conv3d_args)
 
         default['output_shape'] = default['conv']['output_shape']
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,

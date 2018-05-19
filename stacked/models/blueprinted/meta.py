@@ -18,6 +18,7 @@ class PreConvMask(Module):
     def __init__(self, scope, blueprint, *_, **__):
         super(PreConvMask, self).__init__()
         self.scope = scope
+
         self.scalar = Parameter(torch.FloatTensor([blueprint['scalar']]),
                                 requires_grad=True)
         self.function = make_module(blueprint['function'])
@@ -66,14 +67,14 @@ class ScopedMetaMaskGenerator(Module):
                          conv_module=ScopedConv3d2d,
                          gen_module=ScopedResBlock,
                          pre_conv=PreConvMask,
-                         conv_args=None, **__):
-        bp = Blueprint(prefix, suffix, parent, True,
-                       ScopedMetaMaskGenerator)
+                         conv3d_args=None, **__):
+        bp = Blueprint(prefix, suffix, parent, True, ScopedMetaMaskGenerator)
 
         depth = 2
         assert (in_channels == out_channels)
         bp['conv'] = gen_module.describe_default(prefix='%s/conv' % prefix,
-                                                 suffix=suffix, parent=bp,  input_shape=shape,
+                                                 suffix=suffix, parent=bp,
+                                                 input_shape=shape,
                                                  in_channels=in_channels,
                                                  out_channels=out_channels,
                                                  kernel_size=kernel_size,
@@ -82,7 +83,7 @@ class ScopedMetaMaskGenerator(Module):
                                                  bias=bias, act_module=act_module,
                                                  bn_module=bn_module,
                                                  conv_module=conv_module, depth=depth,
-                                                 conv_args=conv_args)
+                                                 conv3d_args=conv3d_args)
 
         bp['pre_conv'] = pre_conv.describe_default(prefix='pre_conv', suffix='',
                                                    parent=bp, scalar=0.01)
@@ -98,6 +99,7 @@ class ScopedMetaMasked(Module):
     def __init__(self, scope, blueprint, *_, **__):
         super(ScopedMetaMasked, self).__init__()
         self.scope = scope
+
         self.generator = make_module(blueprint['generator'])
         self.conv = make_module(blueprint['conv'])
         self.mask_fn = make_module(blueprint['mask_fn'])
@@ -156,6 +158,7 @@ class ScopedMetaMasked(Module):
                   'kernel_size': gen_kernel_size, 'stride': gen_stride,
                   'padding': gen_kernel_size // 2, 'dilation': gen_dilation,
                   'groups': gen_groups, 'bias': gen_bias}
+
         bp['generator'] = generator.describe_default('%s/gen' % prefix, suffix,
                                                      bp, out_shape, out_channels,
                                                      out_channels, kernel_size,
@@ -163,7 +166,7 @@ class ScopedMetaMasked(Module):
                                                      groups, bias, gen_bn_module,
                                                      gen_act_module, gen_conv,
                                                      gen_module, gen_pre_conv,
-                                                     conv_args=kwargs)
+                                                     conv3d_args=kwargs)
         assert (shape is not None)
         bp['input_shape'] = shape
         bp['output_shape'] = out_shape
@@ -171,6 +174,7 @@ class ScopedMetaMasked(Module):
                         'stride': stride, 'padding': padding,
                         'dilation': dilation, 'groups': groups, 'bias': bias}
         return bp
+
     @staticmethod
     def describe_from_blueprint(prefix='meta_layer', suffix='',
                                 blueprint=None, parent=None,
@@ -187,8 +191,10 @@ class ScopedMetaMasked(Module):
         input_shape = blueprint['input_shape']
         output_shape = blueprint['output_shape']
         kwargs = blueprint['kwargs']
+
         if parent is None:
             parent = blueprint['parent']
+
         bp = ScopedMetaMasked.describe_default(prefix, suffix, parent,
                                                input_shape, input_shape[1],
                                                output_shape[1],

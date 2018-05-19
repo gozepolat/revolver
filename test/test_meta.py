@@ -26,7 +26,7 @@ class TestScopedMetaMasked(unittest.TestCase):
             self.assertEqual(out.size(), self.out_size)
 
     def test_replace_conv_with_meta_layer(self):
-        common.BLUEPRINT_GUI = True
+        common.BLUEPRINT_GUI = False
         if common.BLUEPRINT_GUI and common.GUI is None:
             from tkinter import Tk
             common.GUI = Tk()

@@ -77,4 +77,3 @@ def swap_consecutive(container1, container2, index1, index2,
     tmp = [k for k in container1]
     container1[index1:ix1] = container2[index2:ix2]
     container2[index2:ix2] = tmp[index1:ix1]
-
