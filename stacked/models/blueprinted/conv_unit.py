@@ -3,7 +3,7 @@ from torch.nn import Module
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.modules.scoped_nn import ScopedReLU, \
-    ScopedConv2d, ScopedBatchNorm2d, ScopedConv3d2d
+    ScopedConv2d, ScopedBatchNorm2d
 from stacked.utils.transformer import all_to_none
 from six import add_metaclass
 
@@ -38,8 +38,9 @@ class ScopedConvUnit(Module):
 
     @staticmethod
     def set_unit_description(default, prefix, input_shape, ni, no, kernel_size,
-                             stride, padding, conv_module, act_module, bn_module=all_to_none,
-                             dilation=1, groups=1, bias=True, conv3d_args=None):
+                             stride, padding, conv_module, act_module,
+                             bn_module=all_to_none, dilation=1, groups=1,
+                             bias=True, conv3d_args=None):
         """Set descriptions for act, bn, and conv"""
         suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
                                               padding, dilation, groups, bias)
@@ -53,20 +54,11 @@ class ScopedConvUnit(Module):
         default['bn'] = Blueprint('%s/bn' % prefix, suffix, default,
                                   False, bn_module, kwargs={'num_features': ni})
 
-        conv3d_args = ScopedConv3d2d.adjust_args(conv3d_args, conv_module, ni, no,
-                                                 kernel_size, stride, padding,
-                                                 dilation, groups, bias)
-
         default['conv'] = conv_module.describe_default('%s/conv' % prefix, suffix,
-                                                       default, input_shape,
-                                                       conv3d_args['in_channels'],
-                                                       conv3d_args['out_channels'],
-                                                       conv3d_args['kernel_size'],
-                                                       conv3d_args['stride'],
-                                                       conv3d_args['padding'],
-                                                       conv3d_args['dilation'],
-                                                       conv3d_args['groups'],
-                                                       conv3d_args['bias'])
+                                                       default, input_shape, ni,
+                                                       no, kernel_size, stride,
+                                                       padding, dilation, groups,
+                                                       bias, conv3d_args=conv3d_args)
 
     @staticmethod
     def describe_default(prefix, suffix, parent, input_shape,
