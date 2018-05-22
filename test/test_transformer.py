@@ -11,9 +11,9 @@ class TestTransformImage(unittest.TestCase):
         super(TestTransformImage, self).__init__(*args, **kwargs)
 
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
         image_paths = glob.glob("images/*")
-        self.test_images = [(s, Image.open(s)) for s in image_paths]
+        cls.test_images = [(s, Image.open(s)) for s in image_paths]
 
     def test_image_variable_conversion(self):
         variables = []
