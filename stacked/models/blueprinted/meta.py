@@ -19,6 +19,7 @@ class PreConvMask(Module):
     def __init__(self, scope, blueprint, *_, **__):
         super(PreConvMask, self).__init__()
         self.scope = scope
+        self.blueprint = blueprint
 
         self.scalar = Parameter(torch.FloatTensor([blueprint['scalar']]),
                                 requires_grad=True)
@@ -49,14 +50,18 @@ class ScopedMetaMaskGenerator(Module):
     def __init__(self, scope, blueprint, *_, **__):
         super(ScopedMetaMaskGenerator, self).__init__()
         self.scope = scope
+        self.blueprint = blueprint
+
         self.conv = make_module(blueprint['conv'])
         self.mask = get_cuda(
             kaiming_normal(torch.ones(blueprint['input_shape'][1:])))
         self.pre_conv = make_module(blueprint['pre_conv'])
+        self.callback = blueprint['callback']
 
     def forward(self, x):
         mask = self.function(x, self.conv, self.pre_conv, self.mask)
         self.mask = torch.mean(mask.data, dim=0)
+        self.callback(self.scope, mask)
         return mask
 
     @staticmethod
@@ -73,6 +78,7 @@ class ScopedMetaMaskGenerator(Module):
                          conv_module=ScopedConv3d2d,
                          gen_module=ScopedResBlock,
                          pre_conv=PreConvMask,
+                         callback=all_to_none,
                          conv3d_args=None, **__):
         bp = Blueprint(prefix, suffix, parent, True, ScopedMetaMaskGenerator)
 
@@ -89,8 +95,9 @@ class ScopedMetaMaskGenerator(Module):
                                                  bias=bias, act_module=act_module,
                                                  bn_module=bn_module,
                                                  conv_module=conv_module, depth=depth,
+                                                 callback=callback,
                                                  conv3d_args=conv3d_args)
-
+        bp['callback'] = callback
         bp['pre_conv'] = pre_conv.describe_default(prefix='pre_conv', suffix='',
                                                    parent=bp, scalar=0.2)
         bp['input_shape'] = shape
@@ -105,19 +112,24 @@ class ScopedMetaMasked(Module):
     def __init__(self, scope, blueprint, *_, **__):
         super(ScopedMetaMasked, self).__init__()
         self.scope = scope
+        self.blueprint = blueprint
 
         self.generator = make_module(blueprint['generator'])
         self.conv = make_module(blueprint['conv'])
         self.mask_fn = make_module(blueprint['mask_fn'])
+        self.callback = blueprint['callback']
 
     def forward(self, x):
-        return self.function(x, self.mask_fn,
-                             self.generator, self.conv)
+        return self.function(self.mask_fn,
+                             self.generator, self.conv,
+                             self.callback, self.scope, x)
 
     @staticmethod
-    def function(x, mask_fn, generator, conv):
+    def function(mask_fn, generator, conv, callback, scope, x):
         out = conv(x)
-        return mask_fn(out, generator(out), x)
+        out = mask_fn(out, generator(out), x)
+        callback(scope, out)
+        return out
 
     @staticmethod
     def describe_default(prefix='meta_layer', suffix='', parent=None,
@@ -134,7 +146,8 @@ class ScopedMetaMasked(Module):
                          gen_in_channels=10, gen_out_channels=10,
                          gen_kernel_size=7, gen_stride=1,
                          gen_dilation=1, gen_groups=1, gen_bias=True,
-                         gen_pre_conv=PreConvMask, conv3d_args=None, **__):
+                         gen_pre_conv=PreConvMask,
+                         callback=all_to_none, conv3d_args=None, **__):
         """Meta masks to model local rules"""
         kwargs = {'in_channels': in_channels,
                   'out_channels': out_channels,
@@ -153,14 +166,13 @@ class ScopedMetaMasked(Module):
 
         bp['mask_fn'] = Blueprint('%s/mask_fn' % prefix, suffix, bp,
                                   False, mask_fn)
-
+        bp['callback'] = callback
         bp['conv'] = conv_module.describe_default('%s/conv' % prefix, suffix,
                                                   bp, shape, in_channels,
                                                   out_channels, kernel_size,
                                                   stride, padding, dilation,
                                                   groups, bias)
         out_shape = bp['conv']['output_shape']
-        super(ScopedMetaMaskGenerator, self).__init__()
         # in case the generator uses conv3d adjust conv3d_arguments accordingly
         kwargs = {'in_channels': gen_in_channels, 'out_channels': gen_out_channels,
                   'kernel_size': gen_kernel_size, 'stride': gen_stride,
@@ -174,6 +186,7 @@ class ScopedMetaMasked(Module):
                                                      groups, bias, gen_bn_module,
                                                      gen_act_module, gen_conv,
                                                      gen_module, gen_pre_conv,
+                                                     callback=callback,
                                                      conv3d_args=conv3d_args)
         assert (shape is not None)
         bp['input_shape'] = shape

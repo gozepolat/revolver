@@ -20,27 +20,31 @@ class ScopedConvUnit(Module):
     def __init__(self, scope, blueprint, *_, **__):
         super(ScopedConvUnit, self).__init__()
         self.scope = scope
+        self.blueprint = blueprint
 
         self.bn = make_module(blueprint['bn'])
         self.act = make_module(blueprint['act'])
         self.conv = make_module(blueprint['conv'])
+        self.callback = blueprint['callback']
 
     def forward(self, x):
-        return self.function(self.bn, self.act, self.conv, x)
+        return self.function(self.bn, self.act, self.conv,
+                             self.callback, self.scope, x)
 
     @staticmethod
-    def function(bn, act, conv, x):
+    def function(bn, act, conv, callback, scope, x):
         if bn is not None:
             x = bn(x)
         x = act(x)
         x = conv(x)
+        callback(scope, x)
         return x
 
     @staticmethod
     def set_unit_description(default, prefix, input_shape, ni, no, kernel_size,
                              stride, padding, conv_module, act_module,
                              bn_module=all_to_none, dilation=1, groups=1,
-                             bias=True, conv3d_args=None):
+                             bias=True, callback=all_to_none, conv3d_args=None):
         """Set descriptions for act, bn, and conv"""
         suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
                                               padding, dilation, groups, bias)
@@ -48,6 +52,7 @@ class ScopedConvUnit(Module):
         if issubclass(act_module, ScopedReLU):
             kwargs = {'inplace': True}
 
+        default['callback'] = callback
         default['act'] = Blueprint('%s/act' % prefix, suffix, default,
                                    False, act_module, kwargs=kwargs)
 
@@ -65,7 +70,8 @@ class ScopedConvUnit(Module):
                          in_channels, out_channels, kernel_size,
                          stride, padding, dilation=1, groups=1, bias=True,
                          act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
-                         conv_module=ScopedConv2d, conv3d_args=None, *_, **__):
+                         conv_module=ScopedConv2d,
+                         callback=all_to_none, conv3d_args=None, *_, **__):
         """Create a default ScopedConvUnit blueprint
 
         Args:
@@ -84,6 +90,7 @@ class ScopedConvUnit(Module):
             conv_module (type): CNN module to use in forward. e.g. ScopedConv2d
             bn_module (type): Batch normalization module. e.g. ScopedBatchNorm2d
             act_module (type): Activation module e.g ScopedReLU
+            callback: function to call after the output in forward is calculated
             conv3d_args: extra conv arguments to be used in children
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedConvUnit)
@@ -93,7 +100,8 @@ class ScopedConvUnit(Module):
                                             in_channels, out_channels,
                                             kernel_size, stride, padding,
                                             conv_module, act_module, bn_module,
-                                            dilation, groups, bias, conv3d_args)
+                                            dilation, groups, bias,
+                                            callback, conv3d_args)
 
         default['output_shape'] = default['conv']['output_shape']
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,

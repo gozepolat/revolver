@@ -5,6 +5,7 @@ from stacked.meta.blueprint import Blueprint
 from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
     ScopedReLU, ScopedConv2d
+from stacked.utils.transformer import all_to_none
 from six import add_metaclass
 
 
@@ -13,15 +14,20 @@ class ScopedResGroup(Sequential):
     """Group of residual blocks with the same number of output channels"""
     def __init__(self, scope, blueprint, *_, **__):
         self.scope = scope
+        self.blueprint = blueprint
+
         super(ScopedResGroup, self).__init__(blueprint)
+        self.callback = blueprint['callback']
 
     def forward(self, x):
-        return self.function(self.container, x)
+        return self.function(self.container,
+                             self.callback, self.scope, x)
 
     @staticmethod
-    def function(container, x):
+    def function(container, callback, scope, x):
         for module in container:
             x = module(x)
+        callback(scope, x)
         return x
 
     @staticmethod
@@ -30,7 +36,7 @@ class ScopedResGroup(Sequential):
                          dilation=1, groups=1, bias=True,
                          act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
                          conv_module=ScopedConv2d, group_depth=1, block_depth=2,
-                         conv3d_args=None):
+                         callback=all_to_none, conv3d_args=None):
         """Create a default ResGroup blueprint
 
         Args:
@@ -51,6 +57,7 @@ class ScopedResGroup(Sequential):
             dilation: Spacing between kernel elements.
             groups: Number of blocked connections from input to output channels.
             bias: Add a learnable bias if True
+            callback: function to call after the output in forward is calculated
             conv3d_args: extra conv arguments to be used in children
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedResGroup)
@@ -68,7 +75,7 @@ class ScopedResGroup(Sequential):
                                                     kernel_size, stride, padding,
                                                     dilation, groups, bias,
                                                     act_module, bn_module, conv_module,
-                                                    block_depth, conv3d_args)
+                                                    block_depth, callback, conv3d_args)
             input_shape = block['output_shape']
             children.append(block)
 
@@ -76,6 +83,7 @@ class ScopedResGroup(Sequential):
             stride = 1
             in_channels = out_channels
 
+        default['callback'] = callback
         default['children'] = children
         default['depth'] = len(children)
         default['output_shape'] = input_shape

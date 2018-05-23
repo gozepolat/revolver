@@ -6,6 +6,7 @@ from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.models.blueprinted.resgroup import ScopedResGroup
+from stacked.utils.transformer import all_to_none
 from six import add_metaclass
 
 
@@ -20,18 +21,22 @@ class ScopedResNet(Sequential):
     def __init__(self, scope, blueprint, *_, **__):
         super(ScopedResNet, self).__init__(blueprint)
         self.scope = scope
+        self.blueprint = blueprint
 
         self.act = make_module(blueprint['act'])
         self.conv = make_module(blueprint['conv'])
         self.bn = make_module(blueprint['bn'])
         self.linear = make_module(blueprint['linear'])
+        self.callback = blueprint['callback']
 
     def forward(self, x):
         return self.function(self.conv, self.container,
-                             self.bn, self.act, self.linear, x)
+                             self.bn, self.act, self.linear,
+                             self.callback, self.scope, x)
 
     @staticmethod
-    def function(conv, container, bn, act, linear, x):
+    def function(conv, container, bn, act, linear,
+                 callback, scope, x):
         x = conv(x)
 
         for group in container:
@@ -41,6 +46,7 @@ class ScopedResNet(Sequential):
         o = F.avg_pool2d(o, o.size()[2], 1, 0)
         o = o.view(o.size(0), -1)
         o = linear(o)
+        callback(scope, o)
         return o
 
     @staticmethod
@@ -50,7 +56,7 @@ class ScopedResNet(Sequential):
     @staticmethod
     def __set_default_items(prefix, default, shape, ni, no, kernel_size, num_classes,
                             bn_module, act_module, conv_module, linear_module,
-                            dilation=1, groups=1, bias=True):
+                            dilation=1, groups=1, bias=True, callback=all_to_none):
         """Set blueprint items that are not Sequential type"""
 
         default['input_shape'] = shape
@@ -60,6 +66,7 @@ class ScopedResNet(Sequential):
         if issubclass(act_module, ScopedReLU):
             kwargs = {'inplace': True}
 
+        default['callback'] = callback
         default['act'] = Blueprint('%s/act' % prefix, '%d' % no, default, False,
                                    act_module, kwargs=kwargs)
         # describe conv
@@ -73,7 +80,8 @@ class ScopedResNet(Sequential):
                                                        kernel_size=kernel_size,
                                                        stride=1, padding=1,
                                                        dilation=dilation,
-                                                       groups=groups, bias=bias)
+                                                       groups=groups, bias=bias,
+                                                       callback=callback)
 
         # describe linear, (shapes will be set after children)
         kwargs = {'in_features': no, 'out_features': num_classes}
@@ -89,7 +97,8 @@ class ScopedResNet(Sequential):
     def __set_default_children(prefix, default, ni, widths, group_depth,
                                block_depth, conv_module, bn_module, act_module,
                                kernel_size, stride, padding, shape,
-                               dilation=1, groups=1, bias=True, conv3d_args=None):
+                               dilation=1, groups=1, bias=True,
+                               callback=all_to_none, conv3d_args=None):
         """Sequentially set children blueprints"""
         children = []
         for width in widths:
@@ -102,7 +111,8 @@ class ScopedResNet(Sequential):
                                                     ni, no, kernel_size, stride, padding,
                                                     dilation, groups, bias,
                                                     act_module, bn_module, conv_module,
-                                                    group_depth, block_depth, conv3d_args)
+                                                    group_depth, block_depth,
+                                                    callback, conv3d_args)
             shape = block['output_shape']
             children.append(block)
             stride = 2
@@ -116,19 +126,19 @@ class ScopedResNet(Sequential):
     def __get_default(prefix, suffix, parent, shape, ni, no, kernel_size,
                       num_classes, bn_module, act_module, conv_module, linear_module,
                       widths, group_depth, block_depth, stride, padding,
-                      dilation=1, groups=1, bias=True, conv3d_args=None):
+                      dilation=1, groups=1, bias=True, callback=all_to_none, conv3d_args=None):
         """Set the items and the children of the default blueprint object"""
         default = Blueprint(prefix, suffix, parent, False, ScopedResNet)
         shape = ScopedResNet.__set_default_items(prefix, default, shape, ni, no,
                                                  kernel_size, num_classes, bn_module,
                                                  act_module, conv_module, linear_module,
-                                                 dilation, groups, bias)
+                                                 dilation, groups, bias, callback)
 
         shape = ScopedResNet.__set_default_children(prefix, default, ni, widths,
                                                     group_depth, block_depth, conv_module,
                                                     bn_module, act_module, kernel_size,
                                                     stride, padding, shape, dilation,
-                                                    groups, bias, conv3d_args)
+                                                    groups, bias, callback, conv3d_args)
 
         default['linear']['input_shape'] = (shape[0], shape[1])
         default['linear']['output_shape'] = (shape[0], num_classes)
@@ -145,7 +155,7 @@ class ScopedResNet(Sequential):
                          bn_module=ScopedBatchNorm2d, linear_module=ScopedLinear,
                          act_module=ScopedReLU, kernel_size=3, padding=1,
                          input_shape=None, dilation=1, groups=1, bias=True,
-                         conv3d_args=None):
+                         callback=all_to_none, conv3d_args=None):
         """Create a default ResBlock blueprint
 
         Args:
@@ -167,6 +177,7 @@ class ScopedResNet(Sequential):
             dilation (int): Spacing between kernel elements.
             groups: Number of blocked connections from input to output channels.
             bias: Add a learnable bias if True
+            callback: function to call after the output in forward is calculated
             conv3d_args: extra conv arguments to be used in children
         """
         if input_shape is None:
@@ -188,5 +199,6 @@ class ScopedResNet(Sequential):
                                              conv_module, linear_module,
                                              widths, group_depth,
                                              block_depth, stride, padding,
-                                             dilation, groups, bias, conv3d_args)
+                                             dilation, groups, bias,
+                                             callback, conv3d_args)
         return default
