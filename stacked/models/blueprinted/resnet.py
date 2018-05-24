@@ -32,11 +32,11 @@ class ScopedResNet(Sequential):
     def forward(self, x):
         return self.function(self.conv, self.container,
                              self.bn, self.act, self.linear,
-                             self.callback, self.scope, x)
+                             self.callback, self.scope, id(self), x)
 
     @staticmethod
     def function(conv, container, bn, act, linear,
-                 callback, scope, x):
+                 callback, scope, module_id, x):
         x = conv(x)
 
         for group in container:
@@ -46,7 +46,7 @@ class ScopedResNet(Sequential):
         o = F.avg_pool2d(o, o.size()[2], 1, 0)
         o = o.view(o.size(0), -1)
         o = linear(o)
-        callback(scope, o)
+        callback(scope, module_id, o)
         return o
 
     @staticmethod

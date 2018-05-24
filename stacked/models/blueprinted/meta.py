@@ -3,7 +3,7 @@ import torch
 from torch.nn import Module, Parameter
 from torch.nn.init import kaiming_normal
 from stacked.modules.scoped_nn import ScopedConv2d, \
-    ScopedReLU, ScopedConv3d2d, ScopedTanh, ScopedHardTanh, ScopedSigmoid
+    ScopedReLU, ScopedConv3d2d, ScopedTanh, ScopedSigmoid
 from stacked.meta.scope import ScopedMeta
 from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.models.blueprinted.conv_unit import ScopedConvUnit
@@ -33,12 +33,11 @@ class PreConvMask(Module):
 
     @staticmethod
     def describe_default(prefix='pre_conv', suffix='', parent=None,
-                         scalar=0.01, act_module=ScopedHardTanh,
+                         scalar=0.01, act_module=ScopedSigmoid,
                          function_module=MaskScalarMultipliedSummed):
         bp = Blueprint(prefix, suffix, parent, True, PreConvMask)
         bp['scalar'] = scalar
         bp['act'] = Blueprint('%s/act' % prefix, suffix, parent, False, act_module)
-        bp['act']['kwargs'] = {'min_val':0,'max_val':1}
         bp['function'] = Blueprint('%s/function' % prefix, suffix, bp, False,
                                    function_module)
         bp['kwargs'] = {'blueprint': bp}
@@ -61,7 +60,9 @@ class ScopedMetaMaskGenerator(Module):
     def forward(self, x):
         mask = self.function(x, self.conv, self.pre_conv, self.mask)
         self.mask = torch.mean(mask.data, dim=0)
-        self.callback(self.scope, mask)
+        self.mask += self.mask.data.new(self.mask.size()).normal_(0, 0.01)
+
+        self.callback(self.scope, id(self), mask)
         return mask
 
     @staticmethod
@@ -122,13 +123,15 @@ class ScopedMetaMasked(Module):
     def forward(self, x):
         return self.function(self.mask_fn,
                              self.generator, self.conv,
-                             self.callback, self.scope, x)
+                             self.callback, self.scope,
+                             id(self), x)
 
     @staticmethod
-    def function(mask_fn, generator, conv, callback, scope, x):
+    def function(mask_fn, generator, conv, callback,
+                 scope, module_id, x):
         out = conv(x)
         out = mask_fn(out, generator(out), x)
-        callback(scope, out)
+        callback(scope, module_id, out)
         return out
 
     @staticmethod
@@ -140,11 +143,11 @@ class ScopedMetaMasked(Module):
                          generator=ScopedMetaMaskGenerator,
                          mask_fn=MaskMultiplied,
                          gen_bn_module=all_to_none,
-                         gen_act_module=ScopedHardTanh,
+                         gen_act_module=ScopedTanh,
                          gen_conv=ScopedConv3d2d,
                          gen_module=ScopedConvUnit,
-                         gen_in_channels=10, gen_out_channels=10,
-                         gen_kernel_size=7, gen_stride=1,
+                         gen_in_channels=16, gen_out_channels=16,
+                         gen_kernel_size=9, gen_stride=1,
                          gen_dilation=1, gen_groups=1, gen_bias=True,
                          gen_pre_conv=PreConvMask,
                          callback=all_to_none, conv3d_args=None, **__):

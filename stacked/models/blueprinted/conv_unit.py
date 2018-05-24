@@ -29,15 +29,16 @@ class ScopedConvUnit(Module):
 
     def forward(self, x):
         return self.function(self.bn, self.act, self.conv,
-                             self.callback, self.scope, x)
+                             self.callback, self.scope,
+                             id(self), x)
 
     @staticmethod
-    def function(bn, act, conv, callback, scope, x):
+    def function(bn, act, conv, callback, scope, module_id, x):
         if bn is not None:
             x = bn(x)
         x = act(x)
         x = conv(x)
-        callback(scope, x)
+        callback(scope, module_id, x)
         return x
 
     @staticmethod

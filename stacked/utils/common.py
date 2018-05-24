@@ -19,6 +19,13 @@ BLUEPRINT_GUI = True
 GUI = None
 
 SCOPE_DICTIONARY = dict()
+CURRENT_EPOCH = 1
+
+PREVIOUS_PARAMETERS = dict()
+CURRENT_FEATURES = dict()
+PREVIOUS_FEATURES = dict()
+PREVIOUS_LABEL = None
+CURRENT_LABEL = None
 
 
 def get_cuda(param, _type='float'):

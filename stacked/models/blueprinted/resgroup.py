@@ -21,13 +21,14 @@ class ScopedResGroup(Sequential):
 
     def forward(self, x):
         return self.function(self.container,
-                             self.callback, self.scope, x)
+                             self.callback,
+                             self.scope, id(self), x)
 
     @staticmethod
-    def function(container, callback, scope, x):
+    def function(container, callback, scope, module_id, x):
         for module in container:
             x = module(x)
-        callback(scope, x)
+        callback(scope, module_id, x)
         return x
 
     @staticmethod

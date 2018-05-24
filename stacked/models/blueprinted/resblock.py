@@ -36,11 +36,11 @@ class ScopedResBlock(Sequential):
         return self.function(self.bn, self.act,
                              self.conv, self.container,
                              self.convdim, self.callback,
-                             self.scope, x)
+                             self.scope, id(self), x)
 
     @staticmethod
     def function(bn, act, conv, container, convdim,
-                 callback, scope, x):
+                 callback, scope, module_id, x):
         if bn is not None:
             x = bn(x)
 
@@ -55,7 +55,7 @@ class ScopedResBlock(Sequential):
         else:
             z = z + x
 
-        callback(scope, z)
+        callback(scope, module_id, z)
         return z
 
     @staticmethod
