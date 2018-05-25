@@ -2,14 +2,14 @@
 import torch
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
-import torch.nn.functional as F
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
-    ScopedReLU, ScopedConv2d, ScopedLinear
+    ScopedReLU, ScopedConv2d, ScopedLinear, ScopedCrossEntropyLoss
 from stacked.utils.engine import EpochEngine, EngineEventHooks
 from stacked.utils.dataset import create_dataset
+from stacked.utils.transformer import all_to_none
 from stacked.utils import common
 from logging import warning
 from six import add_metaclass
@@ -84,17 +84,19 @@ class ScopedDataLoader(DataLoader):
 class ScopedCriterion:
     def __init__(self, scope, blueprint, *_, **__):
         self.scope = scope
-        self.criterion = blueprint['criterion']
+
+        self.criterion = make_module(blueprint['criterion'])
 
     def __call__(self, out, target, *args, **kwargs):
         return self.criterion(out, target)
 
     @staticmethod
     def describe_default(prefix, suffix, parent,
-                         criterion=F.cross_entropy):
+                         criterion=ScopedCrossEntropyLoss):
         default = Blueprint(prefix, suffix, parent, False, ScopedCriterion)
 
-        default['criterion'] = criterion
+        default['criterion'] = Blueprint('%s/criterion' % prefix, suffix,
+                                         default, False, criterion)
 
         default['kwargs'] = {'blueprint': default}
         return default
@@ -107,6 +109,10 @@ class ScopedNetRunner:
         self.loss_func = make_module(blueprint['loss_func'])
         self.net = None
 
+    def set_model(self, model):
+        self.net = model
+        self.loss_func.criterion.net = model
+
     def __call__(self, sample):
         x_input = Variable(getattr(sample[0].cuda(), 'float')())
         y_targets = Variable(getattr(sample[1].cuda(), 'long')())
@@ -115,7 +121,7 @@ class ScopedNetRunner:
 
     @staticmethod
     def describe_default(prefix, suffix, parent,
-                         criterion=F.cross_entropy,
+                         criterion=ScopedCrossEntropyLoss,
                          loss_func=ScopedCriterion):
         default = Blueprint(prefix, suffix, parent, True, ScopedNetRunner)
         default['loss_func'] = loss_func.describe_default("%s/loss_func" % prefix,
@@ -139,7 +145,7 @@ class ScopedEpochEngine(EpochEngine):
         net = make_module(blueprint['net']).cuda()
 
         net_runner = make_module(blueprint['net_runner'])
-        net_runner.net = net
+        net_runner.set_model(net)
 
         optimizer_maker = make_module(blueprint['optimizer_maker'])
 
@@ -182,7 +188,8 @@ class ScopedEpochEngine(EpochEngine):
                          lr_drop_epochs=(60, 120, 160), logger=None,
                          data_loader=ScopedDataLoader, dataset="CIFAR10",
                          crop_size=32, num_thread=4, net_runner=ScopedNetRunner,
-                         criterion=F.cross_entropy, loss_func=ScopedCriterion):
+                         criterion=ScopedCrossEntropyLoss, loss_func=ScopedCriterion,
+                         callback=all_to_none):
         """Create a default ResBlock blueprint
 
         Args:
@@ -222,6 +229,7 @@ class ScopedEpochEngine(EpochEngine):
             net_runner: Functor that runs the network and returns loss, output
             criterion: Loss criterion function to be used in net_runner
             loss_func: Module that can customize the loss criterion or use it as is
+            callback: function to call after the output in forward is calculated
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedEpochEngine)
 
@@ -265,7 +273,7 @@ class ScopedEpochEngine(EpochEngine):
                                                            linear_module, act_module,
                                                            kernel_size, padding,
                                                            input_shape, dilation, groups,
-                                                           bias, conv3d_args)
+                                                           bias, callback, conv3d_args)
 
         default['kwargs'] = {'blueprint': default}
         return default

@@ -29,7 +29,7 @@ class EpochEngine(object):
                 loss, output = self.state['network'](self.state['sample'])
                 self.state['output'] = output
                 self.state['loss'] = loss
-                loss.backward()
+                loss.backward(retain_graph=True)
                 self.hook('on_forward', self.state)
 
                 # to free memory in save_for_backward
@@ -41,11 +41,13 @@ class EpochEngine(object):
             self.state['optimizer'].step(closure)
             self.hook('on_update', self.state)
             self.state['t'] += 1
-            if i < n:
+
+            if i >= n:
                 break
 
     def start_epoch(self):
         self.hook('on_start_epoch', self.state)
+        common.TRAIN = True
 
     def end_epoch(self):
         self.state['epoch'] += 1
@@ -77,6 +79,7 @@ class EpochEngine(object):
         return self.state
 
     def test(self, network, iterator):
+        common.TRAIN = False
         state = {
             'network': network,
             'iterator': iterator,

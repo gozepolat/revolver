@@ -26,6 +26,7 @@ CURRENT_FEATURES = dict()
 PREVIOUS_FEATURES = dict()
 PREVIOUS_LABEL = None
 CURRENT_LABEL = None
+TRAIN = False
 
 
 def get_cuda(param, _type='float'):
