@@ -208,8 +208,8 @@ class ScopedMetaMasked(Module):
                                 gen_act_module=ScopedReLU,
                                 gen_conv=ScopedConv3d2d,
                                 gen_module=ScopedResBlock,
-                                gen_in_channels=10, gen_out_channels=10,
-                                gen_kernel_size=7, gen_stride=1,
+                                gen_in_channels=16, gen_out_channels=16,
+                                gen_kernel_size=9, gen_stride=1,
                                 gen_dilation=1, gen_groups=1, gen_bias=True,
                                 gen_pre_conv=PreConvMask, **__):
         input_shape = blueprint['input_shape']

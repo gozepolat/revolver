@@ -34,6 +34,7 @@ def parse_args():
     parser.add_argument('--lr_drop_epochs', default='[60,120,180]', type=str,
                         help='json list with epochs to drop lr on')
     parser.add_argument('--lr_decay_ratio', default=0.2, type=float)
+    parser.add_argument('--single_engine', default=True, type=bool)
     parser.add_argument('--gpu_id', default='0', type=str,
                         help='id(s) for CUDA_VISIBLE_DEVICES')
 
@@ -83,7 +84,7 @@ if __name__ == '__main__':
                                                                  net_blueprint=resnet,
                                                                  max_epoch=parsed.epochs,
                                                                  batch_size=parsed.batch_size,
-                                                                 learning_rate=parsed.lr * 0.2,
+                                                                 learning_rate=parsed.lr,
                                                                  lr_decay_ratio=parsed.lr_decay_ratio,
                                                                  lr_drop_epochs=lr_drop_epochs,
                                                                  dataset=parsed.dataset,
@@ -95,31 +96,46 @@ if __name__ == '__main__':
                                                                     net_blueprint=resnet,
                                                                     max_epoch=parsed.epochs,
                                                                     batch_size=parsed.batch_size,
-                                                                    learning_rate=parsed.lr,
+                                                                    learning_rate=parsed.lr * 0.2,
                                                                     lr_decay_ratio=parsed.lr_decay_ratio,
                                                                     lr_drop_epochs=lr_drop_epochs,
                                                                     dataset=parsed.dataset,
                                                                     num_thread=parsed.num_thread,
                                                                     optimizer_parameter_picker=generator_picker)
 
+    engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
+                                                          net_blueprint=resnet,
+                                                          max_epoch=parsed.epochs,
+                                                          batch_size=parsed.batch_size,
+                                                          learning_rate=parsed.lr,
+                                                          lr_decay_ratio=parsed.lr_decay_ratio,
+                                                          lr_drop_epochs=lr_drop_epochs,
+                                                          dataset=parsed.dataset,
+                                                          num_thread=parsed.num_thread)
     common_engine = make_module(common_engine_blueprint)
     generator_engine = make_module(generator_engine_blueprint)
+    engine = make_module(engine_blueprint)
 
-    for j in range(parsed.epochs):
-        common_engine.start_epoch()
-        generator_engine.start_epoch()
+    if parsed.single_engine:
+        for j in range(parsed.epochs):
+            engine.train_one_epoch()
+        engine.hook('on_end', engine.state)
+    else:
+        for j in range(parsed.epochs):
+            common_engine.start_epoch()
+            generator_engine.start_epoch()
 
-        # train back and forth
-        for i in range(23):
-            common_engine.train_n_samples(128 * 17)
-            generator_engine.train_n_samples(128 * 17)
+            # train back and forth
+            for i in range(23):
+                common_engine.train_n_samples(128 * 17)
+                generator_engine.train_n_samples(128 * 17)
 
-        # test every fourth epoch
-        if j % 4 == 3:
-            common_engine.end_epoch()
-        else:
-            common_engine.state['epoch'] += 1
-        generator_engine.state['epoch'] += 1
+            # test every fourth epoch
+            if j % 4 == 3:
+                common_engine.end_epoch()
+            else:
+                common_engine.state['epoch'] += 1
+            generator_engine.state['epoch'] += 1
 
-    common_engine.hook('on_end', common_engine.state)
-    generator_engine.hook('on_end', generator_engine.state)
+        common_engine.hook('on_end', common_engine.state)
+        generator_engine.hook('on_end', generator_engine.state)
