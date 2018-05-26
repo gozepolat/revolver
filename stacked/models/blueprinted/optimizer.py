@@ -109,9 +109,9 @@ class ScopedNetRunner:
         self.loss_func = make_module(blueprint['loss_func'])
         self.net = None
 
-    def set_model(self, model):
+    def set_model(self, engine, model):
         self.net = model
-        self.loss_func.criterion.net = model
+        self.loss_func.criterion.engine = engine
 
     def __call__(self, sample):
         x_input = Variable(getattr(sample[0].cuda(), 'float')())
@@ -143,9 +143,9 @@ class ScopedEpochEngine(EpochEngine):
         test_loader = make_module(blueprint['test_loader'])
 
         net = make_module(blueprint['net']).cuda()
-
+        self.net = net
         net_runner = make_module(blueprint['net_runner'])
-        net_runner.set_model(net)
+        net_runner.set_model(engine, net)
 
         optimizer_maker = make_module(blueprint['optimizer_maker'])
 

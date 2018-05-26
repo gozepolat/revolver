@@ -59,7 +59,7 @@ class ScopedMetaMaskGenerator(Module):
 
     def forward(self, x):
         mask = self.function(x, self.conv, self.pre_conv, self.mask)
-        self.mask = torch.mean(mask.data, dim=0)
+        self.mask = torch.mean(mask, dim=0).data
         self.mask += self.mask.data.new(self.mask.size()).normal_(0, 0.01)
 
         self.callback(self.scope, id(self), mask)

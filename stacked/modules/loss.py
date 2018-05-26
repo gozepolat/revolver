@@ -2,16 +2,47 @@ import torch
 from torch.nn import Module
 from torch.nn.functional import cosine_embedding_loss, cross_entropy
 from stacked.utils import common
+import numpy as np
 
 
 class ParameterSimilarityLoss(Module):
     def __init__(self, default_loss=cross_entropy):
         super(ParameterSimilarityLoss, self).__init__()
         self.default_loss = default_loss
-        self.net = None
+        self.engine = None
+        self.epoch = 1
+
+    def get_current_parameters(self):
+        """Get a dictionary of parameters accor"""
+        param_dict = {str(v.size()): [] for v in self.engine.net.parameters()}
+        for v in self.engine.net.parameters():
+            param_dict[str(v.size())].append(v)
+        return param_dict
 
     def forward(self, x, y):
-        common.PREVIOUS_PARAMETERS = None
+        loss = self.default_loss(x, y)
+
+        if not common.TRAIN:
+            return loss
+
+        param_dict = self.get_current_parameters()
+        for params in param_dict.values():
+            if len(params) > 1:
+                param1, param2 = np.random.choice(params, 2, replace=False)
+                loss += get_parameter_similarity(param1, param2) * 0.1
+
+        return loss
+
+
+def get_parameter_similarity(param1, param2):
+    second_dim = param1.size()[1:]
+
+    view = 1
+    for d in second_dim:
+        view *= d
+    view = (param1.size()[0], view)
+    return torch.nn.functional.mse_loss(param1.view(view),
+                                        param2.view(view))
 
 
 class FeatureSimilarityLoss(Module):
@@ -20,28 +51,28 @@ class FeatureSimilarityLoss(Module):
         self.default_loss = default_loss
 
     def forward(self, x, y):
+        loss = self.default_loss(x, y)
+
+        if not common.TRAIN:
+            return loss
+
         common.PREVIOUS_LABEL = common.CURRENT_LABEL
         common.CURRENT_LABEL = y
 
         features = common.CURRENT_FEATURES
         previous_features = common.PREVIOUS_FEATURES
 
-        loss = self.default_loss(x, y)
-
-        if not common.TRAIN:
-            return loss
-
         for scope, modules in features.items():
             if scope in previous_features:
                 for module_id, feature in modules.items():
                     previous_modules = previous_features[scope]
                     previous_feature = previous_modules.get(module_id, None)
-                    difference = similarity_loss(previous_feature, feature)
+                    difference = get_feature_similarity_loss(previous_feature, feature)
                     loss += difference * 0.0005
         return loss
 
 
-def similarity_loss(previous_feature, current_feature):
+def get_feature_similarity_loss(previous_feature, current_feature):
     """Penalize features that are not similar when the labels are the same"""
     x = common.PREVIOUS_LABEL
     y = common.CURRENT_LABEL
