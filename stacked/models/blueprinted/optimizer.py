@@ -159,7 +159,8 @@ class ScopedEpochEngine(EpochEngine):
         hooks = EngineEventHooks(engine, train_loader, test_loader, net,
                                  net_runner, optimizer_maker, lr,
                                  lr_decay_ratio, lr_drop_epochs,
-                                 logger, train_id)
+                                 logger, train_id,
+                                 use_tqdm=blueprint['use_tqdm'])
 
         self.hooks['on_sample'] = hooks.on_sample
         self.hooks['on_forward'] = hooks.on_forward
@@ -189,7 +190,7 @@ class ScopedEpochEngine(EpochEngine):
                          data_loader=ScopedDataLoader, dataset="CIFAR10",
                          crop_size=32, num_thread=4, net_runner=ScopedNetRunner,
                          criterion=ScopedCrossEntropyLoss, loss_func=ScopedCriterion,
-                         callback=all_to_none):
+                         callback=all_to_none, use_tqdm=False):
         """Create a default ResBlock blueprint
 
         Args:
@@ -230,6 +231,7 @@ class ScopedEpochEngine(EpochEngine):
             criterion: Loss criterion function to be used in net_runner
             loss_func: Module that can customize the loss criterion or use it as is
             callback: function to call after the output in forward is calculated
+            use_tqdm: use progress bar for each epoch during training
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedEpochEngine)
 
@@ -251,6 +253,7 @@ class ScopedEpochEngine(EpochEngine):
                                                               suffix, default, dataset,
                                                               False, batch_size, num_thread,
                                                               crop_size)
+        default['use_tqdm'] = use_tqdm
         if logger is None:
             default['logger'] = Blueprint("%s/logger" % prefix, suffix, default)
         else:

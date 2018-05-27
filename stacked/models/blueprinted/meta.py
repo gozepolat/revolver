@@ -170,11 +170,13 @@ class ScopedMetaMasked(Module):
         bp['mask_fn'] = Blueprint('%s/mask_fn' % prefix, suffix, bp,
                                   False, mask_fn)
         bp['callback'] = callback
+        
+        # groups = in_channels
         bp['conv'] = conv_module.describe_default('%s/conv' % prefix, suffix,
                                                   bp, shape, in_channels,
                                                   out_channels, kernel_size,
                                                   stride, padding, dilation,
-                                                  groups, bias)
+                                                  in_channels, bias)
         out_shape = bp['conv']['output_shape']
         # in case the generator uses conv3d adjust conv3d_arguments accordingly
         kwargs = {'in_channels': gen_in_channels, 'out_channels': gen_out_channels,

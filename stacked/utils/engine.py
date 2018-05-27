@@ -4,6 +4,7 @@ from stacked.meta.scope import generate_random_scope
 from stacked.utils import common
 from logging import warning
 import numpy as np
+from tqdm import tqdm
 
 
 def log(log_func, msg):
@@ -115,7 +116,7 @@ class EngineEventHooks(object):
                  lr_decay_ratio=0.2, lr_drop_epochs=None,
                  logger=None, train_id=None, epoch=0,
                  average_loss_meter=None, accuracy_meter=None,
-                 train_timer=None, test_timer=None):
+                 train_timer=None, test_timer=None, use_tqdm=False):
 
         assert(engine is not None)
         assert (train_loader is not None)
@@ -173,7 +174,8 @@ class EngineEventHooks(object):
             accuracy_meter.reset()
             average_loss_meter.reset()
             train_timer.reset()
-
+            if use_tqdm:
+                train_loader = tqdm(train_loader)
             state['iterator'] = train_loader
 
             g['epoch'] = state['epoch'] + 1

@@ -13,7 +13,7 @@ class ParameterSimilarityLoss(Module):
         self.epoch = 1
 
     def get_current_parameters(self):
-        """Get a dictionary of parameters accor"""
+        """Get a dictionary of parameters according to shape"""
         param_dict = {str(v.size()): [] for v in self.engine.net.parameters()}
         for v in self.engine.net.parameters():
             param_dict[str(v.size())].append(v)

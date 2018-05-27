@@ -38,8 +38,47 @@ def parse_args():
     parser.add_argument('--gpu_id', default='0', type=str,
                         help='id(s) for CUDA_VISIBLE_DEVICES')
 
-    parsed = parser.parse_args()
-    return parsed
+    parsed_args = parser.parse_args()
+    return parsed_args
+
+
+def create_engine_pair(net_blueprint, options, epochs):
+    """engines to train different portions of the given model"""
+    def common_picker(model):
+        for k, v in model.named_parameters():
+            if 'generator' not in k:
+                yield v
+
+    def generator_picker(model):
+        for k, v in model.named_parameters():
+            if 'generator' in k:
+                yield v
+
+    common_engine_blueprint = ScopedEpochEngine.describe_default(prefix='CommonEpochEngine',
+                                                                 net_blueprint=net_blueprint,
+                                                                 max_epoch=options.epochs,
+                                                                 batch_size=options.batch_size,
+                                                                 learning_rate=options.lr,
+                                                                 lr_decay_ratio=options.lr_decay_ratio,
+                                                                 lr_drop_epochs=epochs,
+                                                                 dataset=options.dataset,
+                                                                 num_thread=options.num_thread,
+                                                                 optimizer_parameter_picker=common_picker)
+
+    # accesses the same resnet model instance
+    generator_engine_blueprint = ScopedEpochEngine.describe_default(prefix='GeneratorEpochEngine',
+                                                                    net_blueprint=net_blueprint,
+                                                                    max_epoch=options.epochs,
+                                                                    batch_size=options.batch_size,
+                                                                    learning_rate=options.lr * 0.2,
+                                                                    lr_decay_ratio=options.lr_decay_ratio,
+                                                                    lr_drop_epochs=epochs,
+                                                                    dataset=options.dataset,
+                                                                    num_thread=options.num_thread,
+                                                                    optimizer_parameter_picker=generator_picker)
+    c = make_module(common_engine_blueprint)
+    g = make_module(generator_engine_blueprint)
+    return c, g
 
 
 if __name__ == '__main__':
@@ -70,39 +109,6 @@ if __name__ == '__main__':
 
     visit_modules(resnet, None, None, make_conv2d_unique)
 
-    def common_picker(model):
-        for k, v in model.named_parameters():
-            if 'generator' not in k:
-                yield v
-
-    def generator_picker(model):
-        for k, v in model.named_parameters():
-            if 'generator' in k:
-                yield v
-
-    common_engine_blueprint = ScopedEpochEngine.describe_default(prefix='CommonEpochEngine',
-                                                                 net_blueprint=resnet,
-                                                                 max_epoch=parsed.epochs,
-                                                                 batch_size=parsed.batch_size,
-                                                                 learning_rate=parsed.lr,
-                                                                 lr_decay_ratio=parsed.lr_decay_ratio,
-                                                                 lr_drop_epochs=lr_drop_epochs,
-                                                                 dataset=parsed.dataset,
-                                                                 num_thread=parsed.num_thread,
-                                                                 optimizer_parameter_picker=common_picker)
-
-    # accesses the same resnet model instance
-    generator_engine_blueprint = ScopedEpochEngine.describe_default(prefix='GeneratorEpochEngine',
-                                                                    net_blueprint=resnet,
-                                                                    max_epoch=parsed.epochs,
-                                                                    batch_size=parsed.batch_size,
-                                                                    learning_rate=parsed.lr * 0.2,
-                                                                    lr_decay_ratio=parsed.lr_decay_ratio,
-                                                                    lr_drop_epochs=lr_drop_epochs,
-                                                                    dataset=parsed.dataset,
-                                                                    num_thread=parsed.num_thread,
-                                                                    optimizer_parameter_picker=generator_picker)
-
     engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
                                                           net_blueprint=resnet,
                                                           max_epoch=parsed.epochs,
@@ -111,9 +117,9 @@ if __name__ == '__main__':
                                                           lr_decay_ratio=parsed.lr_decay_ratio,
                                                           lr_drop_epochs=lr_drop_epochs,
                                                           dataset=parsed.dataset,
-                                                          num_thread=parsed.num_thread)
-    common_engine = make_module(common_engine_blueprint)
-    generator_engine = make_module(generator_engine_blueprint)
+                                                          num_thread=parsed.num_thread,
+                                                          use_tqdm=True)
+
     engine = make_module(engine_blueprint)
 
     if parsed.single_engine:
@@ -121,6 +127,7 @@ if __name__ == '__main__':
             engine.train_one_epoch()
         engine.hook('on_end', engine.state)
     else:
+        common_engine, generator_engine = create_engine_pair(resnet, parsed, lr_drop_epochs)
         for j in range(parsed.epochs):
             common_engine.start_epoch()
             generator_engine.start_epoch()
