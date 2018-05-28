@@ -175,8 +175,9 @@ class EngineEventHooks(object):
             average_loss_meter.reset()
             train_timer.reset()
             if use_tqdm:
-                train_loader = tqdm(train_loader)
-            state['iterator'] = train_loader
+                state['iterator'] = tqdm(train_loader)
+            else:
+                state['iterator'] = train_loader
 
             g['epoch'] = state['epoch'] + 1
             if g['epoch'] in lr_drop_epochs:

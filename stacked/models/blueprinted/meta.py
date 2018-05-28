@@ -117,20 +117,22 @@ class ScopedMetaMasked(Module):
 
         self.generator = make_module(blueprint['generator'])
         self.conv = make_module(blueprint['conv'])
+        self.convdim = make_module(blueprint['convdim'])
         self.mask_fn = make_module(blueprint['mask_fn'])
         self.callback = blueprint['callback']
 
     def forward(self, x):
         return self.function(self.mask_fn,
                              self.generator, self.conv,
-                             self.callback, self.scope,
-                             id(self), x)
+                             self.convdim, self.callback,
+                             self.scope, id(self), x)
 
     @staticmethod
-    def function(mask_fn, generator, conv, callback,
+    def function(mask_fn, generator, conv, convdim, callback,
                  scope, module_id, x):
         out = conv(x)
         out = mask_fn(out, generator(out), x)
+        out = convdim(out)
         callback(scope, module_id, out)
         return out
 
@@ -170,14 +172,26 @@ class ScopedMetaMasked(Module):
         bp['mask_fn'] = Blueprint('%s/mask_fn' % prefix, suffix, bp,
                                   False, mask_fn)
         bp['callback'] = callback
-        
-        # groups = in_channels
+
+        # groups = in_channels for depth-wise filtering
+        filtering_groups = in_channels
+        if out_channels % in_channels != 0:
+            filtering_groups = groups
+
         bp['conv'] = conv_module.describe_default('%s/conv' % prefix, suffix,
                                                   bp, shape, in_channels,
                                                   out_channels, kernel_size,
                                                   stride, padding, dilation,
-                                                  in_channels, bias)
+                                                  filtering_groups, bias)
+
         out_shape = bp['conv']['output_shape']
+
+        # pointwise 1x1 conv
+        bp['convdim'] = conv_module.describe_default('%s/convdim' % prefix, suffix,
+                                                     bp, out_shape, out_channels,
+                                                     out_channels, 1,
+                                                     1, 0, dilation,
+                                                     groups, bias)
         # in case the generator uses conv3d adjust conv3d_arguments accordingly
         kwargs = {'in_channels': gen_in_channels, 'out_channels': gen_out_channels,
                   'kernel_size': gen_kernel_size, 'stride': gen_stride,
