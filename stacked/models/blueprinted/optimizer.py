@@ -27,18 +27,25 @@ class ScopedOptimizerMaker:
         self.scope = scope
         self.optimizer_type = blueprint['optimizer_type']
         self.optimizer_parameter_picker = blueprint['optimizer_parameter_picker']
+        self.momentum = blueprint['momentum']
+        self.weight_decay = blueprint['weight_decay']
 
     def __call__(self, model, lr, *args, **kwargs):
         params = self.optimizer_parameter_picker(model)
         log(warning, "Making new optimizer!! with lr %f" % lr)
-        return self.optimizer_type(params, lr, *args, **kwargs)
+        return self.optimizer_type(params, lr, momentum=self.momentum,
+                                   weight_decay=self.weight_decay, *args, **kwargs)
 
     @staticmethod
     def describe_default(prefix, suffix, parent,
-                         optimizer_type, optimizer_parameter_picker):
+                         optimizer_type, optimizer_parameter_picker,
+                         momentum, weight_decay):
         default = Blueprint(prefix, suffix, parent, False, ScopedOptimizerMaker)
 
         default['optimizer_type'] = optimizer_type
+
+        default['momentum'] = momentum
+        default['weight_decay'] = weight_decay
 
         if optimizer_parameter_picker is None:
             def get_all_parameters(model):
@@ -190,7 +197,8 @@ class ScopedEpochEngine(EpochEngine):
                          data_loader=ScopedDataLoader, dataset="CIFAR10",
                          crop_size=32, num_thread=4, net_runner=ScopedNetRunner,
                          criterion=ScopedCrossEntropyLoss, loss_func=ScopedCriterion,
-                         callback=all_to_none, use_tqdm=False):
+                         callback=all_to_none, use_tqdm=False,
+                         momentum=0.9, weight_decay=0.0005):
         """Create a default ResBlock blueprint
 
         Args:
@@ -232,6 +240,8 @@ class ScopedEpochEngine(EpochEngine):
             loss_func: Module that can customize the loss criterion or use it as is
             callback: function to call after the output in forward is calculated
             use_tqdm: use progress bar for each epoch during training
+            momentum (float, optional): momentum factor (default: 0.9)
+            weight_decay (float, optional): weight decay (L2 penalty) (default: 0.0005)
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedEpochEngine)
 
@@ -263,7 +273,8 @@ class ScopedEpochEngine(EpochEngine):
 
         default['optimizer_maker'] = optimizer_maker.describe_default("%s/optimizer_maker" % prefix,
                                                                       suffix, default, optimizer_type,
-                                                                      optimizer_parameter_picker)
+                                                                      optimizer_parameter_picker,
+                                                                      momentum, weight_decay)
 
         if net_blueprint is not None:
             default['net'] = net_blueprint

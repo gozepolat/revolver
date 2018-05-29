@@ -31,7 +31,8 @@ class TestTrainer(unittest.TestCase):
         blueprint = ScopedEpochEngine.describe_default("new_engine", depth=10,
                                                        criterion=ScopedParameterSimilarityLoss,
                                                        callback=collect_features,
-                                                       batch_size=16)
+                                                       batch_size=16,
+                                                       weight_decay=0.0005)
         engine = make_module(blueprint)
         engine.start_epoch()
         engine.train_n_samples(48)

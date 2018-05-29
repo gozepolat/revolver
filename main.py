@@ -63,7 +63,8 @@ def create_engine_pair(net_blueprint, options, epochs):
                                                                  lr_drop_epochs=epochs,
                                                                  dataset=options.dataset,
                                                                  num_thread=options.num_thread,
-                                                                 optimizer_parameter_picker=common_picker)
+                                                                 optimizer_parameter_picker=common_picker,
+                                                                 weight_decay=options.weight_decay)
 
     # accesses the same resnet model instance
     generator_engine_blueprint = ScopedEpochEngine.describe_default(prefix='GeneratorEpochEngine',
@@ -75,7 +76,8 @@ def create_engine_pair(net_blueprint, options, epochs):
                                                                     lr_drop_epochs=epochs,
                                                                     dataset=options.dataset,
                                                                     num_thread=options.num_thread,
-                                                                    optimizer_parameter_picker=generator_picker)
+                                                                    optimizer_parameter_picker=generator_picker,
+                                                                    weight_decay=options.weight_decay)
     c = make_module(common_engine_blueprint)
     g = make_module(generator_engine_blueprint)
     return c, g
@@ -118,11 +120,11 @@ if __name__ == '__main__':
                                                           lr_drop_epochs=lr_drop_epochs,
                                                           dataset=parsed.dataset,
                                                           num_thread=parsed.num_thread,
-                                                          use_tqdm=True)
-
-    engine = make_module(engine_blueprint)
+                                                          use_tqdm=True,
+                                                          weight_decay=parsed.weight_decay)
 
     if parsed.single_engine:
+        engine = make_module(engine_blueprint)
         for j in range(parsed.epochs):
             engine.train_one_epoch()
         engine.hook('on_end', engine.state)

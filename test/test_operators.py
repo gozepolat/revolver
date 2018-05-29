@@ -32,10 +32,10 @@ class TestMetaOperators(unittest.TestCase):
 
     def test_index(self):
         common.BLUEPRINT_GUI = False
-        conv = self.blueprint.get_element([0, 1, 1, 'conv'])
+        conv = self.blueprint.get_element([0, 1, 0, 'conv'])
         conv.make_unique()
         convdim = self.blueprint.get_element((0, 0, 'convdim'))
-        self.assertEqual(conv.get_index_from_root(), [0, 1, 1, 'conv'])
+        self.assertEqual(conv.get_index_from_root(), [0, 1, 0, 'conv'])
         self.assertEqual(convdim.get_index_from_root(), [0, 0, 'convdim'])
 
     def test_mutate(self):

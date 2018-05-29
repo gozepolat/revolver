@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from torch.nn import Module, Conv3d
-from torch.nn.functional import conv2d_local
 
 
 def _repeat_in_array(value, length):
