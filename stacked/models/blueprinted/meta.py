@@ -146,13 +146,15 @@ class ScopedMetaMasked(Module):
                          mask_fn=MaskMultiplied,
                          gen_bn_module=all_to_none,
                          gen_act_module=ScopedTanh,
-                         gen_conv=ScopedConv3d2d,
+                         gen_conv=ScopedConv2d,
                          gen_module=ScopedConvUnit,
-                         gen_in_channels=16, gen_out_channels=16,
+                         gen_in_channels=32, gen_out_channels=32,
                          gen_kernel_size=9, gen_stride=1,
                          gen_dilation=1, gen_groups=1, gen_bias=True,
                          gen_pre_conv=PreConvMask,
-                         callback=all_to_none, conv3d_args=None, **__):
+                         callback=all_to_none, conv3d_args=None,
+                         depthwise=True,
+                         **__):
         """Meta masks to model local rules"""
         kwargs = {'in_channels': in_channels,
                   'out_channels': out_channels,
@@ -185,6 +187,9 @@ class ScopedMetaMasked(Module):
                                                   filtering_groups, bias)
 
         out_shape = bp['conv']['output_shape']
+        bp['kwargs'] = {'blueprint': bp, 'kernel_size': kernel_size,
+                        'stride': stride, 'padding': padding,
+                        'dilation': dilation, 'groups': groups, 'bias': bias}
 
         # pointwise 1x1 conv
         bp['convdim'] = conv_module.describe_default('%s/convdim' % prefix, suffix,
@@ -192,12 +197,18 @@ class ScopedMetaMasked(Module):
                                                      out_channels, 1,
                                                      1, 0, dilation,
                                                      groups, bias)
+
         # in case the generator uses conv3d adjust conv3d_arguments accordingly
         kwargs = {'in_channels': gen_in_channels, 'out_channels': gen_out_channels,
                   'kernel_size': gen_kernel_size, 'stride': gen_stride,
                   'padding': gen_kernel_size // 2, 'dilation': gen_dilation,
                   'groups': gen_groups, 'bias': gen_bias}
-        ScopedConv3d2d.adjust_args(conv3d_args, gen_module, **kwargs)
+
+        conv3d_args = ScopedConv3d2d.adjust_args(conv3d_args, gen_conv, **kwargs)
+
+        if depthwise:
+            groups = min(gen_out_channels, out_channels)
+
         bp['generator'] = generator.describe_default('%s/gen' % prefix, suffix,
                                                      bp, out_shape, out_channels,
                                                      out_channels, kernel_size,
@@ -210,9 +221,7 @@ class ScopedMetaMasked(Module):
         assert (shape is not None)
         bp['input_shape'] = shape
         bp['output_shape'] = out_shape
-        bp['kwargs'] = {'blueprint': bp, 'kernel_size': kernel_size,
-                        'stride': stride, 'padding': padding,
-                        'dilation': dilation, 'groups': groups, 'bias': bias}
+
         return bp
 
     @staticmethod

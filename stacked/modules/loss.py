@@ -31,8 +31,12 @@ class FeatureSimilarityLoss(Module):
                     previous_modules = previous_features[scope]
                     previous_feature = previous_modules.get(module_id, None)
 
+                    if previous_feature is None:
+                        continue
+
                     difference = get_feature_similarity_loss(previous_feature, feature)
-                    loss += difference * 0.0005
+                    loss += difference * 0.05
+
         return loss
 
 
@@ -108,7 +112,7 @@ class ParameterSimilarityLoss(Module):
         for params in param_dict.values():
             if len(params) > 1:
                 param1, param2 = np.random.choice(params, 2, replace=False)
-                loss += get_parameter_similarity(param1, param2) * 0.1
+                loss += get_parameter_similarity(param1, param2)
 
         return loss
 
