@@ -52,6 +52,7 @@ class EpochEngine(object):
 
     def end_epoch(self):
         self.state['epoch'] += 1
+        common.CURRENT_EPOCH = self.state['epoch']
         self.hook('on_end_epoch', self.state)
         return self.state
 

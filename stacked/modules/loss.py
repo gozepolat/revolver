@@ -14,6 +14,16 @@ class FeatureSimilarityLoss(Module):
         return FeatureSimilarityLoss.function(x, y, self.default_loss)
 
     @staticmethod
+    def get_scalar():
+        if common.CURRENT_EPOCH <= 60:
+            return 0.5
+        if common.CURRENT_EPOCH <= 120:
+            return 0.1
+        if common.CURRENT_EPOCH <= 180:
+            return 0.02
+        return 0.004
+
+    @staticmethod
     def function(x, y, default_loss=cross_entropy):
         loss = default_loss(x, y)
         if not common.TRAIN:
@@ -35,7 +45,7 @@ class FeatureSimilarityLoss(Module):
                         continue
 
                     difference = get_feature_similarity_loss(previous_feature, feature)
-                    loss += difference * 0.05
+                    loss += difference * FeatureSimilarityLoss.get_scalar()
 
         return loss
 
@@ -104,6 +114,16 @@ class ParameterSimilarityLoss(Module):
                 param_dict[str(v.size())].append(v)
         return param_dict
 
+    @staticmethod
+    def get_scalar():
+        if common.CURRENT_EPOCH <= 60:
+            return 2.5
+        if common.CURRENT_EPOCH <= 120:
+            return 0.5
+        if common.CURRENT_EPOCH <= 180:
+            return 0.1
+        return 0.02
+
     def forward(self, x, y):
         loss = self.default_loss(x, y)
 
@@ -114,7 +134,7 @@ class ParameterSimilarityLoss(Module):
         for params in param_dict.values():
             if len(params) > 1:
                 param1, param2 = np.random.choice(params, 2, replace=False)
-                loss += get_parameter_similarity(param1, param2)
+                loss += get_parameter_similarity(param1, param2) * self.get_scalar()
 
         return loss
 

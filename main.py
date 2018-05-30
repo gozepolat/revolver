@@ -114,7 +114,6 @@ if __name__ == '__main__':
 
 
     visit_modules(resnet, None, None, make_conv2d_unique)
-    exit(0)
     engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
                                                           net_blueprint=resnet,
                                                           max_epoch=parsed.epochs,

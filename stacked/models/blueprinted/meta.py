@@ -179,10 +179,10 @@ class ScopedMetaMasked(Module):
         bp['callback'] = callback
         bp['skip_mask'] = skip_mask
 
-        # groups = in_channels for depth-wise filtering
-        filtering_groups = in_channels
-        if out_channels % in_channels != 0:
-            filtering_groups = groups
+        if depthwise:
+            filtering_groups = in_channels
+            if out_channels % in_channels != 0:
+                filtering_groups = groups
 
         bp['conv'] = conv_module.describe_default('%s/conv' % prefix, suffix,
                                                   bp, shape, in_channels,
