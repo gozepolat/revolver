@@ -106,11 +106,15 @@ if __name__ == '__main__':
                                            skeleton=skeleton, input_shape=input_shape)
 
     def make_conv2d_unique(bp, _, __):
-        if issubclass(bp['type'], ScopedConv2d) or issubclass(bp['type'], ScopedBatchNorm2d):
+        if issubclass(bp['type'], ScopedBatchNorm2d):
             bp.make_unique()
+        if issubclass(bp['type'], ScopedConv2d):
+            if 'kernel_size' in bp['kwargs'] and bp['kwargs']['kernel_size'] == 1:
+                bp.make_unique()
+
 
     visit_modules(resnet, None, None, make_conv2d_unique)
-
+    exit(0)
     engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
                                                           net_blueprint=resnet,
                                                           max_epoch=parsed.epochs,

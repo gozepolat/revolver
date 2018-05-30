@@ -98,8 +98,10 @@ class ParameterSimilarityLoss(Module):
     def get_current_parameters(self):
         """Get a dictionary of parameters according to shape"""
         param_dict = {str(v.size()): [] for v in self.engine.net.parameters()}
-        for v in self.engine.net.parameters():
-            param_dict[str(v.size())].append(v)
+        for k, v in self.engine.net.named_parameters():
+            # criterion on conv weights only
+            if k.endswith('conv.weight'):
+                param_dict[str(v.size())].append(v)
         return param_dict
 
     def forward(self, x, y):

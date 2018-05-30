@@ -21,6 +21,7 @@ class TestTrainer(unittest.TestCase):
                                                        criterion=ScopedFeatureSimilarityLoss,
                                                        callback=collect_features,
                                                        batch_size=16)
+
         engine = make_module(blueprint)
         engine.start_epoch()
         engine.train_n_samples(48)

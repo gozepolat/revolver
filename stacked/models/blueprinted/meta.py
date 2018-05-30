@@ -120,18 +120,21 @@ class ScopedMetaMasked(Module):
         self.convdim = make_module(blueprint['convdim'])
         self.mask_fn = make_module(blueprint['mask_fn'])
         self.callback = blueprint['callback']
+        self.skip_mask = blueprint['skip_mask']
 
     def forward(self, x):
         return self.function(self.mask_fn,
                              self.generator, self.conv,
                              self.convdim, self.callback,
-                             self.scope, id(self), x)
+                             self.scope, id(self),
+                             self.skip_mask, x)
 
     @staticmethod
     def function(mask_fn, generator, conv, convdim, callback,
-                 scope, module_id, x):
+                 scope, module_id, skip_mask, x):
         out = conv(x)
-        out = mask_fn(out, generator(out), x)
+        if not skip_mask:
+            out = mask_fn(out, generator(out), x)
         out = convdim(out)
         callback(scope, module_id, out)
         return out
@@ -153,7 +156,7 @@ class ScopedMetaMasked(Module):
                          gen_dilation=1, gen_groups=1, gen_bias=True,
                          gen_pre_conv=PreConvMask,
                          callback=all_to_none, conv3d_args=None,
-                         depthwise=True,
+                         depthwise=True, skip_mask=True,
                          **__):
         """Meta masks to model local rules"""
         kwargs = {'in_channels': in_channels,
@@ -174,6 +177,7 @@ class ScopedMetaMasked(Module):
         bp['mask_fn'] = Blueprint('%s/mask_fn' % prefix, suffix, bp,
                                   False, mask_fn)
         bp['callback'] = callback
+        bp['skip_mask'] = skip_mask
 
         # groups = in_channels for depth-wise filtering
         filtering_groups = in_channels
@@ -208,6 +212,8 @@ class ScopedMetaMasked(Module):
 
         if depthwise:
             groups = min(gen_out_channels, out_channels)
+            kernel_size = gen_kernel_size
+            padding = gen_kernel_size // 2
 
         bp['generator'] = generator.describe_default('%s/gen' % prefix, suffix,
                                                      bp, out_shape, out_channels,
