@@ -188,7 +188,7 @@ class ScopedEpochEngine(EpochEngine):
                          block_depth=2, conv_module=ScopedConv2d,
                          bn_module=ScopedBatchNorm2d, linear_module=ScopedLinear,
                          act_module=ScopedReLU, kernel_size=3, padding=1,
-                         input_shape=None, dilation=1, groups=1, bias=True,
+                         input_shape=None, dilation=1, groups=1, bias=False,
                          conv3d_args=None, optimizer_maker=ScopedOptimizerMaker,
                          optimizer_type=SGD, optimizer_parameter_picker=None,
                          max_epoch=200, batch_size=128,

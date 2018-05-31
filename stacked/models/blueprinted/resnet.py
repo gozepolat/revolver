@@ -56,7 +56,7 @@ class ScopedResNet(Sequential):
     @staticmethod
     def __set_default_items(prefix, default, shape, ni, no, kernel_size, num_classes,
                             bn_module, act_module, conv_module, linear_module,
-                            dilation=1, groups=1, bias=True, callback=all_to_none):
+                            dilation=1, groups=1, bias=False, callback=all_to_none):
         """Set blueprint items that are not Sequential type"""
 
         default['input_shape'] = shape
@@ -97,7 +97,7 @@ class ScopedResNet(Sequential):
     def __set_default_children(prefix, default, ni, widths, group_depth,
                                block_depth, conv_module, bn_module, act_module,
                                kernel_size, stride, padding, shape,
-                               dilation=1, groups=1, bias=True,
+                               dilation=1, groups=1, bias=False,
                                callback=all_to_none, conv3d_args=None):
         """Sequentially set children blueprints"""
         children = []
@@ -126,7 +126,7 @@ class ScopedResNet(Sequential):
     def __get_default(prefix, suffix, parent, shape, ni, no, kernel_size,
                       num_classes, bn_module, act_module, conv_module, linear_module,
                       widths, group_depth, block_depth, stride, padding,
-                      dilation=1, groups=1, bias=True, callback=all_to_none, conv3d_args=None):
+                      dilation=1, groups=1, bias=False, callback=all_to_none, conv3d_args=None):
         """Set the items and the children of the default blueprint object"""
         default = Blueprint(prefix, suffix, parent, False, ScopedResNet)
         shape = ScopedResNet.__set_default_items(prefix, default, shape, ni, no,
@@ -154,7 +154,7 @@ class ScopedResNet(Sequential):
                          block_depth=2, conv_module=ScopedConv2d,
                          bn_module=ScopedBatchNorm2d, linear_module=ScopedLinear,
                          act_module=ScopedReLU, kernel_size=3, padding=1,
-                         input_shape=None, dilation=1, groups=1, bias=True,
+                         input_shape=None, dilation=1, groups=1, bias=False,
                          callback=all_to_none, conv3d_args=None):
         """Create a default ResBlock blueprint
 

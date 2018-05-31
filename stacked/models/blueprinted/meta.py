@@ -9,7 +9,7 @@ from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.models.blueprinted.conv_unit import ScopedConvUnit
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.utils.transformer import get_cuda, all_to_none
-from stacked.modules.fakes import MaskMultiplied, \
+from stacked.modules.fakes import MaskSummedMultiplied, \
     MaskScalarMultipliedSummed
 from six import add_metaclass
 
@@ -143,20 +143,20 @@ class ScopedMetaMasked(Module):
     def describe_default(prefix='meta_layer', suffix='', parent=None,
                          shape=None, in_channels=3, out_channels=3,
                          kernel_size=3, stride=1, padding=1,
-                         dilation=1, groups=1, bias=True,
+                         dilation=1, groups=1, bias=False,
                          conv_module=ScopedConv2d,
                          generator=ScopedMetaMaskGenerator,
-                         mask_fn=MaskMultiplied,
+                         mask_fn=MaskSummedMultiplied,
                          gen_bn_module=all_to_none,
                          gen_act_module=ScopedTanh,
                          gen_conv=ScopedConv2d,
                          gen_module=ScopedConvUnit,
                          gen_in_channels=32, gen_out_channels=32,
-                         gen_kernel_size=9, gen_stride=1,
+                         gen_kernel_size=5, gen_stride=1,
                          gen_dilation=1, gen_groups=1, gen_bias=True,
                          gen_pre_conv=PreConvMask,
                          callback=all_to_none, conv3d_args=None,
-                         depthwise=True, skip_mask=True,
+                         depthwise=True, skip_mask=False,
                          **__):
         """Meta masks to model local rules"""
         kwargs = {'in_channels': in_channels,
@@ -234,14 +234,14 @@ class ScopedMetaMasked(Module):
     def describe_from_blueprint(prefix='meta_layer', suffix='',
                                 blueprint=None, parent=None,
                                 generator=ScopedMetaMaskGenerator,
-                                mask_fn=MaskMultiplied,
+                                mask_fn=MaskSummedMultiplied,
                                 gen_bn_module=all_to_none,
                                 gen_act_module=ScopedReLU,
                                 gen_conv=ScopedConv3d2d,
                                 gen_module=ScopedResBlock,
                                 gen_in_channels=16, gen_out_channels=16,
                                 gen_kernel_size=9, gen_stride=1,
-                                gen_dilation=1, gen_groups=1, gen_bias=True,
+                                gen_dilation=1, gen_groups=1, gen_bias=False,
                                 gen_pre_conv=PreConvMask, **__):
         input_shape = blueprint['input_shape']
         output_shape = blueprint['output_shape']
