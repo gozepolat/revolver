@@ -148,7 +148,7 @@ class ScopedResBlock(Sequential):
         input_shape = ScopedResBlock.__set_default_children(prefix, default, input_shape,
                                                             out_channels, out_channels,
                                                             kernel_size, 1,
-                                                            padding, conv_module, ScopedTanh,
+                                                            padding, conv_module, act_module,
                                                             bn_module, block_depth, dilation,
                                                             groups, bias, callback, conv3d_args)
         default['output_shape'] = input_shape

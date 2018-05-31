@@ -18,10 +18,10 @@ class ResBlock(Module):
         super(ResBlock, self).__init__()
         self.conv0 = conv_module(ni, no, kernel_size, stride, padding=1)
         self.bn0 = BatchNorm2d(ni)
-        self.conv1 = conv_module(no, no, kernel_size, 1, 1)
+        self.conv1 = conv_module(no, no, kernel_size, 1, 1, bias=False)
         self.bn1 = BatchNorm2d(no)
         # 1x1 conv to correct the number of channels for summation
-        self.convdim = Conv2d(ni, no, 1, stride=stride) if ni != no else None
+        self.convdim = Conv2d(ni, no, 1, stride=stride, bias=False) if ni != no else None
 
     def forward(self, x):
         o1 = F.relu(self.bn0(x), inplace=True)

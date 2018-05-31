@@ -2,7 +2,7 @@
 import unittest
 from PIL import Image
 from stacked.utils import transformer
-from stacked.models.resnet import ResNet
+from stacked.models.simple_resnet import ResNet
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.meta.blueprint import visualize, collect_keys
 from stacked.models.blueprinted.ensemble import ScopedEnsemble

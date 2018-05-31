@@ -128,6 +128,11 @@ if __name__ == '__main__':
 
     if parsed.single_engine:
         engine = make_module(engine_blueprint)
+
+        print("Network architecture:")
+        print({k: v for k, v in engine.net.named_children()})
+        print("=====================")
+
         for j in range(parsed.epochs):
             engine.train_one_epoch()
         engine.hook('on_end', engine.state)

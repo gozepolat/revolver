@@ -176,6 +176,7 @@ class ScopedConv3d(Conv3d):
     def __init__(self, scope, *args, **kwargs):
         super(ScopedConv3d, self).__init__(*args, **kwargs)
         self.scope = scope
+        self.eval()
 
 
 @add_metaclass(ScopedMeta)

@@ -194,7 +194,9 @@ class EngineEventHooks(object):
             accuracy_meter.reset()
             test_timer.reset()
 
+            net.eval()
             engine.test(net_runner, test_loader)
+            net.train()
 
             test_acc = accuracy_meter.value()[0]
             logger(state, {
