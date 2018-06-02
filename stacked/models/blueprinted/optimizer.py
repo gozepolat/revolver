@@ -189,6 +189,7 @@ class ScopedEpochEngine(EpochEngine):
                          bn_module=ScopedBatchNorm2d, linear_module=ScopedLinear,
                          act_module=ScopedReLU, kernel_size=3, padding=1,
                          input_shape=None, dilation=1, groups=1, bias=False,
+                         drop_p=0.0, dropout_p=0.0,
                          conv3d_args=None, optimizer_maker=ScopedOptimizerMaker,
                          optimizer_type=SGD, optimizer_parameter_picker=None,
                          max_epoch=200, batch_size=128,
@@ -221,6 +222,8 @@ class ScopedEpochEngine(EpochEngine):
             dilation (int): Spacing between kernel elements.
             groups: Number of blocked connections from input to output channels.
             bias: Add a learnable bias if True
+            drop_p: Probability of vertical drop
+            dropout_p: Probability of dropout in the blocks
             conv3d_args: extra conv arguments to be used in children
             optimizer_maker: Functor that will return an optimizer
             optimizer_type: Type of the optimizer that will be returned
@@ -287,7 +290,8 @@ class ScopedEpochEngine(EpochEngine):
                                                            linear_module, act_module,
                                                            kernel_size, padding,
                                                            input_shape, dilation, groups,
-                                                           bias, callback, conv3d_args)
+                                                           bias, callback, drop_p, dropout_p,
+                                                           conv3d_args)
 
         default['kwargs'] = {'blueprint': default}
         return default

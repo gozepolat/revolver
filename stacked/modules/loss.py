@@ -1,7 +1,7 @@
 import torch
 from torch.nn import Module
 from torch.nn.functional import cosine_embedding_loss, cross_entropy
-from stacked.utils import common
+from stacked.utils import common, transformer
 import numpy as np
 
 
@@ -15,12 +15,6 @@ class FeatureSimilarityLoss(Module):
 
     @staticmethod
     def get_scalar():
-        if common.CURRENT_EPOCH <= 60:
-            return 0.5
-        if common.CURRENT_EPOCH <= 120:
-            return 0.1
-        if common.CURRENT_EPOCH <= 180:
-            return 0.02
         return 0.004
 
     @staticmethod
@@ -116,13 +110,7 @@ class ParameterSimilarityLoss(Module):
 
     @staticmethod
     def get_scalar():
-        if common.CURRENT_EPOCH <= 60:
-            return 2.5
-        if common.CURRENT_EPOCH <= 120:
-            return 0.5
-        if common.CURRENT_EPOCH <= 180:
-            return 0.1
-        return 0.02
+        return 0.1
 
     def forward(self, x, y):
         loss = self.default_loss(x, y)
@@ -130,11 +118,14 @@ class ParameterSimilarityLoss(Module):
         if not common.TRAIN:
             return loss
 
+        scalar = self.get_scalar()
         param_dict = self.get_current_parameters()
         for params in param_dict.values():
             if len(params) > 1:
-                param1, param2 = np.random.choice(params, 2, replace=False)
-                loss += get_parameter_similarity(param1, param2) * self.get_scalar()
+                combinations = transformer.list_to_pairs(params)
+                for param1, param2 in combinations:
+                    if np.random.random() < 0.5:
+                        loss += get_parameter_similarity(param1, param2) * scalar
 
         return loss
 

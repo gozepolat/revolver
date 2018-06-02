@@ -98,7 +98,8 @@ class ScopedResNet(Sequential):
                                block_depth, conv_module, bn_module, act_module,
                                kernel_size, stride, padding, shape,
                                dilation=1, groups=1, bias=False,
-                               callback=all_to_none, conv3d_args=None):
+                               callback=all_to_none,
+                               drop_p=0.0, dropout_p=0.0, conv3d_args=None):
         """Sequentially set children blueprints"""
         children = []
         for width in widths:
@@ -112,7 +113,8 @@ class ScopedResNet(Sequential):
                                                     dilation, groups, bias,
                                                     act_module, bn_module, conv_module,
                                                     group_depth, block_depth,
-                                                    callback, conv3d_args)
+                                                    callback, drop_p, dropout_p,
+                                                    conv3d_args)
             shape = block['output_shape']
             children.append(block)
             stride = 2
@@ -126,7 +128,8 @@ class ScopedResNet(Sequential):
     def __get_default(prefix, suffix, parent, shape, ni, no, kernel_size,
                       num_classes, bn_module, act_module, conv_module, linear_module,
                       widths, group_depth, block_depth, stride, padding,
-                      dilation=1, groups=1, bias=False, callback=all_to_none, conv3d_args=None):
+                      dilation=1, groups=1, bias=False, callback=all_to_none,
+                      drop_p=0.0, dropout_p=0.0, conv3d_args=None):
         """Set the items and the children of the default blueprint object"""
         default = Blueprint(prefix, suffix, parent, False, ScopedResNet)
         shape = ScopedResNet.__set_default_items(prefix, default, shape, ni, no,
@@ -138,7 +141,8 @@ class ScopedResNet(Sequential):
                                                     group_depth, block_depth, conv_module,
                                                     bn_module, act_module, kernel_size,
                                                     stride, padding, shape, dilation,
-                                                    groups, bias, callback, conv3d_args)
+                                                    groups, bias, callback,
+                                                    drop_p, dropout_p, conv3d_args)
 
         default['linear']['input_shape'] = (shape[0], shape[1])
         default['linear']['output_shape'] = (shape[0], num_classes)
@@ -155,7 +159,8 @@ class ScopedResNet(Sequential):
                          bn_module=ScopedBatchNorm2d, linear_module=ScopedLinear,
                          act_module=ScopedReLU, kernel_size=3, padding=1,
                          input_shape=None, dilation=1, groups=1, bias=False,
-                         callback=all_to_none, conv3d_args=None):
+                         callback=all_to_none, drop_p=0.0, dropout_p=0.0,
+                         conv3d_args=None):
         """Create a default ResBlock blueprint
 
         Args:
@@ -178,6 +183,8 @@ class ScopedResNet(Sequential):
             groups: Number of blocked connections from input to output channels.
             bias: Add a learnable bias if True
             callback: function to call after the output in forward is calculated
+            drop_p: Probability of vertical drop
+            dropout_p: Probability of dropout in the blocks
             conv3d_args: extra conv arguments to be used in children
         """
         if input_shape is None:
@@ -200,5 +207,6 @@ class ScopedResNet(Sequential):
                                              widths, group_depth,
                                              block_depth, stride, padding,
                                              dilation, groups, bias,
-                                             callback, conv3d_args)
+                                             callback, drop_p, dropout_p,
+                                             conv3d_args)
         return default

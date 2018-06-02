@@ -46,7 +46,7 @@ class TestResNet(unittest.TestCase):
     def test_make_unique(self):
         common.BLUEPRINT_GUI = False
         # conv[in]_[out]_[kernel]_[stride]_[padding]_[dilation]_[groups]_[bias]
-        conv_name = 'ResNet28/group/block/unit/conv16_16_3_1_1_1_1_1'
+        conv_name = 'ResNet28/group/block/unit/conv16_16_3_1_1_1_1_0'
 
         # ResNet -> group -> block -> unit -> conv
         group = self.blueprint.get_element(0)
@@ -64,7 +64,7 @@ class TestResNet(unittest.TestCase):
         self.assertTrue(conv['name'] in module_list)
 
     def test_get_element_with_tuple_index(self):
-        convdim_name = 'ResNet28/group/block/convdim16_16_1_1_0_1_1_1'
+        convdim_name = 'ResNet28/group/block/convdim16_16_1_1_0_1_1_0'
         convdim = self.blueprint.get_element((0, 0, 'convdim'))
         self.assertEqual(convdim['name'], convdim_name)
 

@@ -7,6 +7,7 @@ from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
     ScopedReLU, ScopedConv2d
 from stacked.utils.transformer import all_to_none
 from six import add_metaclass
+import numpy as np
 
 
 @add_metaclass(ScopedMeta)
@@ -18,16 +19,31 @@ class ScopedResGroup(Sequential):
 
         super(ScopedResGroup, self).__init__(blueprint)
         self.callback = blueprint['callback']
+        self.drop_p = blueprint['drop_p']
 
     def forward(self, x):
         return self.function(self.container,
                              self.callback,
-                             self.scope, id(self), x)
+                             self.scope,
+                             self.drop_p,
+                             self.training,
+                             id(self), x)
 
     @staticmethod
-    def function(container, callback, scope, module_id, x):
-        for module in container:
+    def function(container, callback, scope, drop_p, train, module_id, x):
+        skip = len(container)
+
+        # optionally use vertical dropout
+        for i, module in enumerate(container):
+            if train and skip > i > 0 and np.random.random() < drop_p:
+                skip = np.random.randint(i + 1, skip + 1)
+                break
+
             x = module(x)
+
+        for module in container[skip:]:
+            x = module(x)
+
         callback(scope, module_id, x)
         return x
 
@@ -37,7 +53,8 @@ class ScopedResGroup(Sequential):
                          dilation=1, groups=1, bias=True,
                          act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
                          conv_module=ScopedConv2d, group_depth=1, block_depth=2,
-                         callback=all_to_none, conv3d_args=None):
+                         callback=all_to_none, drop_p=0.0,
+                         dropout_p=0.0, conv3d_args=None):
         """Create a default ResGroup blueprint
 
         Args:
@@ -59,6 +76,8 @@ class ScopedResGroup(Sequential):
             groups: Number of blocked connections from input to output channels.
             bias: Add a learnable bias if True
             callback: function to call after the output in forward is calculated
+            drop_p: Probability of vertical drop
+            dropout_p: Probability of dropout in the blocks
             conv3d_args: extra conv arguments to be used in children
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedResGroup)
@@ -76,7 +95,8 @@ class ScopedResGroup(Sequential):
                                                     kernel_size, stride, padding,
                                                     dilation, groups, bias,
                                                     act_module, bn_module, conv_module,
-                                                    block_depth, callback, conv3d_args)
+                                                    block_depth, callback,
+                                                    dropout_p, conv3d_args)
             input_shape = block['output_shape']
             children.append(block)
 
@@ -84,6 +104,7 @@ class ScopedResGroup(Sequential):
             stride = 1
             in_channels = out_channels
 
+        default['drop_p'] = drop_p
         default['callback'] = callback
         default['children'] = children
         default['depth'] = len(children)

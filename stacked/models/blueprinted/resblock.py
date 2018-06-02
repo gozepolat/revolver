@@ -7,6 +7,7 @@ from stacked.meta.blueprint import Blueprint, make_module
 from stacked.utils.transformer import all_to_none
 from stacked.models.blueprinted.conv_unit import ScopedConvUnit
 from six import add_metaclass
+from torch.nn.functional import dropout
 
 
 @add_metaclass(ScopedMeta)
@@ -28,6 +29,7 @@ class ScopedResBlock(Sequential):
         self.act = make_module(blueprint['act'])
         self.conv = make_module(blueprint['conv'])
         self.callback = blueprint['callback']
+        self.dropout_p = blueprint['dropout_p']
 
         # 1x1 conv to correct the number of channels for summation
         self.convdim = make_module(blueprint['convdim'])
@@ -36,15 +38,21 @@ class ScopedResBlock(Sequential):
         return self.function(self.bn, self.act,
                              self.conv, self.container,
                              self.convdim, self.callback,
-                             self.scope, id(self), x)
+                             self.scope, self.dropout_p,
+                             self.training, id(self), x)
 
     @staticmethod
     def function(bn, act, conv, container, convdim,
-                 callback, scope, module_id, x):
+                 callback, scope, dropout_p, training, module_id, x):
+        o = x
         if bn is not None:
-            x = bn(x)
+            o = bn(o)
 
-        o = act(x)
+        o = act(o)
+
+        if dropout_p > 0:
+            o = dropout(o, training=training, p=dropout_p)
+
         z = conv(o)
 
         for unit in container:
@@ -62,9 +70,10 @@ class ScopedResBlock(Sequential):
     def __set_default_items(prefix, default, input_shape, ni, no, kernel_size,
                             stride, padding, conv_module, act_module, bn_module,
                             dilation=1, groups=1, bias=True,
-                            callback=all_to_none, conv3d_args=None):
+                            callback=all_to_none, dropout_p=0.0, conv3d_args=None):
         default['input_shape'] = input_shape
         default['callback'] = callback
+        default['dropout_p'] = dropout_p
 
         # bn, act, conv
         ScopedConvUnit.set_unit_description(default, prefix, input_shape, ni, no,
@@ -75,6 +84,7 @@ class ScopedResBlock(Sequential):
         # convdim
         suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, 1, stride,
                                               0, dilation, groups, bias)
+
         default['convdim'] = conv_module.describe_default('%s/convdim' % prefix,
                                                           suffix, default,
                                                           input_shape, ni, no, 1,
@@ -113,7 +123,8 @@ class ScopedResBlock(Sequential):
                          dilation=1, groups=1, bias=True,
                          act_module=ScopedReLU, bn_module=all_to_none,
                          conv_module=ScopedConv2d, block_depth=2,
-                         callback=all_to_none, conv3d_args=None, *_, **__):
+                         callback=all_to_none, dropout_p=0.0,
+                         conv3d_args=None, *_, **__):
         """Create a default ScopedResBlock blueprint
 
         Args:
@@ -131,9 +142,10 @@ class ScopedResBlock(Sequential):
             padding (int or tuple, optional): Padding for the first convolution
             input_shape (tuple): (N, C_{in}, H_{in}, W_{in})
             dilation (int): Spacing between kernel elements.
-            groups: Number of blocked connections from input to output channels.
-            bias: Add a learnable bias if True
+            groups (int): Number of blocked connections from input to output channels.
+            bias (bool): Add a learnable bias if True
             callback: function to call after the output in forward is calculated
+            dropout_p (float): Probability of dropout
             conv3d_args: extra conv arguments to be used in self.conv and children
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedResBlock)
@@ -143,7 +155,7 @@ class ScopedResBlock(Sequential):
                                                          kernel_size, stride,
                                                          padding, conv_module, act_module,
                                                          bn_module, dilation, groups, bias,
-                                                         callback, conv3d_args)
+                                                         callback, dropout_p, conv3d_args)
 
         input_shape = ScopedResBlock.__set_default_children(prefix, default, input_shape,
                                                             out_channels, out_channels,

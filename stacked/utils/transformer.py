@@ -131,6 +131,16 @@ def scalar_to_cuda_parameter(value, size, requires_grad=False,
                      requires_grad=requires_grad).expand(size)
 
 
+def list_to_pairs(iterable, condition=lambda x, y: x != y):
+    pairs = []
+    length = len(iterable)
+    for i, p1 in enumerate(iterable):
+        for j in range(length - i):
+            if condition(i, j):
+                pairs.append((p1, iterable[j]))
+    return pairs
+
+
 def get_transformer(dataset="CIFAR10"):
     if dataset == "CIFAR10":
         transformer = T.Compose([

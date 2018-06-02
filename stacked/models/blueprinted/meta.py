@@ -122,6 +122,9 @@ class ScopedMetaMasked(Module):
         self.callback = blueprint['callback']
         self.skip_mask = blueprint['skip_mask']
 
+        if self.skip_mask:
+            self.generator = None
+
     def forward(self, x):
         return self.function(self.mask_fn,
                              self.generator, self.conv,
