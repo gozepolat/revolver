@@ -38,7 +38,6 @@ class ScopedResNet(Sequential):
     def function(conv, container, bn, act, linear,
                  callback, scope, module_id, x):
         x = conv(x)
-
         for group in container:
             x = group(x)
 

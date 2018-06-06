@@ -11,10 +11,6 @@ class TestTrainer(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(TestTrainer, self).__init__(*args, **kwargs)
 
-    @classmethod
-    def setUpClass(cls):
-        pass
-
     def test_feature_similarity_loss(self):
         common.BLUEPRINT_GUI = False
         blueprint = ScopedEpochEngine.describe_default(depth=10,
@@ -29,6 +25,7 @@ class TestTrainer(unittest.TestCase):
 
     def test_parameter_similarity_loss(self):
         common.BLUEPRINT_GUI = False
+        print("ScopedParamSimilarity")
         blueprint = ScopedEpochEngine.describe_default("new_engine", depth=10,
                                                        criterion=ScopedParameterSimilarityLoss,
                                                        callback=collect_features,

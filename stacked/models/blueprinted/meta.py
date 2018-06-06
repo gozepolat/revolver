@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import torch
 from torch.nn import Module, Parameter
-from torch.nn.init import kaiming_normal
+from torch.nn.init import normal
 from stacked.modules.scoped_nn import ScopedConv2d, \
     ScopedReLU, ScopedConv3d2d, ScopedTanh, ScopedSigmoid
 from stacked.meta.scope import ScopedMeta
@@ -53,14 +53,18 @@ class ScopedMetaMaskGenerator(Module):
 
         self.conv = make_module(blueprint['conv'])
         self.mask = get_cuda(
-            kaiming_normal(torch.ones(blueprint['input_shape'][1:])))
+            normal(torch.ones(blueprint['input_shape'][1:])))
         self.pre_conv = make_module(blueprint['pre_conv'])
         self.callback = blueprint['callback']
+        self.mask_momentum = blueprint['mask_momentum']
 
     def forward(self, x):
         mask = self.function(x, self.conv, self.pre_conv, self.mask)
-        self.mask = torch.mean(mask, dim=0).data
-        self.mask += self.mask.data.new(self.mask.size()).normal_(0, 0.01)
+
+        if self.training:
+            self.mask = self.mask * self.mask_momentum + \
+                        torch.mean(mask, dim=0).data * (1.0 - self.mask_momentum)
+            self.mask += self.mask.data.new(self.mask.size()).normal_(0, 0.01)
 
         self.callback(self.scope, id(self), mask)
         return mask
@@ -80,7 +84,8 @@ class ScopedMetaMaskGenerator(Module):
                          gen_module=ScopedResBlock,
                          pre_conv=PreConvMask,
                          callback=all_to_none,
-                         conv3d_args=None, **__):
+                         conv3d_args=None,
+                         mask_momentum=0.9, **__):
         bp = Blueprint(prefix, suffix, parent, True, ScopedMetaMaskGenerator)
 
         depth = 2
@@ -99,6 +104,7 @@ class ScopedMetaMaskGenerator(Module):
                                                  callback=callback,
                                                  conv3d_args=conv3d_args)
         bp['callback'] = callback
+        bp['mask_momentum'] = mask_momentum
         bp['pre_conv'] = pre_conv.describe_default(prefix='pre_conv', suffix='',
                                                    parent=bp, scalar=0.2)
         bp['input_shape'] = shape
@@ -154,9 +160,9 @@ class ScopedMetaMasked(Module):
                          gen_act_module=ScopedTanh,
                          gen_conv=ScopedConv2d,
                          gen_module=ScopedConvUnit,
-                         gen_in_channels=32, gen_out_channels=32,
+                         gen_in_channels=8, gen_out_channels=8,
                          gen_kernel_size=5, gen_stride=1,
-                         gen_dilation=1, gen_groups=1, gen_bias=True,
+                         gen_dilation=1, gen_groups=1, gen_bias=False,
                          gen_pre_conv=PreConvMask,
                          callback=all_to_none, conv3d_args=None,
                          depthwise=True, skip_mask=False,

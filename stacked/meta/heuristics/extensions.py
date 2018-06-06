@@ -48,4 +48,8 @@ def extend_depth_mutables(blueprint, min_depth=2):
         return
 
     max_depth = len(blueprint['children'])
+
+    if max_depth < min_depth:
+        min_depth = max_depth
+
     blueprint['mutables']['depth'] = ClosedInterval(min_depth, max_depth)

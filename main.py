@@ -2,8 +2,11 @@
 from stacked.models.blueprinted.optimizer import ScopedEpochEngine
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.meta import ScopedMetaMasked
-from stacked.modules.scoped_nn import ScopedConv2d, ScopedBatchNorm2d
+from stacked.modules.scoped_nn import ScopedConv2d, ScopedBatchNorm2d, \
+    ScopedFeatureSimilarityLoss, ScopedParameterSimilarityLoss
+from stacked.modules.loss import collect_features
 from stacked.meta.blueprint import make_module, visit_modules
+
 from stacked.utils import common
 import argparse
 import json
@@ -63,6 +66,8 @@ def create_engine_pair(net_blueprint, options, epochs):
                                                                  lr_drop_epochs=epochs,
                                                                  dataset=options.dataset,
                                                                  num_thread=options.num_thread,
+                                                                 criterion=ScopedFeatureSimilarityLoss,
+                                                                 callback=collect_features,
                                                                  optimizer_parameter_picker=common_picker,
                                                                  weight_decay=options.weight_decay)
 
@@ -130,7 +135,8 @@ if __name__ == '__main__':
         engine = make_module(engine_blueprint)
 
         print("Network architecture:")
-        print({k: v for k, v in engine.net.named_children()})
+        print("=====================")
+        print(engine.net)
         print("=====================")
 
         for j in range(parsed.epochs):
@@ -138,6 +144,12 @@ if __name__ == '__main__':
         engine.hook('on_end', engine.state)
     else:
         common_engine, generator_engine = create_engine_pair(resnet, parsed, lr_drop_epochs)
+
+        print("Network architecture:")
+        print("=====================")
+        print(common_engine.net)
+        print("=====================")
+
         for j in range(parsed.epochs):
             common_engine.start_epoch()
             generator_engine.start_epoch()

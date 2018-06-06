@@ -35,7 +35,7 @@ class ScopedResGroup(Sequential):
 
         # optionally use vertical dropout
         for i, module in enumerate(container):
-            if train and skip > i > 0 and np.random.random() < drop_p:
+            if train and i > 0 and np.random.random() < drop_p:
                 skip = np.random.randint(i + 1, skip + 1)
                 break
 

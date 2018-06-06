@@ -139,6 +139,9 @@ class ClosedInterval(Domain):
         super(ClosedInterval, self).__init__()
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
+
+        assert(self.lower_bound <= self.upper_bound)
+
         self.element_type = element_type
         self.mapper = mapper
 
@@ -182,7 +185,7 @@ class ClosedInterval(Domain):
 
     def get_normalized_index(self, element, *_):
         index = element - self.lower_bound
-        if index >= self.__len__():
+        if index >= self.__len__() or index < 0:
             return -1
         return normalize_index(index, self.__len__(), self.mapper)
 

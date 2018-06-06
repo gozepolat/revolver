@@ -2,7 +2,6 @@ import torch
 from torch.nn import Module
 from torch.nn.functional import cosine_embedding_loss, cross_entropy
 from stacked.utils import common, transformer
-import numpy as np
 
 
 class FeatureSimilarityLoss(Module):
@@ -15,7 +14,7 @@ class FeatureSimilarityLoss(Module):
 
     @staticmethod
     def get_scalar():
-        return 0.004
+        return 0.04
 
     @staticmethod
     def function(x, y, default_loss=cross_entropy):
@@ -29,10 +28,17 @@ class FeatureSimilarityLoss(Module):
         features = common.CURRENT_FEATURES
         previous_features = common.PREVIOUS_FEATURES
 
+        if previous_features is None:
+            return loss
+
         for scope, modules in features.items():
             if scope in previous_features:
                 for module_id, feature in modules.items():
                     previous_modules = previous_features[scope]
+
+                    if previous_modules is None:
+                        continue
+
                     previous_feature = previous_modules.get(module_id, None)
 
                     if previous_feature is None:
@@ -40,6 +46,13 @@ class FeatureSimilarityLoss(Module):
 
                     difference = get_feature_similarity_loss(previous_feature, feature)
                     loss += difference * FeatureSimilarityLoss.get_scalar()
+
+        # clear the old features
+        for scope in previous_features:
+            features = previous_features[scope]
+            if features is not None:
+                for module_id in features:
+                    features[module_id] = None
 
         return loss
 
@@ -110,7 +123,7 @@ class ParameterSimilarityLoss(Module):
 
     @staticmethod
     def get_scalar():
-        return 0.1
+        return 0.2
 
     def forward(self, x, y):
         loss = self.default_loss(x, y)
@@ -124,8 +137,7 @@ class ParameterSimilarityLoss(Module):
             if len(params) > 1:
                 combinations = transformer.list_to_pairs(params)
                 for param1, param2 in combinations:
-                    if np.random.random() < 0.5:
-                        loss += get_parameter_similarity(param1, param2) * scalar
+                    loss += get_parameter_similarity(param1, param2) * scalar
 
         return loss
 
