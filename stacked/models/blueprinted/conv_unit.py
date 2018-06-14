@@ -45,26 +45,30 @@ class ScopedConvUnit(Module):
     def set_unit_description(default, prefix, input_shape, ni, no, kernel_size,
                              stride, padding, conv_module, act_module,
                              bn_module=all_to_none, dilation=1, groups=1,
-                             bias=True, callback=all_to_none, conv3d_args=None):
+                             bias=True, callback=all_to_none, conv_kwargs=None,
+                             bn_kwargs=None, act_kwargs=None):
         """Set descriptions for act, bn, and conv"""
         suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
                                               padding, dilation, groups, bias)
-        kwargs = None
-        if issubclass(act_module, ScopedReLU):
-            kwargs = {'inplace': True}
 
         default['callback'] = callback
-        default['act'] = Blueprint('%s/act' % prefix, suffix, default,
-                                   False, act_module, kwargs=kwargs)
 
+        if act_kwargs is None:
+            if issubclass(act_module, ScopedReLU):
+                act_kwargs = {'inplace': True}
+
+        default['act'] = Blueprint('%s/act' % prefix, suffix, default,
+                                   False, act_module, kwargs=act_kwargs)
+        if bn_kwargs is None:
+            bn_kwargs = {'num_features': ni}
         default['bn'] = Blueprint('%s/bn' % prefix, suffix, default,
-                                  False, bn_module, kwargs={'num_features': ni})
+                                  False, bn_module, kwargs=bn_kwargs)
 
         default['conv'] = conv_module.describe_default('%s/conv' % prefix, suffix,
                                                        default, input_shape, ni,
                                                        no, kernel_size, stride,
                                                        padding, dilation, groups,
-                                                       bias, conv3d_args=conv3d_args)
+                                                       bias, conv_kwargs=conv_kwargs)
 
     @staticmethod
     def describe_default(prefix, suffix, parent, input_shape,
@@ -72,7 +76,8 @@ class ScopedConvUnit(Module):
                          stride, padding, dilation=1, groups=1, bias=True,
                          act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
                          conv_module=ScopedConv2d,
-                         callback=all_to_none, conv3d_args=None, *_, **__):
+                         callback=all_to_none, conv_kwargs=None,
+                         bn_kwargs=None, act_kwargs=None, *_, **__):
         """Create a default ScopedConvUnit blueprint
 
         Args:
@@ -88,11 +93,13 @@ class ScopedConvUnit(Module):
             dilation: Spacing between kernel elements.
             groups: Number of blocked connections from input to output channels.
             bias: Add a learnable bias if True
-            conv_module (type): CNN module to use in forward. e.g. ScopedConv2d
-            bn_module (type): Batch normalization module. e.g. ScopedBatchNorm2d
-            act_module (type): Activation module e.g ScopedReLU
+            conv_module: CNN module to use in forward. e.g. ScopedConv2d
+            bn_module: Batch normalization module. e.g. ScopedBatchNorm2d
+            act_module: Activation module e.g ScopedReLU
             callback: function to call after the output in forward is calculated
-            conv3d_args: extra conv arguments to be used in children
+            conv_kwargs: extra conv arguments to be used in children
+            bn_kwargs: extra bn args, if bn module requires other than 'num_features'
+            act_kwargs: extra act args, if act module requires other than defaults
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedConvUnit)
         default['input_shape'] = input_shape
@@ -102,7 +109,8 @@ class ScopedConvUnit(Module):
                                             kernel_size, stride, padding,
                                             conv_module, act_module, bn_module,
                                             dilation, groups, bias,
-                                            callback, conv3d_args)
+                                            callback, conv_kwargs,
+                                            bn_kwargs, act_kwargs)
 
         default['output_shape'] = default['conv']['output_shape']
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,

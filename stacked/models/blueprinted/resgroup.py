@@ -31,18 +31,13 @@ class ScopedResGroup(Sequential):
 
     @staticmethod
     def function(container, callback, scope, drop_p, train, module_id, x):
-        skip = len(container)
-
-        # optionally use vertical dropout
-        for i, module in enumerate(container):
-            if train and i > 0 and np.random.random() < drop_p:
-                skip = np.random.randint(i + 1, skip + 1)
-                break
-
-            x = module(x)
-
-        for module in container[skip:]:
-            x = module(x)
+        length = len(container)
+        i = 0
+        while i < length:
+            x = container[i](x)
+            i += 1
+            if train and np.random.random() < drop_p:
+                i = np.random.randint(i, length + 1)
 
         callback(scope, module_id, x)
         return x
@@ -54,7 +49,8 @@ class ScopedResGroup(Sequential):
                          act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
                          conv_module=ScopedConv2d, group_depth=1, block_depth=2,
                          callback=all_to_none, drop_p=0.0,
-                         dropout_p=0.0, conv3d_args=None):
+                         dropout_p=0.0, conv_kwargs=None,
+                         bn_kwargs=None, act_kwargs=None):
         """Create a default ResGroup blueprint
 
         Args:
@@ -78,7 +74,9 @@ class ScopedResGroup(Sequential):
             callback: function to call after the output in forward is calculated
             drop_p: Probability of vertical drop
             dropout_p: Probability of dropout in the blocks
-            conv3d_args: extra conv arguments to be used in children
+            conv_kwargs: extra conv arguments to be used in children
+            bn_kwargs: extra bn args, if bn module requires other than 'num_features'
+            act_kwargs: extra act args, if act module requires other than defaults
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedResGroup)
         children = []
@@ -96,7 +94,8 @@ class ScopedResGroup(Sequential):
                                                     dilation, groups, bias,
                                                     act_module, bn_module, conv_module,
                                                     block_depth, callback,
-                                                    dropout_p, conv3d_args)
+                                                    dropout_p, conv_kwargs,
+                                                    bn_kwargs, act_kwargs)
             input_shape = block['output_shape']
             children.append(block)
 

@@ -84,7 +84,7 @@ class ScopedMetaMaskGenerator(Module):
                          gen_module=ScopedResBlock,
                          pre_conv=PreConvMask,
                          callback=all_to_none,
-                         conv3d_args=None,
+                         conv_kwargs=None,
                          mask_momentum=0.9, **__):
         bp = Blueprint(prefix, suffix, parent, True, ScopedMetaMaskGenerator)
 
@@ -102,7 +102,7 @@ class ScopedMetaMaskGenerator(Module):
                                                  bn_module=bn_module,
                                                  conv_module=conv_module, depth=depth,
                                                  callback=callback,
-                                                 conv3d_args=conv3d_args)
+                                                 conv_kwargs=conv_kwargs)
         bp['callback'] = callback
         bp['mask_momentum'] = mask_momentum
         bp['pre_conv'] = pre_conv.describe_default(prefix='pre_conv', suffix='',
@@ -164,7 +164,7 @@ class ScopedMetaMasked(Module):
                          gen_kernel_size=5, gen_stride=1,
                          gen_dilation=1, gen_groups=1, gen_bias=False,
                          gen_pre_conv=PreConvMask,
-                         callback=all_to_none, conv3d_args=None,
+                         callback=all_to_none, conv_kwargs=None,
                          depthwise=True, skip_mask=False,
                          **__):
         """Meta masks to model local rules"""
@@ -217,7 +217,7 @@ class ScopedMetaMasked(Module):
                   'padding': gen_kernel_size // 2, 'dilation': gen_dilation,
                   'groups': gen_groups, 'bias': gen_bias}
 
-        conv3d_args = ScopedConv3d2d.adjust_args(conv3d_args, gen_conv, **kwargs)
+        conv_kwargs = ScopedConv3d2d.adjust_args(conv_kwargs, gen_conv, **kwargs)
 
         if depthwise:
             groups = min(gen_out_channels, out_channels)
@@ -232,7 +232,7 @@ class ScopedMetaMasked(Module):
                                                      gen_act_module, gen_conv,
                                                      gen_module, gen_pre_conv,
                                                      callback=callback,
-                                                     conv3d_args=conv3d_args)
+                                                     conv_kwargs=conv_kwargs)
         assert (shape is not None)
         bp['input_shape'] = shape
         bp['output_shape'] = out_shape

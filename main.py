@@ -88,6 +88,23 @@ def create_engine_pair(net_blueprint, options, epochs):
     return c, g
 
 
+def create_single_engine(net_blueprint, options, epochs):
+    engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
+                                                          net_blueprint=net_blueprint,
+                                                          max_epoch=options.epochs,
+                                                          batch_size=options.batch_size,
+                                                          learning_rate=options.lr,
+                                                          lr_decay_ratio=options.lr_decay_ratio,
+                                                          lr_drop_epochs=epochs,
+                                                          dataset=options.dataset,
+                                                          num_thread=options.num_thread,
+                                                          use_tqdm=True,
+                                                          weight_decay=options.weight_decay)
+
+    single_engine = make_module(engine_blueprint)
+    return single_engine
+
+
 if __name__ == '__main__':
     parsed = parse_args()
 
@@ -119,20 +136,9 @@ if __name__ == '__main__':
 
 
     visit_modules(resnet, None, None, make_conv2d_unique)
-    engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
-                                                          net_blueprint=resnet,
-                                                          max_epoch=parsed.epochs,
-                                                          batch_size=parsed.batch_size,
-                                                          learning_rate=parsed.lr,
-                                                          lr_decay_ratio=parsed.lr_decay_ratio,
-                                                          lr_drop_epochs=lr_drop_epochs,
-                                                          dataset=parsed.dataset,
-                                                          num_thread=parsed.num_thread,
-                                                          use_tqdm=True,
-                                                          weight_decay=parsed.weight_decay)
 
     if parsed.single_engine:
-        engine = make_module(engine_blueprint)
+        engine = create_single_engine(resnet, parsed, lr_drop_epochs)
 
         print("Network architecture:")
         print("=====================")
