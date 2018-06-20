@@ -3,7 +3,7 @@ from stacked.models.blueprinted.optimizer import ScopedEpochEngine
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.modules.scoped_nn import ScopedConv2d, ScopedBatchNorm2d, \
-    ScopedFeatureSimilarityLoss, ScopedParameterSimilarityLoss
+    ScopedFeatureSimilarityLoss
 from stacked.modules.loss import collect_features
 from stacked.meta.blueprint import make_module, visit_modules
 
@@ -105,12 +105,70 @@ def create_single_engine(net_blueprint, options, epochs):
     return single_engine
 
 
+def train_with_single_engine(model, options, epochs):
+    engine = create_single_engine(model, options, epochs)
+
+    print("Network architecture:")
+    print("=====================")
+    print(engine.net)
+    print("=====================")
+
+    for j in range(options.epochs):
+        engine.train_one_epoch()
+    engine.hook('on_end', engine.state)
+
+
+def train_with_double_engine(model, options, epochs, n_samples=50000):
+    common_engine, generator_engine = create_engine_pair(model, options, epochs)
+
+    print("Network architecture:")
+    print("=====================")
+    print(common_engine.net)
+    print("=====================")
+
+    batch = options.batch_size * 17
+    repeat = n_samples // batch + 1
+    for j in range(options.epochs):
+        common_engine.start_epoch()
+        generator_engine.start_epoch()
+
+        # train back and forth
+        for i in range(repeat):
+            common_engine.train_n_samples(batch)
+            generator_engine.train_n_samples(batch)
+
+        # test every fourth epoch
+        if j % 4 == 3:
+            common_engine.end_epoch()
+        else:
+            common_engine.state['epoch'] += 1
+        generator_engine.state['epoch'] += 1
+
+    common_engine.hook('on_end', common_engine.state)
+    generator_engine.hook('on_end', generator_engine.state)
+
+
 if __name__ == '__main__':
     parsed = parse_args()
 
     os.environ['CUDA_VISIBLE_DEVICES'] = parsed.gpu_id
 
-    num_classes = 10 if parsed.dataset == 'CIFAR10' else 100
+    num_channels = 3
+    width = height = 32
+    if parsed.dataset == 'ILSVRC2012':
+        num_classes = 1000
+        width = height = 224
+        num_samples = 1200000
+    elif parsed.dataset == 'CIFAR100':
+        num_classes = 100
+        num_samples = 50000
+    else:  # CIFAR10 or MNIST
+        num_classes = 10
+        num_samples = 50000
+        if parsed.dataset == 'MNIST':
+            num_channels = 1
+            width = height = 28
+            num_samples = 60000
 
     lr_drop_epochs = json.loads(parsed.lr_drop_epochs)
     skeleton = json.loads(parsed.skeleton)
@@ -120,7 +178,8 @@ if __name__ == '__main__':
     print(parsed)
 
     common.BLUEPRINT_GUI = False
-    input_shape = (parsed.batch_size, 3, 32, 32)
+
+    input_shape = (parsed.batch_size, num_channels, width, height)
     resnet = ScopedResNet.describe_default(prefix='ResNet', num_classes=num_classes,
                                            depth=parsed.depth, width=parsed.width,
                                            block_depth=parsed.block_depth,
@@ -138,39 +197,7 @@ if __name__ == '__main__':
     visit_modules(resnet, None, None, make_conv2d_unique)
 
     if parsed.single_engine:
-        engine = create_single_engine(resnet, parsed, lr_drop_epochs)
-
-        print("Network architecture:")
-        print("=====================")
-        print(engine.net)
-        print("=====================")
-
-        for j in range(parsed.epochs):
-            engine.train_one_epoch()
-        engine.hook('on_end', engine.state)
+        train_with_single_engine(resnet, parsed, lr_drop_epochs)
     else:
-        common_engine, generator_engine = create_engine_pair(resnet, parsed, lr_drop_epochs)
-
-        print("Network architecture:")
-        print("=====================")
-        print(common_engine.net)
-        print("=====================")
-
-        for j in range(parsed.epochs):
-            common_engine.start_epoch()
-            generator_engine.start_epoch()
-
-            # train back and forth
-            for i in range(23):
-                common_engine.train_n_samples(128 * 17)
-                generator_engine.train_n_samples(128 * 17)
-
-            # test every fourth epoch
-            if j % 4 == 3:
-                common_engine.end_epoch()
-            else:
-                common_engine.state['epoch'] += 1
-            generator_engine.state['epoch'] += 1
-
-        common_engine.hook('on_end', common_engine.state)
-        generator_engine.hook('on_end', generator_engine.state)
+        train_with_double_engine(resnet, parsed, lr_drop_epochs,
+                                 n_samples=num_samples)

@@ -38,22 +38,29 @@ def create_dataset(dataset="CIFAR10", data_root=".",
     if dataset == 'ILSVRC2012':
         return create_imagenet_dataset(train_mode, crop_size)
 
+    if dataset == 'MNIST':
+        crop_size = 28
+        padding = 4
+
     convert = get_transformer(dataset)
 
     if train_mode:
-        convert = T.Compose([
-            T.RandomHorizontalFlip(),
-            T.RandomCrop(crop_size),
-            convert,
-        ])
+        ops = [T.RandomCrop(crop_size), convert]
+
+        if dataset != 'MNIST':
+            ops = [T.RandomHorizontalFlip()] + ops
+
+        convert = T.Compose(ops)
 
     ds = getattr(datasets, dataset)(data_root,
                                     train=train_mode,
                                     download=True,
                                     transform=convert)
+
     if train_mode:
-        ds.train_data = np.pad(ds.train_data,
-                               ((0, 0), (padding, padding),
-                                (padding, padding), (0, 0)),
-                               mode='reflect')
+        if dataset != 'MNIST':
+            ds.train_data = np.pad(ds.train_data,
+                                   ((0, 0), (padding, padding),
+                                    (padding, padding), (0, 0)),
+                                   mode='reflect')
     return ds

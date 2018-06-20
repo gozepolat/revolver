@@ -180,7 +180,7 @@ class ScopedResNet(Sequential):
             width (int): Scalar to get the scaled width per group
             block_depth (int): Number of [conv/act/bn] units in the block
             conv_module (type): CNN module to use in forward. e.g. ScopedConv2d
-            bn_module (type): Batch normalization module. e.g. ScopedBatchNorm2d
+            bn_module: Batch normalization module. e.g. ScopedBatchNorm2d
             linear_module (type): Linear module for classification e.g. ScopedLinear
             act_module (type): Activation module e.g ScopedReLU
             kernel_size (int or tuple): Size of the convolving kernel.

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
-    ScopedReLU, ScopedTanh, ScopedConv2d
+    ScopedReLU, ScopedConv2d
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
@@ -138,7 +138,7 @@ class ScopedResBlock(Sequential):
             parent (Blueprint): None or the instance of the parent blueprint
             block_depth: Number of (bn, act, conv) units in the block
             conv_module (type): CNN module to use in forward. e.g. ScopedConv2d
-            bn_module (type): Batch normalization module. e.g. ScopedBatchNorm2d
+            bn_module: Batch normalization module. e.g. ScopedBatchNorm2d
             act_module (type): Activation module e.g ScopedReLU
             in_channels (int): Number of channels in the input
             out_channels (int): Number of channels produced by the block

@@ -60,7 +60,7 @@ class ScopedResGroup(Sequential):
             group_depth: Number of blocks in the group
             block_depth: Number of [conv/act/bn] units in the block
             conv_module (type): CNN module to use in forward. e.g. ScopedConv2d
-            bn_module (type): Batch normalization module. e.g. ScopedBatchNorm2d
+            bn_module: Batch normalization module. e.g. ScopedBatchNorm2d
             act_module (type): Activation module e.g ScopedReLU
             in_channels (int): Number of channels in the input
             out_channels (int): Number of channels produced by the block
