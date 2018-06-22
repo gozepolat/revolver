@@ -159,6 +159,10 @@ if __name__ == '__main__':
         num_classes = 1000
         width = height = 224
         num_samples = 1200000
+    elif parsed.dataset == 'tiny-imagenet-200':
+        num_classes = 200
+        width = height = 60
+        num_samples = 100000
     elif parsed.dataset == 'CIFAR100':
         num_classes = 100
         num_samples = 50000

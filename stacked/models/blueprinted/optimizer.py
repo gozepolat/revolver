@@ -184,13 +184,14 @@ class ScopedEpochEngine(EpochEngine):
     @staticmethod
     def describe_default(prefix='EpochEngine', suffix='', parent=None,
                          net_blueprint=None, skeleton=(16, 32, 64),
-                         num_classes=10, depth=28, width=1,
+                         group_depths=None, num_classes=10, depth=28, width=1,
                          block_depth=2, conv_module=ScopedConv2d,
                          bn_module=ScopedBatchNorm2d, linear_module=ScopedLinear,
                          act_module=ScopedReLU, kernel_size=3, padding=1,
                          input_shape=None, dilation=1, groups=1, bias=False,
                          drop_p=0.0, dropout_p=0.0,
-                         conv3d_args=None, optimizer_maker=ScopedOptimizerMaker,
+                         conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
+                         optimizer_maker=ScopedOptimizerMaker,
                          optimizer_type=SGD, optimizer_parameter_picker=None,
                          max_epoch=200, batch_size=128,
                          learning_rate=0.1, lr_decay_ratio=0.2,
@@ -208,6 +209,7 @@ class ScopedEpochEngine(EpochEngine):
             parent (Blueprint): None or the instance of the parent blueprint
             net_blueprint (Blueprint): None or the blueprint of the network to be used
             skeleton (iterable): Smallest possible widths per group
+            group_depths (iterable): Finer grained group depth description
             num_classes (int): Number of categories for supervised learning
             depth (int): Overall depth of the network
             width (int): Scalar to get the scaled width per group
@@ -224,7 +226,9 @@ class ScopedEpochEngine(EpochEngine):
             bias: Add a learnable bias if True
             drop_p: Probability of vertical drop
             dropout_p: Probability of dropout in the blocks
-            conv3d_args: extra conv arguments to be used in children
+            conv_kwargs: extra conv arguments to be used in children
+            bn_kwargs: extra bn args, if bn module requires other than 'num_features'
+            act_kwargs: extra act args, if act module requires other than defaults
             optimizer_maker: Functor that will return an optimizer
             optimizer_type: Type of the optimizer that will be returned
             optimizer_parameter_picker: Function to pick the parameters to be optimized
@@ -284,14 +288,15 @@ class ScopedEpochEngine(EpochEngine):
             default['net']['parent'] = default
         else:
             default['net'] = ScopedResNet.describe_default("%s/ResNet" % prefix, suffix,
-                                                           default, skeleton, num_classes,
+                                                           default, skeleton,
+                                                           group_depths, num_classes,
                                                            depth, width, block_depth,
                                                            conv_module, bn_module,
                                                            linear_module, act_module,
                                                            kernel_size, padding,
                                                            input_shape, dilation, groups,
                                                            bias, callback, drop_p, dropout_p,
-                                                           conv3d_args)
+                                                           conv_kwargs, bn_kwargs, act_kwargs)
 
         default['kwargs'] = {'blueprint': default}
         return default

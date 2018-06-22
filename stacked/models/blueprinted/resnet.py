@@ -97,7 +97,7 @@ class ScopedResNet(Sequential):
         return default['conv']['output_shape']
 
     @staticmethod
-    def __set_default_children(prefix, default, ni, widths, group_depth,
+    def __set_default_children(prefix, default, ni, widths, group_depths,
                                block_depth, conv_module, bn_module, act_module,
                                kernel_size, stride, padding, shape,
                                dilation=1, groups=1, bias=False,
@@ -106,7 +106,7 @@ class ScopedResNet(Sequential):
                                bn_kwargs=None, act_kwargs=None):
         """Sequentially set children blueprints"""
         children = []
-        for width in widths:
+        for width, group_depth in zip(widths, group_depths):
             no = width
             suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
                                                   padding, dilation, groups, bias)
@@ -131,7 +131,7 @@ class ScopedResNet(Sequential):
     @staticmethod
     def __get_default(prefix, suffix, parent, shape, ni, no, kernel_size,
                       num_classes, bn_module, act_module, conv_module, linear_module,
-                      widths, group_depth, block_depth, stride, padding,
+                      widths, group_depths, block_depth, stride, padding,
                       dilation=1, groups=1, bias=False, callback=all_to_none,
                       drop_p=0.0, dropout_p=0.0, conv_kwargs=None,
                       bn_kwargs=None, act_kwargs=None):
@@ -144,7 +144,7 @@ class ScopedResNet(Sequential):
                                                  conv_kwargs, bn_kwargs, act_kwargs)
 
         shape = ScopedResNet.__set_default_children(prefix, default, ni, widths,
-                                                    group_depth, block_depth, conv_module,
+                                                    group_depths, block_depth, conv_module,
                                                     bn_module, act_module, kernel_size,
                                                     stride, padding, shape, dilation,
                                                     groups, bias, callback,
@@ -160,7 +160,8 @@ class ScopedResNet(Sequential):
         return default
 
     @staticmethod
-    def describe_default(prefix='ResNet', suffix='', parent=None, skeleton=(16, 32, 64),
+    def describe_default(prefix='ResNet', suffix='', parent=None,
+                         skeleton=(16, 32, 64), group_depths=None,
                          num_classes=10, depth=28, width=1,
                          block_depth=2, conv_module=ScopedConv2d,
                          bn_module=ScopedBatchNorm2d, linear_module=ScopedLinear,
@@ -175,6 +176,7 @@ class ScopedResNet(Sequential):
             suffix (str): Suffix to append the name of the scoped object
             parent (Blueprint): None or the instance of the parent blueprint
             skeleton (iterable): Smallest possible widths per group
+            group_depths (iterable): Finer grained group depth description
             num_classes (int): Number of categories for supervised learning
             depth (int): Overall depth of the network
             width (int): Scalar to get the scaled width per group
@@ -193,6 +195,8 @@ class ScopedResNet(Sequential):
             drop_p: Probability of vertical drop
             dropout_p: Probability of dropout in the blocks
             conv_kwargs: extra conv arguments to be used in children
+            bn_kwargs: extra bn args, if bn module requires other than 'num_features'
+            act_kwargs: extra act args, if act module requires other than defaults
         """
         if input_shape is None:
             # assume batch_size = 1, in_channels: 3, h: 32, and w : 32
@@ -201,8 +205,14 @@ class ScopedResNet(Sequential):
         widths = [i * width for i in skeleton]
         stride = 1
         num_groups = len(skeleton)
-        group_depth = ScopedResNet.get_num_blocks_per_group(depth, num_groups,
-                                                            block_depth)
+
+        if group_depths is None:
+            group_depth = ScopedResNet.get_num_blocks_per_group(depth, num_groups,
+                                                                block_depth)
+            group_depths = []
+            for _ in widths:
+                group_depths.append(group_depth)
+
         ni = skeleton[0]
         no = widths[-1]
 
@@ -211,9 +221,9 @@ class ScopedResNet(Sequential):
                                              kernel_size, num_classes,
                                              bn_module, act_module,
                                              conv_module, linear_module,
-                                             widths, group_depth,
+                                             widths, group_depths,
                                              block_depth, stride, padding,
                                              dilation, groups, bias,
                                              callback, drop_p, dropout_p,
-                                             conv_kwargs)
+                                             conv_kwargs, bn_kwargs, act_kwargs)
         return default
