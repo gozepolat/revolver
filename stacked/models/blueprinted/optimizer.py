@@ -7,6 +7,7 @@ from stacked.meta.scope import ScopedMeta
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
     ScopedReLU, ScopedConv2d, ScopedLinear, ScopedCrossEntropyLoss
+from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.utils.engine import EpochEngine, EngineEventHooks
 from stacked.utils.dataset import create_dataset
 from stacked.utils.transformer import all_to_none
@@ -184,12 +185,13 @@ class ScopedEpochEngine(EpochEngine):
     @staticmethod
     def describe_default(prefix='EpochEngine', suffix='', parent=None,
                          net_blueprint=None, skeleton=(16, 32, 64),
-                         group_depths=None, num_classes=10, depth=28, width=1,
-                         block_depth=2, conv_module=ScopedConv2d,
+                         group_depths=None, num_classes=10,
+                         depth=28, width=1, block_depth=2,
+                         block_module=ScopedResBlock, conv_module=ScopedConv2d,
                          bn_module=ScopedBatchNorm2d, linear_module=ScopedLinear,
                          act_module=ScopedReLU, kernel_size=3, padding=1,
                          input_shape=None, dilation=1, groups=1, bias=False,
-                         drop_p=0.0, dropout_p=0.0,
+                         drop_p=0.0, dropout_p=0.0, residual=True,
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          optimizer_maker=ScopedOptimizerMaker,
                          optimizer_type=SGD, optimizer_parameter_picker=None,
@@ -214,6 +216,7 @@ class ScopedEpochEngine(EpochEngine):
             depth (int): Overall depth of the network
             width (int): Scalar to get the scaled width per group
             block_depth (int): Number of [conv/act/bn] units in the block
+            block_module: Children modules used as block modules
             conv_module (type): CNN module to use in forward. e.g. ScopedConv2d
             bn_module: Batch normalization module. e.g. ScopedBatchNorm2d
             linear_module (type): Linear module for classification e.g. ScopedLinear
@@ -226,6 +229,7 @@ class ScopedEpochEngine(EpochEngine):
             bias: Add a learnable bias if True
             drop_p: Probability of vertical drop
             dropout_p: Probability of dropout in the blocks
+            residual (bool): True if a shortcut connection will be used
             conv_kwargs: extra conv arguments to be used in children
             bn_kwargs: extra bn args, if bn module requires other than 'num_features'
             act_kwargs: extra act args, if act module requires other than defaults
@@ -291,11 +295,12 @@ class ScopedEpochEngine(EpochEngine):
                                                            default, skeleton,
                                                            group_depths, num_classes,
                                                            depth, width, block_depth,
-                                                           conv_module, bn_module,
-                                                           linear_module, act_module,
-                                                           kernel_size, padding,
+                                                           block_module, conv_module,
+                                                           bn_module, linear_module,
+                                                           act_module, kernel_size, padding,
                                                            input_shape, dilation, groups,
-                                                           bias, callback, drop_p, dropout_p,
+                                                           bias, callback, drop_p,
+                                                           dropout_p, residual,
                                                            conv_kwargs, bn_kwargs, act_kwargs)
 
         default['kwargs'] = {'blueprint': default}

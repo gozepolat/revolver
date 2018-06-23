@@ -45,7 +45,7 @@ def parse_args():
     return parsed_args
 
 
-def create_engine_pair(net_blueprint, options, epochs):
+def create_engine_pair(net_blueprint, options, epochs, crop_size):
     """engines to train different portions of the given model"""
     def common_picker(model):
         for k, v in model.named_parameters():
@@ -64,6 +64,7 @@ def create_engine_pair(net_blueprint, options, epochs):
                                                                  learning_rate=options.lr,
                                                                  lr_decay_ratio=options.lr_decay_ratio,
                                                                  lr_drop_epochs=epochs,
+                                                                 crop_size=crop_size,
                                                                  dataset=options.dataset,
                                                                  num_thread=options.num_thread,
                                                                  criterion=ScopedFeatureSimilarityLoss,
@@ -79,6 +80,7 @@ def create_engine_pair(net_blueprint, options, epochs):
                                                                     learning_rate=options.lr * 0.2,
                                                                     lr_decay_ratio=options.lr_decay_ratio,
                                                                     lr_drop_epochs=epochs,
+                                                                    crop_size=crop_size,
                                                                     dataset=options.dataset,
                                                                     num_thread=options.num_thread,
                                                                     optimizer_parameter_picker=generator_picker,
@@ -88,7 +90,7 @@ def create_engine_pair(net_blueprint, options, epochs):
     return c, g
 
 
-def create_single_engine(net_blueprint, options, epochs):
+def create_single_engine(net_blueprint, options, epochs, crop_size):
     engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
                                                           net_blueprint=net_blueprint,
                                                           max_epoch=options.epochs,
@@ -98,15 +100,15 @@ def create_single_engine(net_blueprint, options, epochs):
                                                           lr_drop_epochs=epochs,
                                                           dataset=options.dataset,
                                                           num_thread=options.num_thread,
-                                                          use_tqdm=True,
+                                                          use_tqdm=True, crop_size=crop_size,
                                                           weight_decay=options.weight_decay)
 
     single_engine = make_module(engine_blueprint)
     return single_engine
 
 
-def train_with_single_engine(model, options, epochs):
-    engine = create_single_engine(model, options, epochs)
+def train_with_single_engine(model, options, epochs, crop_size):
+    engine = create_single_engine(model, options, epochs, crop_size)
 
     print("Network architecture:")
     print("=====================")
@@ -118,8 +120,9 @@ def train_with_single_engine(model, options, epochs):
     engine.hook('on_end', engine.state)
 
 
-def train_with_double_engine(model, options, epochs, n_samples=50000):
-    common_engine, generator_engine = create_engine_pair(model, options, epochs)
+def train_with_double_engine(model, options, epochs, crop_size, n_samples=50000):
+    common_engine, generator_engine = create_engine_pair(model, options,
+                                                         epochs, crop_size)
 
     print("Network architecture:")
     print("=====================")
@@ -161,7 +164,7 @@ if __name__ == '__main__':
         num_samples = 1200000
     elif parsed.dataset == 'tiny-imagenet-200':
         num_classes = 200
-        width = height = 60
+        width = height = 64
         num_samples = 100000
     elif parsed.dataset == 'CIFAR100':
         num_classes = 100
@@ -200,8 +203,9 @@ if __name__ == '__main__':
 
     visit_modules(resnet, None, None, make_conv2d_unique)
 
+    crop_size = width
     if parsed.single_engine:
-        train_with_single_engine(resnet, parsed, lr_drop_epochs)
+        train_with_single_engine(resnet, parsed, lr_drop_epochs, crop_size)
     else:
         train_with_double_engine(resnet, parsed, lr_drop_epochs,
-                                 n_samples=num_samples)
+                                 crop_size, n_samples=num_samples)

@@ -30,20 +30,25 @@ class ScopedResBlock(Sequential):
         self.conv = make_module(blueprint['conv'])
         self.callback = blueprint['callback']
         self.dropout_p = blueprint['dropout_p']
+        self.residual = blueprint['residual']
 
+        self.convdim = None
         # 1x1 conv to correct the number of channels for summation
-        self.convdim = make_module(blueprint['convdim'])
+        if self.residual:
+            self.convdim = make_module(blueprint['convdim'])
 
     def forward(self, x):
         return self.function(self.bn, self.act,
                              self.conv, self.container,
                              self.convdim, self.callback,
                              self.scope, self.dropout_p,
-                             self.training, id(self), x)
+                             self.residual, self.training,
+                             id(self), x)
 
     @staticmethod
     def function(bn, act, conv, container, convdim,
-                 callback, scope, dropout_p, training, module_id, x):
+                 callback, scope, dropout_p,
+                 residual, training, module_id, x):
         o = x
         if bn is not None:
             o = bn(o)
@@ -58,7 +63,9 @@ class ScopedResBlock(Sequential):
         for unit in container:
             z = unit(z)
 
-        if convdim is not None:
+        if not residual:
+            pass
+        elif convdim is not None:
             z = z + convdim(o)
         else:
             z = z + x
@@ -127,7 +134,7 @@ class ScopedResBlock(Sequential):
                          dilation=1, groups=1, bias=True,
                          act_module=ScopedReLU, bn_module=all_to_none,
                          conv_module=ScopedConv2d, block_depth=2,
-                         callback=all_to_none, dropout_p=0.0,
+                         callback=all_to_none, dropout_p=0.0, residual=True,
                          conv_kwargs=None, bn_kwargs=None,
                          act_kwargs=None, *_, **__):
         """Create a default ScopedResBlock blueprint
@@ -151,6 +158,7 @@ class ScopedResBlock(Sequential):
             bias (bool): Add a learnable bias if True
             callback: function to call after the output in forward is calculated
             dropout_p (float): Probability of dropout
+            residual (bool): True if a shortcut connection will be used
             conv_kwargs: extra conv arguments to be used in self.conv and children
             bn_kwargs: extra bn args, if bn module requires other than 'num_features'
             act_kwargs: extra act args, if act module requires other than defaults
@@ -173,6 +181,7 @@ class ScopedResBlock(Sequential):
                                                             groups, bias, callback, conv_kwargs,
                                                             bn_kwargs, act_kwargs)
         default['output_shape'] = input_shape
+        default['residual'] = residual
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
                              'stride': stride, 'padding': padding, 'dilation': dilation,
                              'groups': groups, 'bias': bias}

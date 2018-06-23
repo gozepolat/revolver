@@ -6,6 +6,7 @@ from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.models.blueprinted.resgroup import ScopedResGroup
+from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.utils.transformer import all_to_none
 from six import add_metaclass
 
@@ -98,11 +99,11 @@ class ScopedResNet(Sequential):
 
     @staticmethod
     def __set_default_children(prefix, default, ni, widths, group_depths,
-                               block_depth, conv_module, bn_module, act_module,
-                               kernel_size, stride, padding, shape,
-                               dilation=1, groups=1, bias=False,
-                               callback=all_to_none,
-                               drop_p=0.0, dropout_p=0.0, conv_kwargs=None,
+                               block_depth, block_module, conv_module,
+                               bn_module, act_module, kernel_size, stride,
+                               padding, shape, dilation=1, groups=1, bias=False,
+                               callback=all_to_none, drop_p=0.0, dropout_p=0.0,
+                               residual=True, conv_kwargs=None,
                                bn_kwargs=None, act_kwargs=None):
         """Sequentially set children blueprints"""
         children = []
@@ -114,10 +115,10 @@ class ScopedResNet(Sequential):
             block = ScopedResGroup.describe_default('%s/group' % prefix, suffix,
                                                     default, shape,
                                                     ni, no, kernel_size, stride, padding,
-                                                    dilation, groups, bias,
+                                                    dilation, groups, bias, block_module,
                                                     act_module, bn_module, conv_module,
                                                     group_depth, block_depth,
-                                                    callback, drop_p, dropout_p,
+                                                    callback, drop_p, dropout_p, residual,
                                                     conv_kwargs, bn_kwargs, act_kwargs)
             shape = block['output_shape']
             children.append(block)
@@ -130,10 +131,11 @@ class ScopedResNet(Sequential):
 
     @staticmethod
     def __get_default(prefix, suffix, parent, shape, ni, no, kernel_size,
-                      num_classes, bn_module, act_module, conv_module, linear_module,
-                      widths, group_depths, block_depth, stride, padding,
-                      dilation=1, groups=1, bias=False, callback=all_to_none,
-                      drop_p=0.0, dropout_p=0.0, conv_kwargs=None,
+                      num_classes, block_module, bn_module, act_module,
+                      conv_module, linear_module, widths, group_depths,
+                      block_depth, stride, padding, dilation=1, groups=1,
+                      bias=False, callback=all_to_none, drop_p=0.0,
+                      dropout_p=0.0, residual=True, conv_kwargs=None,
                       bn_kwargs=None, act_kwargs=None):
         """Set the items and the children of the default blueprint object"""
         default = Blueprint(prefix, suffix, parent, False, ScopedResNet)
@@ -145,10 +147,10 @@ class ScopedResNet(Sequential):
 
         shape = ScopedResNet.__set_default_children(prefix, default, ni, widths,
                                                     group_depths, block_depth, conv_module,
-                                                    bn_module, act_module, kernel_size,
-                                                    stride, padding, shape, dilation,
-                                                    groups, bias, callback,
-                                                    drop_p, dropout_p, conv_kwargs,
+                                                    block_module, bn_module, act_module,
+                                                    kernel_size, stride, padding, shape,
+                                                    dilation, groups, bias, callback,
+                                                    drop_p, dropout_p, residual, conv_kwargs,
                                                     bn_kwargs, act_kwargs)
 
         default['linear']['input_shape'] = (shape[0], shape[1])
@@ -162,12 +164,14 @@ class ScopedResNet(Sequential):
     @staticmethod
     def describe_default(prefix='ResNet', suffix='', parent=None,
                          skeleton=(16, 32, 64), group_depths=None,
-                         num_classes=10, depth=28, width=1,
-                         block_depth=2, conv_module=ScopedConv2d,
+                         num_classes=10, depth=28,
+                         width=1, block_depth=2,
+                         block_module=ScopedResBlock, conv_module=ScopedConv2d,
                          bn_module=ScopedBatchNorm2d, linear_module=ScopedLinear,
-                         act_module=ScopedReLU, kernel_size=3, padding=1,
-                         input_shape=None, dilation=1, groups=1, bias=False,
-                         callback=all_to_none, drop_p=0.0, dropout_p=0.0,
+                         act_module=ScopedReLU,
+                         kernel_size=3, padding=1, input_shape=None,
+                         dilation=1, groups=1, bias=False, callback=all_to_none,
+                         drop_p=0.0, dropout_p=0.0, residual=True,
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None):
         """Create a default ResBlock blueprint
 
@@ -181,6 +185,7 @@ class ScopedResNet(Sequential):
             depth (int): Overall depth of the network
             width (int): Scalar to get the scaled width per group
             block_depth (int): Number of [conv/act/bn] units in the block
+            block_module: Children modules used as block modules
             conv_module (type): CNN module to use in forward. e.g. ScopedConv2d
             bn_module: Batch normalization module. e.g. ScopedBatchNorm2d
             linear_module (type): Linear module for classification e.g. ScopedLinear
@@ -194,6 +199,7 @@ class ScopedResNet(Sequential):
             callback: function to call after the output in forward is calculated
             drop_p: Probability of vertical drop
             dropout_p: Probability of dropout in the blocks
+            residual (bool): True if a shortcut connection will be used
             conv_kwargs: extra conv arguments to be used in children
             bn_kwargs: extra bn args, if bn module requires other than 'num_features'
             act_kwargs: extra act args, if act module requires other than defaults
@@ -219,11 +225,11 @@ class ScopedResNet(Sequential):
         default = ScopedResNet.__get_default(prefix, suffix, parent,
                                              input_shape, ni, no,
                                              kernel_size, num_classes,
-                                             bn_module, act_module,
-                                             conv_module, linear_module,
-                                             widths, group_depths,
+                                             bn_module, block_module,
+                                             act_module, conv_module,
+                                             linear_module, widths, group_depths,
                                              block_depth, stride, padding,
                                              dilation, groups, bias,
-                                             callback, drop_p, dropout_p,
+                                             callback, drop_p, dropout_p, residual,
                                              conv_kwargs, bn_kwargs, act_kwargs)
         return default
