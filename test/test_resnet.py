@@ -80,6 +80,7 @@ class TestResNet(unittest.TestCase):
                                                   input_shape=(1, 3, 128, 128),
                                                   width=1,
                                                   num_classes=100)
+
         # group[0] -> block[1] -> unit[0].conv
         blueprint.get_element((0, 1, 0, 'conv')).make_unique()
 

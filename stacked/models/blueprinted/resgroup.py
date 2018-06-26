@@ -3,10 +3,12 @@ from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint
 from stacked.models.blueprinted.resblock import ScopedResBlock
+from stacked.models.blueprinted.conv_unit import ScopedConvUnit
 from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
     ScopedReLU, ScopedConv2d
 from stacked.utils.transformer import all_to_none
 from six import add_metaclass
+from stacked.utils.common import time_to_drop
 import numpy as np
 
 
@@ -36,7 +38,7 @@ class ScopedResGroup(Sequential):
         while i < length:
             x = container[i](x)
             i += 1
-            if train and np.random.random() < drop_p:
+            if time_to_drop(train, drop_p):
                 i = np.random.randint(i, length + 1)
 
         callback(scope, module_id, x)
@@ -45,20 +47,19 @@ class ScopedResGroup(Sequential):
     @staticmethod
     def describe_default(prefix, suffix, parent, input_shape,
                          in_channels, out_channels, kernel_size, stride, padding=1,
-                         dilation=1, groups=1, bias=True, block_module=ScopedResBlock,
+                         dilation=1, groups=1, bias=True,
                          act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
-                         conv_module=ScopedConv2d, group_depth=1, block_depth=2,
-                         callback=all_to_none, drop_p=0.0,
-                         dropout_p=0.0, residual=True, conv_kwargs=None,
-                         bn_kwargs=None, act_kwargs=None):
+                         conv_module=ScopedConv2d, callback=all_to_none,
+                         conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
+                         unit_module=ScopedConvUnit, block_depth=2,
+                         dropout_p=0.0, residual=True, block_module=ScopedResBlock,
+                         group_depth=2, drop_p=0.0, *_, **__):
         """Create a default ResGroup blueprint
 
         Args:
             prefix (str): Prefix from which the member scopes will be created
             suffix (str): Suffix to append the name of the scoped object
             parent (Blueprint): None or the instance of the parent blueprint
-            group_depth: Number of blocks in the group
-            block_depth: Number of [conv/act/bn] units in the block
             conv_module (type): CNN module to use in forward. e.g. ScopedConv2d
             bn_module: Batch normalization module. e.g. ScopedBatchNorm2d
             act_module (type): Activation module e.g ScopedReLU
@@ -71,14 +72,18 @@ class ScopedResGroup(Sequential):
             dilation: Spacing between kernel elements.
             groups: Number of blocked connections from input to output channels.
             bias: Add a learnable bias if True
-            block_module: Children modules used as block modules
+            unit_module: Children modules used as units in block_modules
             callback: function to call after the output in forward is calculated
-            drop_p: Probability of vertical drop
-            dropout_p: Probability of dropout in the blocks
-            residual (bool): True if a shortcut connection will be used
             conv_kwargs: extra conv arguments to be used in children
             bn_kwargs: extra bn args, if bn module requires other than 'num_features'
             act_kwargs: extra act args, if act module requires other than defaults
+            unit_module: Children modules used as block modules
+            block_depth: Number of [conv/act/bn] units in the block
+            dropout_p: Probability of dropout in the blocks
+            residual (bool): True if a shortcut connection will be used
+            block_module: Children modules used as block modules
+            group_depth: Number of blocks in the group
+            drop_p: Probability of vertical drop
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedResGroup)
         children = []
@@ -95,9 +100,9 @@ class ScopedResGroup(Sequential):
                                                   kernel_size, stride, padding,
                                                   dilation, groups, bias,
                                                   act_module, bn_module, conv_module,
-                                                  block_depth, callback,
-                                                  dropout_p, residual, conv_kwargs,
-                                                  bn_kwargs, act_kwargs)
+                                                  callback, conv_kwargs,
+                                                  bn_kwargs, act_kwargs, unit_module,
+                                                  block_depth, dropout_p, residual)
             input_shape = block['output_shape']
             children.append(block)
 

@@ -34,7 +34,7 @@ def create_imagenet_dataset(dataset="ILSVRC2012", data_root=".",
 
 def create_tiny_imagenet_dataset(dataset="tiny-imagenet-200",
                                  data_root=".",
-                                 train_mode=True, crop_size=64):
+                                 train_mode=True, crop_size=56):
     datadir = os.path.join(dataset, 'val/images')
 
     if train_mode:
@@ -46,7 +46,7 @@ def create_tiny_imagenet_dataset(dataset="tiny-imagenet-200",
     if train_mode:
         return datasets.ImageFolder(datadir,
                                     T.Compose([
-                                        # T.RandomResizedCrop(crop_size),
+                                        T.RandomResizedCrop(crop_size),
                                         T.RandomHorizontalFlip(),
                                         T.ToTensor(),
                                         normalize,

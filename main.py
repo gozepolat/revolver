@@ -158,14 +158,20 @@ if __name__ == '__main__':
 
     num_channels = 3
     width = height = 32
+    group_depths = None
     if parsed.dataset == 'ILSVRC2012':
         num_classes = 1000
         width = height = 224
         num_samples = 1200000
+        group_depths = (1, 1, 1, 2, 4, 2)
+        skeleton = [4, 8, 16, 48, 64, 72]
     elif parsed.dataset == 'tiny-imagenet-200':
         num_classes = 200
-        width = height = 64
+        width = height = 56
         num_samples = 100000
+        group_depths = (1, 4, 8, 1)
+        skeleton = [8, 24, 48, 64]
+        parsed.block_depth = 3
     elif parsed.dataset == 'CIFAR100':
         num_classes = 100
         num_samples = 50000
@@ -191,7 +197,8 @@ if __name__ == '__main__':
                                            depth=parsed.depth, width=parsed.width,
                                            block_depth=parsed.block_depth,
                                            conv_module=ScopedMetaMasked,
-                                           skeleton=skeleton, input_shape=input_shape)
+                                           skeleton=skeleton, group_depths=group_depths,
+                                           input_shape=input_shape)
 
     def make_conv2d_unique(bp, _, __):
         if issubclass(bp['type'], ScopedBatchNorm2d):

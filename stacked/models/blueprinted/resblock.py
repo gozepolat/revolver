@@ -37,7 +37,7 @@ class ScopedResBlock(Sequential):
         if self.residual:
             self.convdim = make_module(blueprint['convdim'])
 
-    def forward(self, x):
+    def forward(self, x, *_):
         return self.function(self.bn, self.act,
                              self.conv, self.container,
                              self.convdim, self.callback,
@@ -105,8 +105,8 @@ class ScopedResBlock(Sequential):
 
     @staticmethod
     def __set_default_children(prefix, default, shape, ni, no, kernel_size, stride,
-                               padding, conv_module, act_module, bn_module, depth,
-                               dilation=1, groups=1, bias=True,
+                               padding, unit_module, conv_module, act_module,
+                               bn_module, depth, dilation=1, groups=1, bias=True,
                                callback=all_to_none, conv_kwargs=None,
                                bn_kwargs=None, act_kwargs=None):
         children = []
@@ -115,12 +115,12 @@ class ScopedResBlock(Sequential):
             suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
                                                   padding, dilation, groups, bias)
             assert(shape[1] == ni)
-            unit = ScopedConvUnit.describe_default(unit_prefix, suffix, default, shape,
-                                                   ni, no, kernel_size, stride, padding,
-                                                   dilation, groups, bias, act_module,
-                                                   bn_module, conv_module,
-                                                   callback, conv_kwargs,
-                                                   bn_kwargs, act_kwargs)
+            unit = unit_module.describe_default(unit_prefix, suffix, default, shape,
+                                                ni, no, kernel_size, stride, padding,
+                                                dilation, groups, bias, act_module,
+                                                bn_module, conv_module,
+                                                callback, conv_kwargs,
+                                                bn_kwargs, act_kwargs)
             shape = unit['output_shape']
             children.append(unit)
 
@@ -133,18 +133,18 @@ class ScopedResBlock(Sequential):
                          out_channels, kernel_size, stride, padding,
                          dilation=1, groups=1, bias=True,
                          act_module=ScopedReLU, bn_module=all_to_none,
-                         conv_module=ScopedConv2d, block_depth=2,
-                         callback=all_to_none, dropout_p=0.0, residual=True,
-                         conv_kwargs=None, bn_kwargs=None,
-                         act_kwargs=None, *_, **__):
+                         conv_module=ScopedConv2d, callback=all_to_none,
+                         conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
+                         unit_module=ScopedConvUnit, block_depth=2,
+                         dropout_p=0.0, residual=True, *_, **__):
         """Create a default ScopedResBlock blueprint
 
         Args:
             prefix (str): Prefix from which the member scopes will be created
             suffix (str): Suffix to append the name of the scoped object
             parent (Blueprint): None or the instance of the parent blueprint
-            block_depth: Number of (bn, act, conv) units in the block
-            conv_module (type): CNN module to use in forward. e.g. ScopedConv2d
+            unit_module (type): basic building unit of resblock
+            conv_module (type): CNN module to use in block_module
             bn_module: Batch normalization module. e.g. ScopedBatchNorm2d
             act_module (type): Activation module e.g ScopedReLU
             in_channels (int): Number of channels in the input
@@ -162,6 +162,7 @@ class ScopedResBlock(Sequential):
             conv_kwargs: extra conv arguments to be used in self.conv and children
             bn_kwargs: extra bn args, if bn module requires other than 'num_features'
             act_kwargs: extra act args, if act module requires other than defaults
+            block_depth: Number of (bn, act, conv) units in the block
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedResBlock)
 
@@ -175,8 +176,8 @@ class ScopedResBlock(Sequential):
 
         input_shape = ScopedResBlock.__set_default_children(prefix, default, input_shape,
                                                             out_channels, out_channels,
-                                                            kernel_size, 1,
-                                                            padding, conv_module, act_module,
+                                                            kernel_size, 1, padding,
+                                                            unit_module, conv_module, act_module,
                                                             bn_module, block_depth, dilation,
                                                             groups, bias, callback, conv_kwargs,
                                                             bn_kwargs, act_kwargs)
