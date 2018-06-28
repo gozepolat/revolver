@@ -149,7 +149,7 @@ def get_transformer(dataset="CIFAR10"):
                         np.array([63.0, 62.1, 66.7]) / 255.0),
         ])
     elif dataset == "CIFAR100":
-        transformer = T.compose([
+        transformer = T.Compose([
             T.ToTensor(),
             T.Normalize(np.array([129.3, 124.1, 112.4]) / 255.0,
                         np.array([68.2, 65.4, 70.4]) / 255.0),

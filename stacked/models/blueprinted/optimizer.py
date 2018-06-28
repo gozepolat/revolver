@@ -8,6 +8,8 @@ from stacked.meta.blueprint import Blueprint, make_module
 from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
     ScopedReLU, ScopedConv2d, ScopedLinear, ScopedCrossEntropyLoss
 from stacked.models.blueprinted.resblock import ScopedResBlock
+from stacked.models.blueprinted.resgroup import ScopedResGroup
+from stacked.models.blueprinted.conv_unit import ScopedConvUnit
 from stacked.utils.engine import EpochEngine, EngineEventHooks
 from stacked.utils.dataset import create_dataset
 from stacked.utils.transformer import all_to_none
@@ -193,7 +195,8 @@ class ScopedEpochEngine(EpochEngine):
                          input_shape=None, dilation=1, groups=1, bias=False,
                          drop_p=0.0, dropout_p=0.0, residual=True,
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
-                         optimizer_maker=ScopedOptimizerMaker,
+                         unit_module=ScopedConvUnit, group_module=ScopedResGroup,
+                         fractal_depth=1, optimizer_maker=ScopedOptimizerMaker,
                          optimizer_type=SGD, optimizer_parameter_picker=None,
                          max_epoch=200, batch_size=128,
                          learning_rate=0.1, lr_decay_ratio=0.2,
@@ -233,6 +236,9 @@ class ScopedEpochEngine(EpochEngine):
             conv_kwargs: extra conv arguments to be used in children
             bn_kwargs: extra bn args, if bn module requires other than 'num_features'
             act_kwargs: extra act args, if act module requires other than defaults
+            unit_module (type): basic building unit of resblock
+            group_module (type): basic building group of resnet
+            fractal_depth: recursion depth for fractal group module
             optimizer_maker: Functor that will return an optimizer
             optimizer_type: Type of the optimizer that will be returned
             optimizer_parameter_picker: Function to pick the parameters to be optimized
@@ -291,17 +297,20 @@ class ScopedEpochEngine(EpochEngine):
             default['net'] = net_blueprint
             default['net']['parent'] = default
         else:
-            default['net'] = ScopedResNet.describe_default("%s/ResNet" % prefix, suffix,
-                                                           default, skeleton,
-                                                           group_depths, num_classes,
-                                                           depth, width, block_depth,
-                                                           block_module, conv_module,
-                                                           bn_module, linear_module,
-                                                           act_module, kernel_size, padding,
-                                                           input_shape, dilation, groups,
-                                                           bias, callback, drop_p,
-                                                           dropout_p, residual,
-                                                           conv_kwargs, bn_kwargs, act_kwargs)
+            default['net'] = ScopedResNet.describe_default("%s/ResNet" % prefix, suffix, parent=parent,
+                                                           skeleton=skeleton, group_depths=group_depths,
+                                                           num_classes=num_classes, depth=depth,
+                                                           width=width, block_depth=block_depth,
+                                                           block_module=block_module, conv_module=conv_module,
+                                                           bn_module=bn_module, linear_module=linear_module,
+                                                           act_module=act_module, kernel_size=kernel_size,
+                                                           padding=padding, input_shape=input_shape,
+                                                           dilation=dilation, groups=groups, bias=bias,
+                                                           callback=callback, drop_p=drop_p, dropout_p=dropout_p,
+                                                           residual=residual, conv_kwargs=conv_kwargs,
+                                                           bn_kwargs=bn_kwargs, act_kwargs=act_kwargs,
+                                                           unit_module=unit_module, group_module=group_module,
+                                                           fractal_depth=fractal_depth)
 
         default['kwargs'] = {'blueprint': default}
         return default

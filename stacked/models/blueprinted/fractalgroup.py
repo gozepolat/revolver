@@ -44,8 +44,12 @@ class ScopedFractalGroup(Sequential):
         if left_scope != left.scope:
             left_x = left(x)
 
+        # drop left or right uniformly
+        drop_left = np.random.randint(0, 2)
+        drop = time_to_drop(train, drop_p)
+
         # drop right
-        if time_to_drop(train, drop_p):
+        if drop and drop_left == 0:
             callback(scope, module_id, left_x)
             return left_x
 
@@ -61,7 +65,7 @@ class ScopedFractalGroup(Sequential):
             i += 1
 
         # drop left
-        if time_to_drop(train, drop_p):
+        if drop and drop_left == 1:
             callback(scope, module_id, right_x)
             return right_x
 
