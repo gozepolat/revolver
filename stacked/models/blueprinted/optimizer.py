@@ -196,16 +196,17 @@ class ScopedEpochEngine(EpochEngine):
                          drop_p=0.0, dropout_p=0.0, residual=True,
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, group_module=ScopedResGroup,
-                         fractal_depth=1, optimizer_maker=ScopedOptimizerMaker,
+                         fractal_depth=1, shortcut_index=-1,
+                         optimizer_maker=ScopedOptimizerMaker,
                          optimizer_type=SGD, optimizer_parameter_picker=None,
                          max_epoch=200, batch_size=128,
                          learning_rate=0.1, lr_decay_ratio=0.2,
                          lr_drop_epochs=(60, 120, 160), logger=None,
                          data_loader=ScopedDataLoader, dataset="CIFAR10",
                          crop_size=32, num_thread=4, net_runner=ScopedNetRunner,
-                         criterion=ScopedCrossEntropyLoss, loss_func=ScopedCriterion,
-                         callback=all_to_none, use_tqdm=False,
-                         momentum=0.9, weight_decay=0.0005):
+                         criterion=ScopedCrossEntropyLoss,
+                         loss_func=ScopedCriterion, callback=all_to_none,
+                         use_tqdm=False, momentum=0.9, weight_decay=0.0005):
         """Create a default ResBlock blueprint
 
         Args:
@@ -238,25 +239,26 @@ class ScopedEpochEngine(EpochEngine):
             act_kwargs: extra act args, if act module requires other than defaults
             unit_module (type): basic building unit of resblock
             group_module (type): basic building group of resnet
-            fractal_depth: recursion depth for fractal group module
+            fractal_depth (int): recursion depth for fractal group module
+            shortcut_index (int): Starting index for groups shortcuts to the linear layer
             optimizer_maker: Functor that will return an optimizer
             optimizer_type: Type of the optimizer that will be returned
             optimizer_parameter_picker: Function to pick the parameters to be optimized
-            max_epoch: Maximum number of epochs for training
-            batch_size: Batch size for training
-            learning_rate: Initial learning rate for training
-            lr_decay_ratio: Scalar that will be multiplied with the learning rate
-            lr_drop_epochs: Epoch numbers where where lr *= lr_decay_ratio will occur
+            max_epoch (int): Maximum number of epochs for training
+            batch_size (int): Batch size for training
+            learning_rate (float): Initial learning rate for training
+            lr_decay_ratio (float): Scalar that will be multiplied with the learning rate
+            lr_drop_epochs (iterable): Epoch numbers where where lr *= lr_decay_ratio will occur
             logger: Functor that will print the training progress (None: only to stdout)
             data_loader: Loader that will load a dataset (and pad / augment it)
-            dataset: Name of the dataset the loader can use
-            crop_size: Size of the image samples for cropping after padding for data loader
-            num_thread: Number of subprocesses for the data loader
+            dataset (str): Name of the dataset the loader can use
+            crop_size (int): Size of the image samples for cropping after padding for data loader
+            num_thread (int): Number of subprocesses for the data loader
             net_runner: Functor that runs the network and returns loss, output
             criterion: Loss criterion function to be used in net_runner
             loss_func: Module that can customize the loss criterion or use it as is
             callback: function to call after the output in forward is calculated
-            use_tqdm: use progress bar for each epoch during training
+            use_tqdm (bool): use progress bar for each epoch during training
             momentum (float, optional): momentum factor (default: 0.9)
             weight_decay (float, optional): weight decay (L2 penalty) (default: 0.0005)
         """
@@ -310,7 +312,8 @@ class ScopedEpochEngine(EpochEngine):
                                                            residual=residual, conv_kwargs=conv_kwargs,
                                                            bn_kwargs=bn_kwargs, act_kwargs=act_kwargs,
                                                            unit_module=unit_module, group_module=group_module,
-                                                           fractal_depth=fractal_depth)
+                                                           fractal_depth=fractal_depth,
+                                                           shortcut_index=shortcut_index)
 
         default['kwargs'] = {'blueprint': default}
         return default

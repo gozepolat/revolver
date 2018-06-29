@@ -4,8 +4,6 @@ from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.fractalgroup import ScopedFractalGroup
 from stacked.utils import transformer, common
 from stacked.meta.blueprint import visualize
-from stacked.modules.scoped_nn import ScopedConv2d
-from stacked.meta.blueprint import visit_modules
 from PIL import Image
 import glob
 
@@ -40,19 +38,14 @@ class TestScopedFractalGroup(unittest.TestCase):
                                                num_classes=10,
                                                group_module=ScopedFractalGroup,
                                                fractal_depth=fractal_depth)
-            if common.BLUEPRINT_GUI:
-
-                def make_conv2d_unique(bp, _, __):
-                    if issubclass(bp['type'], ScopedConv2d):
-                        bp.make_unique()
-
-                visit_modules(bp, None, None, make_conv2d_unique)
-                visualize(bp)
 
             model = ScopedResNet('ResNet_meta%d' % fractal_depth, bp).cuda()
             self.model_run(model)
+            if common.BLUEPRINT_GUI:
+                visualize(bp)
 
-        common.BLUEPRINT_GUI = False
-        common.GUI = None
+        if common.BLUEPRINT_GUI:
+            common.BLUEPRINT_GUI = False
+            common.GUI = None
 
 

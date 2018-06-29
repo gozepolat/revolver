@@ -68,42 +68,6 @@ class TestResNet(unittest.TestCase):
         convdim = self.blueprint.get_element((0, 0, 'convdim'))
         self.assertEqual(convdim['name'], convdim_name)
 
-    # @unittest.skip("GUI test for uniqueness skipped")
-    def test_visual_change_blueprinted(self):
-        common.BLUEPRINT_GUI = True
-        if common.GUI is None:
-            from tkinter import Tk
-            common.GUI = Tk()
-
-        blueprint = ScopedResNet.describe_default('ResNet28',
-                                                  depth=28,
-                                                  input_shape=(1, 3, 128, 128),
-                                                  width=1,
-                                                  num_classes=100)
-
-        # group[0] -> block[1] -> unit[0].conv
-        blueprint.get_element((0, 1, 0, 'conv')).make_unique()
-
-        # make the new ScopedResNet name different
-        blueprint['suffix'] = '_new'
-        blueprint.refresh_name()
-        visualize(blueprint)
-
-        new_model = ScopedResNet(blueprint['name'], blueprint).cuda()
-        self.assertEqual(self.blueprinted_model.container[1],
-                         new_model.container[1])
-        self.assertNotEqual(self.blueprinted_model.container[0],
-                            new_model.container[0])
-        self.assertEqual(self.blueprinted_model.container[1].container[1],
-                         new_model.container[1].container[1])
-        self.assertNotEqual(self.blueprinted_model.container,
-                            new_model.container)
-        for path, im in self.test_images:
-            x = transformer.image_to_unsqueezed_cuda_variable(im)
-            out = new_model(x)
-            self.assertEqual(out.size(), self.out_size)
-        common.BLUEPRINT_GUI = False
-
     def test_ensemble_instead_of_conv(self):
         common.BLUEPRINT_GUI = False
         # replace conv0 of ResNet with Ensemble
@@ -124,6 +88,43 @@ class TestResNet(unittest.TestCase):
             x = transformer.image_to_unsqueezed_cuda_variable(im)
             out = new_model(x)
             self.assertEqual(out.size(), self.out_size)
+
+    # @unittest.skip("GUI test for uniqueness skipped")
+    def test_visual_change_blueprinted(self):
+        common.BLUEPRINT_GUI = True
+        if common.GUI is None:
+            from tkinter import Tk
+            common.GUI = Tk()
+        blueprint = ScopedResNet.describe_default('ResNet28',
+                                                  depth=28,
+                                                  input_shape=(1, 3, 128, 128),
+                                                  width=1,
+                                                  num_classes=100)
+        common.BLUEPRINT_GUI = True
+        # group[0] -> block[1] -> unit[0].conv
+        blueprint.get_element((0, 1, 0, 'conv')).make_unique()
+
+        # make the new ScopedResNet name different
+        blueprint['suffix'] = '_new'
+        blueprint.refresh_name()
+
+        new_model = ScopedResNet(blueprint['name'], blueprint).cuda()
+        self.assertEqual(self.blueprinted_model.container[1],
+                         new_model.container[1])
+        self.assertNotEqual(self.blueprinted_model.container[0],
+                            new_model.container[0])
+        self.assertEqual(self.blueprinted_model.container[1].container[1],
+                         new_model.container[1].container[1])
+        self.assertNotEqual(self.blueprinted_model.container,
+                            new_model.container)
+        for path, im in self.test_images:
+            x = transformer.image_to_unsqueezed_cuda_variable(im)
+            out = new_model(x)
+            self.assertEqual(out.size(), self.out_size)
+
+        visualize(blueprint)
+        common.BLUEPRINT_GUI = False
+        common.GUI = None
 
 
 if __name__ == '__main__':

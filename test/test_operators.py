@@ -58,6 +58,8 @@ class TestMetaOperators(unittest.TestCase):
 
     def model_run(self, blueprint):
         # run and test a model created from the blueprint
+        blueprint.make_common()
+        blueprint.make_unique()
         model = ScopedResNet(blueprint['name'], blueprint).cuda()
         for path, im in self.test_images:
             x = transformer.image_to_unsqueezed_cuda_variable(im)
@@ -69,6 +71,7 @@ class TestMetaOperators(unittest.TestCase):
         if common.GUI is None:
             from tkinter import Tk
             common.GUI = Tk()
+
         blueprint1 = ScopedResNet.describe_default('ResNet_28', depth=28,
                                                    width=1, num_classes=100)
         blueprint1_bk = {k: v for k, v in blueprint1.items()}
@@ -95,12 +98,12 @@ class TestMetaOperators(unittest.TestCase):
 
         self.assertTrue(is_crossed)
         self.assertNotEqual(blueprint1, blueprint1_bk)
-        visualize(blueprint3)
         self.model_run(blueprint1)
         self.model_run(blueprint2)
         self.model_run(blueprint3)
         self.model_run(blueprint4)
 
+        visualize(blueprint3)
         common.GUI = None
         common.BLUEPRINT_GUI = False
 

@@ -29,39 +29,37 @@ class ScopedResNet(Sequential):
 
         self.act = make_module(blueprint['act'])
         self.conv = make_module(blueprint['conv'])
-        self.group_shortcut = blueprint['group_shortcut']
 
+        # readjust linear layer and bns in case there has been mutation / crossover
+        self.shortcut_index = ScopedResNet.__readjust_tail(blueprint['prefix'],
+                                                           blueprint,
+                                                           blueprint['shortcut_index'])
         self.bns = ModuleList()
         for bp in blueprint['bns']:
             self.bns.append(make_module(bp))
+
+        assert(len(self.bns) + self.shortcut_index == len(self.container))
 
         self.linear = make_module(blueprint['linear'])
         self.callback = blueprint['callback']
 
     def forward(self, x):
         return self.function(self.conv, self.container, self.bns,
-                             self.act, self.linear, self.group_shortcut,
+                             self.act, self.linear, self.shortcut_index,
                              self.callback, self.scope, id(self), x)
 
     @staticmethod
-    def function(conv, container, bns, act, linear, shortcut,
+    def function(conv, container, bns, act, linear, shortcut_index,
                  callback, scope, module_id, x):
         x = conv(x)
-
-        group_outs = []
-
-        # allow shortcuts to previous groups
-        append_index = 0
-        if not shortcut:
-            append_index = len(container) - 1
-
+        group_outputs = []
         for i, group in enumerate(container):
             x = group(x)
-            if append_index >= i:
-                group_outs.append(x)
+            if i >= shortcut_index:
+                group_outputs.append(x)
 
         o = None
-        for i, x in enumerate(group_outs):
+        for i, x in enumerate(group_outputs):
             g = act(bns[i](x))
             g = F.avg_pool2d(g, g.size()[2], 1, 0)
             if o is None:
@@ -79,8 +77,8 @@ class ScopedResNet(Sequential):
         return (depth - 4) // (num_groups * block_depth)
 
     @staticmethod
-    def __set_default_items(prefix, default, shape, ni, no, kernel_size, num_classes,
-                            act_module, conv_module, linear_module, dilation=1,
+    def __set_default_items(prefix, default, shape, ni, no, kernel_size,
+                            act_module, conv_module, dilation=1,
                             groups=1, bias=False, callback=all_to_none,
                             conv_kwargs=None, act_kwargs=None):
         """Set blueprint items that are not Sequential type"""
@@ -112,6 +110,48 @@ class ScopedResNet(Sequential):
         return default['conv']['output_shape']
 
     @staticmethod
+    def __readjust_tail(prefix, default, shortcut_index=-1,
+                        linear_module=ScopedLinear,
+                        bn_module=ScopedBatchNorm2d):
+        default['shortcut_index'] = shortcut_index
+        batch_size = default['input_shape'][0]
+        num_classes = default['output_shape'][1]
+
+        cut_index = 0
+        children = default['children']
+        out_shape = children[-1]['output_shape']
+
+        for i, c in enumerate(children):
+            # ignore the rest of the children when depth is reached
+            cut_index = i + 1
+            if i >= default['depth'] and out_shape == c['output_shape']:
+                break
+
+        default['depth'] = cut_index
+
+        widths = [c['output_shape'][1] for c in children[:cut_index]]
+
+        default['bns'] = []
+        default['shortcut_index'] = shortcut_index
+
+        if shortcut_index < 0:
+            shortcut_index = cut_index + shortcut_index
+
+        for i, w in enumerate(widths):
+            if i >= shortcut_index:
+                default['bns'].append(Blueprint('%s/bn' % prefix, '%d' % w, default, True,
+                                                bn_module, kwargs={'num_features': w}))
+
+        in_features = sum(widths[shortcut_index:cut_index])
+
+        kwargs = {'in_features': in_features, 'out_features': num_classes}
+        default['linear'] = Blueprint('%s/linear' % prefix, '%d_%d' % (in_features, num_classes),
+                                      default, True, linear_module, kwargs=kwargs)
+        default['linear']['input_shape'] = (batch_size, in_features)
+        default['linear']['output_shape'] = (batch_size, num_classes)
+        return shortcut_index
+
+    @staticmethod
     def __set_default_children(prefix, default, ni, widths, group_depths,
                                block_depth, block_module, conv_module,
                                bn_module, act_module, kernel_size, stride,
@@ -120,12 +160,12 @@ class ScopedResNet(Sequential):
                                residual=True, conv_kwargs=None,
                                bn_kwargs=None, act_kwargs=None,
                                unit_module=ScopedConvUnit, group_module=ScopedResGroup,
-                               fractal_depth=1, group_shortcut=False, num_classes=10):
+                               fractal_depth=1):
         """Sequentially set children and bn blueprints"""
         children = []
         default['bns'] = []
-        default['group_shortcut'] = group_shortcut
-        for width, group_depth in zip(widths, group_depths):
+
+        for i, (width, group_depth) in enumerate(zip(widths, group_depths)):
             no = width
             suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
                                                   padding, dilation, groups, bias)
@@ -141,9 +181,6 @@ class ScopedResNet(Sequential):
                                                   block_module=block_module,
                                                   group_depth=group_depth, drop_p=drop_p,
                                                   fractal_depth=fractal_depth)
-            if group_shortcut:
-                default['bns'].append(Blueprint('%s/bn' % prefix, '%d' % no, default, True,
-                                                bn_module, kwargs={'num_features': no}))
             shape = block['output_shape']
             children.append(block)
             stride = 2
@@ -156,20 +193,20 @@ class ScopedResNet(Sequential):
     @staticmethod
     def __get_default(prefix, suffix, parent, shape, ni, no, kernel_size,
                       num_classes, block_module, bn_module, act_module,
-                      conv_module, linear_module, widths, group_depths,
+                      conv_module, widths, group_depths,
                       block_depth, stride, padding, dilation=1, groups=1,
                       bias=False, callback=all_to_none, drop_p=0.0,
                       dropout_p=0.0, residual=True, conv_kwargs=None,
                       bn_kwargs=None, act_kwargs=None,
                       unit_module=ScopedConvUnit, group_module=ScopedResGroup,
-                      fractal_depth=1, group_shortcut=False):
+                      fractal_depth=1):
         """Set the items and the children of the default blueprint object"""
         default = Blueprint(prefix, suffix, parent, False, ScopedResNet)
+
         shape = ScopedResNet.__set_default_items(prefix, default, shape, ni, no,
-                                                 kernel_size, num_classes, bn_module,
-                                                 act_module, conv_module, linear_module,
+                                                 kernel_size, act_module, conv_module,
                                                  dilation, groups, bias, callback,
-                                                 conv_kwargs, bn_kwargs, act_kwargs)
+                                                 conv_kwargs, act_kwargs)
 
         shape = ScopedResNet.__set_default_children(prefix, default, ni, widths,
                                                     group_depths, block_depth,
@@ -180,18 +217,7 @@ class ScopedResNet(Sequential):
                                                     drop_p, dropout_p, residual,
                                                     conv_kwargs, bn_kwargs, act_kwargs,
                                                     unit_module, group_module,
-                                                    fractal_depth, group_shortcut)
-
-        in_features = shape[1]
-        # readjust linear layer size if group shortcuts exist
-        if group_shortcut:
-            in_features = sum(widths)
-
-        kwargs = {'in_features': in_features, 'out_features': num_classes}
-        default['linear'] = Blueprint('%s/linear' % prefix, '%d_%d' % (no, num_classes),
-                                      default, False, linear_module, kwargs=kwargs)
-        default['linear']['input_shape'] = (shape[0], in_features)
-        default['linear']['output_shape'] = (shape[0], num_classes)
+                                                    fractal_depth)
 
         default['output_shape'] = (shape[0], num_classes)
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
@@ -212,7 +238,7 @@ class ScopedResNet(Sequential):
                          drop_p=0.0, dropout_p=0.0, residual=True,
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, group_module=ScopedResGroup,
-                         fractal_depth=1, group_shortcut=False):
+                         fractal_depth=1, shortcut_index=-1):
         """Create a default ResBlock blueprint
 
         Args:
@@ -226,27 +252,27 @@ class ScopedResNet(Sequential):
             width (int): Scalar to get the scaled width per group
             block_depth (int): Number of [conv/act/bn] units in the block
             block_module: Children modules used as block modules
-            conv_module (type): CNN module to use in forward. e.g. ScopedConv2d
+            conv_module: CNN module to use in forward. e.g. ScopedConv2d
             bn_module: Batch normalization module. e.g. ScopedBatchNorm2d
-            linear_module (type): Linear module for classification e.g. ScopedLinear
-            act_module (type): Activation module e.g ScopedReLU
+            linear_module: Linear module for classification e.g. ScopedLinear
+            act_module: Activation module e.g ScopedReLU
             kernel_size (int or tuple): Size of the convolving kernel.
             padding (int or tuple, optional): Padding for the first convolution
             input_shape (tuple): (N, C_{in}, H_{in}, W_{in})
             dilation (int): Spacing between kernel elements.
-            groups: Number of blocked connections from input to output channels.
-            bias: Add a learnable bias if True
+            groups (int): Number of blocked connections from input to output channels.
+            bias (bool): Add a learnable bias if True
             callback: function to call after the output in forward is calculated
-            drop_p: Probability of vertical drop
-            dropout_p: Probability of dropout in the blocks
+            drop_p (float): Probability of vertical drop
+            dropout_p (float): Probability of dropout in the blocks
             residual (bool): True if a shortcut connection will be used
             conv_kwargs: Extra conv arguments to be used in children
             bn_kwargs: Extra bn args, if bn module requires other than 'num_features'
             act_kwargs: Extra act args, if act module requires other than defaults
-            unit_module (type): Basic building unit of resblock
-            group_module (type): Basic building group of resnet
+            unit_module: Basic building unit of resblock
+            group_module: Basic building group of resnet
             fractal_depth (int): Recursion depth for fractal group module
-            group_shortcut (bool): Shortcut from earlier groups to the linear layer
+            shortcut_index (int): Starting index for groups shortcuts to the linear layer
         """
         if input_shape is None:
             # assume batch_size = 1, in_channels: 3, h: 32, and w : 32
@@ -271,11 +297,16 @@ class ScopedResNet(Sequential):
                                              kernel_size, num_classes,
                                              block_module, bn_module,
                                              act_module, conv_module,
-                                             linear_module, widths, group_depths,
+                                             widths, group_depths,
                                              block_depth, stride, padding,
                                              dilation, groups, bias,
                                              callback, drop_p, dropout_p, residual,
                                              conv_kwargs, bn_kwargs, act_kwargs,
                                              unit_module, group_module,
-                                             fractal_depth, group_shortcut)
+                                             fractal_depth)
+
+        ScopedResNet.__readjust_tail(prefix, default,
+                                     shortcut_index=shortcut_index,
+                                     linear_module=linear_module,
+                                     bn_module=bn_module)
         return default

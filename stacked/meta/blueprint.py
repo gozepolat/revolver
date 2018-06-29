@@ -17,6 +17,10 @@ def log(log_func, msg):
         log_func("stacked.meta.blueprint: %s" % msg)
 
 
+def with_gui():
+    return common.BLUEPRINT_GUI and (common.GUI is not None)
+
+
 class Blueprint(dict):
     r"""Dictionary like description of a scoped module
 
@@ -87,7 +91,7 @@ class Blueprint(dict):
             self.refresh_name()
 
         # gui related
-        if common.BLUEPRINT_GUI:
+        if with_gui():
             self.button_text = tk.StringVar()
             self.button_text_color = tk.StringVar()
             self.button_text.set(self['name'])
@@ -136,7 +140,7 @@ class Blueprint(dict):
             return acyclic
 
         for k, v in self.items():
-            if k != 'children':
+            if k != 'children' and k != 'bns':
                 if not isinstance(v, Blueprint):
                     v = common.replace_key(v, 'blueprint', 'self')
                     acyclic[k] = str(v)
@@ -150,8 +154,14 @@ class Blueprint(dict):
         children = []
         for c in self['children']:
             children.append(c.get_acyclic_dict(id_set | set([id(self)])))
-
         acyclic['children'] = children
+
+        if 'bns' in self:
+            bns = []
+            for bn in self['bns']:
+                bns.append(bn.get_acyclic_dict(id_set | set([id(self)])))
+            acyclic['bns'] = bns
+
         return acyclic
 
     def __str__(self):
@@ -240,7 +250,7 @@ class Blueprint(dict):
         return None
 
     def make_button_common(self):
-        if common.BLUEPRINT_GUI:
+        if with_gui():
             log(warning, "Call button common")
             self.button_text.set(self['name'])
             self.button_text_color.set('#BBDDBB')
@@ -267,7 +277,7 @@ class Blueprint(dict):
             self['parent'].make_common()
 
     def make_button_unique(self):
-        if common.BLUEPRINT_GUI:
+        if with_gui() and hasattr(self, 'button_text'):
             self.button_text_color.set('#FFAAAA')
             self.button_text.set(self['name'])
             if self.button is not None:
@@ -309,7 +319,7 @@ class Blueprint(dict):
         b[last] = value
 
     def get_scope_button(self, master, info):
-        if not common.BLUEPRINT_GUI:
+        if not with_gui():
             return None
 
         blueprint = self
