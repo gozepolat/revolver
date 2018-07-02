@@ -31,7 +31,7 @@ class TestScopedFractalGroup(unittest.TestCase):
             common.GUI = Tk()
 
         for fractal_depth in range(1, 4):
-            bp = ScopedResNet.describe_default('ResNet_meta%d' % fractal_depth,
+            bp = ScopedResNet.describe_default('ResNet_fractal%d' % fractal_depth,
                                                depth=16,
                                                conv_module=ScopedMetaMasked,
                                                input_shape=(1, 3, 32, 32),
@@ -39,7 +39,7 @@ class TestScopedFractalGroup(unittest.TestCase):
                                                group_module=ScopedFractalGroup,
                                                fractal_depth=fractal_depth)
 
-            model = ScopedResNet('ResNet_meta%d' % fractal_depth, bp).cuda()
+            model = ScopedResNet('ResNet_fractal%d' % fractal_depth, bp).cuda()
             self.model_run(model)
             if common.BLUEPRINT_GUI:
                 visualize(bp)
