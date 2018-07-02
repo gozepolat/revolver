@@ -81,7 +81,8 @@ class ScopedDenseGroup(Sequential):
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True, block_module=ScopedResBlock,
-                         group_depth=2, drop_p=0.0, *_, **__):
+                         group_depth=2, drop_p=0.0, dense_unit_module=ScopedConvUnit,
+                         *_, **__):
         """Create a default ResGroup blueprint
 
         Args:
@@ -105,13 +106,14 @@ class ScopedDenseGroup(Sequential):
             conv_kwargs: extra conv arguments to be used in children
             bn_kwargs: extra bn args, if bn module requires other than 'num_features'
             act_kwargs: extra act args, if act module requires other than defaults
-            unit_module: Children modules used as block modules
+            unit_module: Children modules for the head block that changes resolution
             block_depth: Number of [conv/act/bn] units in the block
             dropout_p: Probability of dropout in the blocks
             residual (bool): True if a shortcut connection will be used
             block_module: Children modules used as block modules
             group_depth: Number of blocks in the group
             drop_p: Probability of vertical drop
+            dense_unit_module: Children modules that will be used in dense connections
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedDenseGroup)
         children = []
@@ -137,7 +139,7 @@ class ScopedDenseGroup(Sequential):
             # for the next groups, stride and in_channels are changed
             stride = 1
             in_channels = out_channels
-            block_module = ScopedConvUnit
+            block_module = dense_unit_module
 
         default['drop_p'] = drop_p
         default['callback'] = callback
