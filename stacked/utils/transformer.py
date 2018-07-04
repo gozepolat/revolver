@@ -159,6 +159,12 @@ def get_transformer(dataset="CIFAR10"):
             T.ToTensor(),
             T.Normalize((0.1307,), (0.3081,))
         ])
+    elif dataset == 'SVHN':
+        transformer = T.Compose([
+            T.ToTensor(),
+            T.Normalize(np.array([109.9, 109.7, 113.8]) / 255.0,
+                        np.array([50.1, 50.6, 50.8]) / 255.0),
+        ])
     else:
         raise NotImplementedError(
             "The dataset {} is not supported".format(dataset))

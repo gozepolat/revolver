@@ -6,7 +6,7 @@ from stacked.meta.blueprint import Blueprint
 from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.models.blueprinted.conv_unit import ScopedConvUnit
 from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
-    ScopedReLU, ScopedConv2d
+    ScopedReLU, ScopedConv2d, ScopedParameterList
 from stacked.utils.transformer import all_to_none
 from six import add_metaclass
 from torch.nn import Parameter, ParameterList
@@ -26,7 +26,7 @@ class ScopedDenseGroup(Sequential):
         self.drop_p = blueprint['drop_p']
 
         self.depth = len(self.container)
-        self.scalar_weights = ParameterList()
+        self.scalar_weights = ScopedParameterList("Scalars")
 
         for i in range(2, self.depth):
             self.scalar_weights.append(Parameter(normal(torch.ones(i)),

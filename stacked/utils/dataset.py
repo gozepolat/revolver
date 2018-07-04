@@ -8,13 +8,12 @@ import os
 def create_imagenet_dataset(dataset="ILSVRC2012", data_root=".",
                             train_mode=True, crop_size=224):
     datadir = os.path.join(dataset, 'val')
-    if train_mode:
-        datadir = os.path.join(data_root, dataset, 'train')
 
     normalize = T.Normalize(mean=[0.485, 0.456, 0.406],
                             std=[0.229, 0.224, 0.225])
 
     if train_mode:
+        datadir = os.path.join(data_root, dataset, 'train')
         return datasets.ImageFolder(datadir,
                                     T.Compose([
                                         T.RandomResizedCrop(crop_size),
@@ -37,13 +36,11 @@ def create_tiny_imagenet_dataset(dataset="tiny-imagenet-200",
                                  train_mode=True, crop_size=56):
     datadir = os.path.join(dataset, 'val/images')
 
-    if train_mode:
-        datadir = os.path.join(data_root, dataset, 'train/images')
-
     normalize = T.Normalize(mean=[0.485, 0.456, 0.406],
                             std=[0.229, 0.224, 0.225])
 
     if train_mode:
+        datadir = os.path.join(data_root, dataset, 'train/images')
         return datasets.ImageFolder(datadir,
                                     T.Compose([
                                         T.RandomResizedCrop(crop_size),
@@ -74,7 +71,6 @@ def create_dataset(dataset="CIFAR10", data_root=".",
 
     if dataset == 'MNIST':
         crop_size = 28
-        padding = 4
 
     convert = get_transformer(dataset)
 
@@ -86,15 +82,18 @@ def create_dataset(dataset="CIFAR10", data_root=".",
 
         convert = T.Compose(ops)
 
-    ds = getattr(datasets, dataset)(data_root,
-                                    train=train_mode,
-                                    download=True,
-                                    transform=convert)
-
-    if train_mode:
-        if dataset != 'MNIST':
-            ds.train_data = np.pad(ds.train_data,
-                                   ((0, 0), (padding, padding),
-                                    (padding, padding), (0, 0)),
-                                   mode='reflect')
+    if dataset == 'SVHN':
+        ds = datasets.SVHN(data_root, split='train' if train_mode else 'test',
+                           download=True, transform=convert)
+    else:
+        ds = getattr(datasets, dataset)(data_root,
+                                        train=train_mode,
+                                        download=True,
+                                        transform=convert)
+        if train_mode:
+            if dataset != 'MNIST':
+                ds.train_data = np.pad(ds.train_data,
+                                       ((0, 0), (padding, padding),
+                                        (padding, padding), (0, 0)),
+                                       mode='reflect')
     return ds

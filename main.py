@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from stacked.models.blueprinted.optimizer import ScopedEpochEngine
 from stacked.models.blueprinted.resnet import ScopedResNet
+from stacked.models.blueprinted.densegroup import ScopedDenseGroup
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.modules.scoped_nn import ScopedConv2d, ScopedBatchNorm2d, \
     ScopedFeatureSimilarityLoss
@@ -182,6 +183,8 @@ if __name__ == '__main__':
             num_channels = 1
             width = height = 28
             num_samples = 60000
+        elif parsed.dataset == 'SVHN':
+            num_samples = 73257
 
     lr_drop_epochs = json.loads(parsed.lr_drop_epochs)
     skeleton = json.loads(parsed.skeleton)
@@ -197,6 +200,7 @@ if __name__ == '__main__':
                                            depth=parsed.depth, width=parsed.width,
                                            block_depth=parsed.block_depth,
                                            conv_module=ScopedMetaMasked,
+                                           group_module=ScopedDenseGroup,
                                            skeleton=skeleton, group_depths=group_depths,
                                            input_shape=input_shape)
 
