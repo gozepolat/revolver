@@ -62,6 +62,7 @@ class ScopedResNet(Sequential):
         for i, x in enumerate(group_outputs):
             g = act(bns[i](x))
             g = F.avg_pool2d(g, g.size()[2], 1, 0)
+
             if o is None:
                 o = g
             else:

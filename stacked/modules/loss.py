@@ -78,7 +78,7 @@ def get_feature_similarity_loss(previous_feature, current_feature):
                                  current_feature.view(view), label)
 
 
-def collect_features(scope, module_id, x):
+def collect_features(scope, module_id, x, *_):
     """Collect current features and replace the previous ones"""
     if not common.TRAIN:
         return
@@ -151,3 +151,56 @@ def get_parameter_similarity(param1, param2):
     view = (param1.size()[0], view)
     return torch.nn.functional.mse_loss(param1.view(view),
                                         param2.view(view))
+
+
+class FeatureConvergenceLoss(Module):
+    def __init__(self, default_loss=cross_entropy):
+        super(FeatureConvergenceLoss, self).__init__()
+        self.default_loss = default_loss
+
+    def forward(self, x, y):
+        return FeatureConvergenceLoss.function(x, y, self.default_loss)
+
+    @staticmethod
+    def get_scalar(step):
+        return max(0.04 * 1.1 ** step, 60.0)
+
+    @staticmethod
+    def function(x, y, default_loss=cross_entropy):
+        loss = default_loss(x, y)
+
+        if not common.TRAIN:
+            return loss
+
+        depth = common.FEATURE_DEPTH_CTR
+        common.FEATURE_DEPTH_CTR = 0
+
+        last = 0
+        for i in range(1, depth):
+            prev_id = common.FEATURE_DEPTHS[i - 1]
+            current_id = common.FEATURE_DEPTHS[i - 1]
+            prev_feature = common.CURRENT_FEATURES[prev_id]
+            current_feature = common.CURRENT_FEATURES[current_id]
+
+            if prev_feature.size() == current_feature.size():
+                if last > 1:
+                    difference = get_parameter_similarity(prev_feature, current_feature)
+                    loss += difference * FeatureConvergenceLoss.get_scalar(i - last)
+            else:
+                last = i
+
+        return loss
+
+
+def collect_depthwise_features(_, module_id, x):
+    """Collect current features, and keep the depthwise ids"""
+    if not common.TRAIN:
+        return
+
+    features = common.CURRENT_FEATURES
+
+    common.FEATURE_DEPTH_CTR += 1
+
+    common.FEATURE_DEPTHS[common.FEATURE_DEPTH_CTR] = module_id
+
+    features[module_id] = x

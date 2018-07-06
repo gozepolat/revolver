@@ -6,7 +6,6 @@ from PIL import Image
 from torch.autograd import Variable
 from torch.nn import Parameter
 from stacked.utils.common import get_cuda
-import torchnet as tnt
 from six import string_types
 from math import ceil
 

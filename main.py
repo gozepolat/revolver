@@ -4,8 +4,8 @@ from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.densegroup import ScopedDenseGroup
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.modules.scoped_nn import ScopedConv2d, ScopedBatchNorm2d, \
-    ScopedFeatureSimilarityLoss
-from stacked.modules.loss import collect_features
+    ScopedFeatureSimilarityLoss, ScopedFeatureConvergenceLoss
+from stacked.modules.loss import collect_features, collect_depthwise_features
 from stacked.meta.blueprint import make_module, visit_modules
 
 from stacked.utils import common
@@ -99,6 +99,8 @@ def create_single_engine(net_blueprint, options, epochs, crop_size):
                                                           learning_rate=options.lr,
                                                           lr_decay_ratio=options.lr_decay_ratio,
                                                           lr_drop_epochs=epochs,
+                                                          criterion=ScopedFeatureConvergenceLoss,
+                                                          callback=collect_depthwise_features,
                                                           dataset=options.dataset,
                                                           num_thread=options.num_thread,
                                                           use_tqdm=True, crop_size=crop_size,

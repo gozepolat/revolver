@@ -6,7 +6,8 @@ from torch.nn import Conv2d, Conv3d, BatchNorm2d, \
     BatchNorm3d, Linear, Module, ModuleList, Parameter, \
     ParameterList, ReLU, ReLU6, Tanh, Hardtanh, Sigmoid, CrossEntropyLoss
 from stacked.modules.conv import Conv3d2d, get_conv_out_shape
-from stacked.modules.loss import FeatureSimilarityLoss, ParameterSimilarityLoss
+from stacked.modules.loss import FeatureSimilarityLoss, \
+    ParameterSimilarityLoss, FeatureConvergenceLoss
 
 
 @add_metaclass(ScopedMeta)
@@ -287,4 +288,10 @@ class ScopedFeatureSimilarityLoss(FeatureSimilarityLoss):
 class ScopedParameterSimilarityLoss(ParameterSimilarityLoss):
     def __init__(self, scope, *args, **kwargs):
         super(ScopedParameterSimilarityLoss, self).__init__(*args, **kwargs)
+        self.scope = scope
+
+@add_metaclass(ScopedMeta)
+class ScopedFeatureConvergenceLoss(FeatureConvergenceLoss):
+    def __init__(self, scope, *args, **kwargs):
+        super(ScopedFeatureConvergenceLoss, self).__init__(*args, **kwargs)
         self.scope = scope
