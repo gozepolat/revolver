@@ -163,7 +163,7 @@ class FeatureConvergenceLoss(Module):
 
     @staticmethod
     def get_scalar(step):
-        return max(0.04 * 1.1 ** step, 60.0)
+        return min(1e-5 * 1.5 ** step, 1.0)
 
     @staticmethod
     def function(x, y, default_loss=cross_entropy):
@@ -178,17 +178,16 @@ class FeatureConvergenceLoss(Module):
         last = 0
         for i in range(1, depth):
             prev_id = common.FEATURE_DEPTHS[i - 1]
-            current_id = common.FEATURE_DEPTHS[i - 1]
+            current_id = common.FEATURE_DEPTHS[i]
             prev_feature = common.CURRENT_FEATURES[prev_id]
             current_feature = common.CURRENT_FEATURES[current_id]
 
             if prev_feature.size() == current_feature.size():
-                if last > 1:
+                if i - last > 1:
                     difference = get_parameter_similarity(prev_feature, current_feature)
                     loss += difference * FeatureConvergenceLoss.get_scalar(i - last)
             else:
                 last = i
-
         return loss
 
 
@@ -197,10 +196,6 @@ def collect_depthwise_features(_, module_id, x):
     if not common.TRAIN:
         return
 
-    features = common.CURRENT_FEATURES
-
-    common.FEATURE_DEPTH_CTR += 1
-
     common.FEATURE_DEPTHS[common.FEATURE_DEPTH_CTR] = module_id
-
-    features[module_id] = x
+    common.CURRENT_FEATURES[module_id] = x
+    common.FEATURE_DEPTH_CTR += 1

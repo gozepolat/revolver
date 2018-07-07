@@ -202,6 +202,7 @@ if __name__ == '__main__':
                                            depth=parsed.depth, width=parsed.width,
                                            block_depth=parsed.block_depth,
                                            conv_module=ScopedMetaMasked,
+                                           callback=collect_depthwise_features,
                                            group_module=ScopedDenseGroup,
                                            skeleton=skeleton, group_depths=group_depths,
                                            input_shape=input_shape)
