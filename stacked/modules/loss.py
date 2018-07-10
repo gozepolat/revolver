@@ -163,7 +163,7 @@ class FeatureConvergenceLoss(Module):
 
     @staticmethod
     def get_scalar(step):
-        return min(1e-5 * 1.5 ** step, 1.0)
+        return min(1e-3 * 1.2 ** step, 0.4)
 
     @staticmethod
     def function(x, y, default_loss=cross_entropy):

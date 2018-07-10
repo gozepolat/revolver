@@ -7,8 +7,14 @@ class Sequential(Module):
     """Sequential blueprinted base module"""
     def __init__(self, blueprint, *_, **__):
         super(Sequential, self).__init__()
-        self.container = ModuleList()
+        self.blueprint = blueprint
+        self.container = None
+        self.update()
 
+    def update(self):
+        blueprint = self.blueprint
+
+        self.container = ModuleList()
         depth = blueprint['depth']
         children = blueprint['children']
 

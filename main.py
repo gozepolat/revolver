@@ -162,6 +162,7 @@ if __name__ == '__main__':
     num_channels = 3
     width = height = 32
     group_depths = None
+    skeleton = json.loads(parsed.skeleton)
     if parsed.dataset == 'ILSVRC2012':
         num_classes = 1000
         width = height = 224
@@ -189,8 +190,6 @@ if __name__ == '__main__':
             num_samples = 73257
 
     lr_drop_epochs = json.loads(parsed.lr_drop_epochs)
-    skeleton = json.loads(parsed.skeleton)
-
     parsed.skeleton = skeleton
     parsed.num_classes = num_classes
     print(parsed)
