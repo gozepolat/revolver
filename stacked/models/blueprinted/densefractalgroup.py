@@ -1,28 +1,23 @@
 # -*- coding: utf-8 -*-
-import torch
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
-from stacked.meta.blueprint import Blueprint, make_module
-from stacked.models.blueprinted.resblock import ScopedResBlock
+from stacked.meta.blueprint import Blueprint
 from stacked.models.blueprinted.conv_unit import ScopedConvUnit
 from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
-    ScopedReLU, ScopedConv2d, ScopedParameterList
+    ScopedReLU, ScopedConv2d
 from stacked.utils.transformer import all_to_none
 from six import add_metaclass
-from torch.nn import Parameter
-from torch.nn.init import normal
-from torch.nn.functional import softmax
 from torch.nn.functional import dropout
 
 
 @add_metaclass(ScopedMeta)
-class ScopedDenseGroup(Sequential):
-    """Group of residual blocks with the same number of output channels"""
+class ScopedDenseFractalGroup(Sequential):
+    """Group of dense fractals with the same number of output channels"""
     def __init__(self, scope, blueprint, *_, **__):
         self.scope = scope
         self.blueprint = blueprint
 
-        super(ScopedDenseGroup, self).__init__(blueprint)
+        super(ScopedDenseFractalGroup, self).__init__(blueprint)
         self.callback = None
         self.dropout_p = None
         self.drop_p = None
@@ -32,7 +27,7 @@ class ScopedDenseGroup(Sequential):
 
     def update(self, init=False):
         if not init:
-            super(ScopedDenseGroup, self).update()
+            super(ScopedDenseFractalGroup, self).update()
 
         blueprint = self.blueprint
 
@@ -40,56 +35,34 @@ class ScopedDenseGroup(Sequential):
         self.drop_p = blueprint['drop_p']
         self.dropout_p = blueprint['dropout_p']
         self.depth = len(self.container)
-        self.scalar_weights = make_module(blueprint["scalars"])
-
-        for i in range(len(self.scalar_weights) + 2, self.depth):
-            self.scalar_weights.append(Parameter(normal(torch.ones(i)),
-                                                 requires_grad=True))
 
     def forward(self, x):
         return self.function(self.container,
                              self.callback,
                              self.depth,
-                             self.scalar_weights,
                              self.scope,
                              self.training,
                              self.dropout_p,
                              id(self), x)
 
     @staticmethod
-    def weighted_sum(outputs, scalars, training, dropout_p):
-        index = len(outputs) - 2
+    def function(container, callback, depth, scope,
+                 training, dropout_p, module_id, x):
+        assert(depth > 0)
+        half = depth // 2
 
-        if index == -1:
-            return outputs[0]
-
-        assert(index >= 0)
-        weights = softmax(scalars[index])
-
-        summed = 0.0
-        for i, o in enumerate(outputs):
+        out = 0.0
+        for j in range(half):
+            o = container[j](x)
             if dropout_p > 0:
                 o = dropout(o, training=training, p=dropout_p)
-            summed = o * weights[i] + summed
+            o = container[j + half](o)
+            out = o + out
+        else:
+            out = container[0](x)
 
-        return summed
-
-    @staticmethod
-    def function(container, callback, depth, scalars, scope,
-                 training, dropout_p, module_id, x):
-        assert(depth > 1)
-
-        # adjust input resolution
-        x = container[0](x)
-
-        outputs = []
-        for j in range(1, depth):
-            x = container[j](x)
-            outputs.append(x)
-            x = ScopedDenseGroup.weighted_sum(outputs, scalars, training, dropout_p)
-
-        callback(scope, module_id, x)
-        return x
+        callback(scope, module_id, out)
+        return out
 
     @staticmethod
     def describe_default(prefix, suffix, parent, input_shape,
@@ -99,10 +72,9 @@ class ScopedDenseGroup(Sequential):
                          conv_module=ScopedConv2d, callback=all_to_none,
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,
-                         dropout_p=0.0, residual=True, block_module=ScopedResBlock,
-                         group_depth=2, drop_p=0.0, dense_unit_module=ScopedConvUnit,
-                         scalar_container=ScopedParameterList, *_, **__):
-        """Create a default DenseGroup blueprint
+                         dropout_p=0.0, residual=True, block_module=ScopedConvUnit,
+                         group_depth=2, drop_p=0.0, fractal_depth=1, *_, **__):
+        """Create a default DenseFractalGroup blueprint
 
         Args:
             prefix (str): Prefix from which the member scopes will be created
@@ -129,13 +101,12 @@ class ScopedDenseGroup(Sequential):
             block_depth (int): Number of [conv/act/bn] units in the block
             dropout_p (float): Probability of dropout in the blocks
             residual (bool): True if a shortcut connection will be used
-            block_module: Children modules used as block modules
+            block_module: Children modules used as the output units or smallest fractal
             group_depth (int): Number of blocks in the group
             drop_p (float): Probability of vertical drop
-            dense_unit_module: Children modules that will be used in dense connections
-            scalar_container: Sequential container of scalars for dense layers
+            fractal_depth: recursion depth for dense fractal group module
         """
-        default = Blueprint(prefix, suffix, parent, False, ScopedDenseGroup)
+        default = Blueprint(prefix, suffix, parent, False, ScopedDenseFractalGroup)
         children = []
         default['input_shape'] = input_shape
         default['kwargs'] = {'blueprint': default,
@@ -146,35 +117,61 @@ class ScopedDenseGroup(Sequential):
                              'groups': groups,
                              'bias': bias}
 
-        for i in range(group_depth):
-            block_prefix = '%s/block' % prefix
-            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
-                                                  kernel_size, stride,
-                                                  padding, dilation, groups, bias)
+        suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
+                                              kernel_size, stride,
+                                              padding, dilation, groups,
+                                              bias)
 
-            block = block_module.describe_default(block_prefix, suffix,
-                                                  default, input_shape,
-                                                  in_channels, out_channels,
-                                                  kernel_size, stride, padding,
-                                                  dilation, groups, bias,
-                                                  act_module, bn_module, conv_module,
-                                                  callback, conv_kwargs,
-                                                  bn_kwargs, act_kwargs, unit_module,
-                                                  block_depth, dropout_p, residual)
-            input_shape = block['output_shape']
+        unit_fractal = block_module.describe_default('%s/unit' % prefix, suffix,
+                                                     default, input_shape,
+                                                     in_channels, out_channels,
+                                                     kernel_size, stride, padding,
+                                                     dilation, groups, bias,
+                                                     act_module, bn_module, conv_module,
+                                                     callback, conv_kwargs,
+                                                     bn_kwargs, act_kwargs)
+        children.append(unit_fractal)
+
+        block_prefix = '%s/block' % prefix
+
+        module = ScopedDenseFractalGroup
+        for i in range(1, fractal_depth):
+            block = module.describe_default(block_prefix, "%s_%d" % (suffix, i),
+                                            default, input_shape,
+                                            in_channels, out_channels,
+                                            kernel_size, stride, padding,
+                                            dilation, groups, bias,
+                                            act_module, bn_module, conv_module,
+                                            callback, conv_kwargs,
+                                            bn_kwargs, act_kwargs, unit_module,
+                                            block_depth, dropout_p, residual,
+                                            block_module=block_module,
+                                            group_depth=group_depth, drop_p=drop_p,
+                                            fractal_depth=fractal_depth - i)
             children.append(block)
 
-            # for the next groups, stride and in_channels are changed
-            stride = 1
-            in_channels = out_channels
-            block_module = dense_unit_module
+        # for the output units, stride = 1 and in_channels = out_channels
+        input_shape = unit_fractal['output_shape']
+        in_channels = out_channels
+        suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
+                                              kernel_size, 1,
+                                              padding, dilation, groups, bias)
+        for i in range(fractal_depth):
+            unit = block_module.describe_default('%s/unit' % block_prefix, suffix,
+                                                 default, input_shape,
+                                                 in_channels, out_channels,
+                                                 kernel_size, 1, padding,
+                                                 dilation, groups, bias,
+                                                 act_module, bn_module,
+                                                 conv_module, callback,
+                                                 conv_kwargs, bn_kwargs, act_kwargs)
+            children.append(unit)
 
-        default['scalars'] = Blueprint("%s/scalars" % prefix, "", default,
-                                       False, scalar_container)
         default['drop_p'] = drop_p
         default['dropout_p'] = dropout_p
         default['callback'] = callback
         default['children'] = children
         default['depth'] = len(children)
+        default['fractal_depth'] = fractal_depth
         default['output_shape'] = input_shape
         return default

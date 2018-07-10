@@ -130,8 +130,9 @@ class ScopedFractalGroup(Sequential):
                                                        act_module, bn_module, conv_module,
                                                        callback, conv_kwargs,
                                                        bn_kwargs, act_kwargs)
+
+        block_prefix = '%s/block' % prefix
         for i in range(group_depth):
-            block_prefix = '%s/block' % prefix
             suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
                                                   kernel_size, stride,
                                                   padding, dilation, groups, bias)
@@ -158,6 +159,7 @@ class ScopedFractalGroup(Sequential):
         default['drop_p'] = drop_p
         default['callback'] = callback
         default['children'] = children
+        default['fractal_depth'] = fractal_depth
         default['depth'] = len(children)
         default['output_shape'] = input_shape
         default['kwargs'] = {'blueprint': default,

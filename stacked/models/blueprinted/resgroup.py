@@ -88,6 +88,14 @@ class ScopedResGroup(Sequential):
         default = Blueprint(prefix, suffix, parent, False, ScopedResGroup)
         children = []
         default['input_shape'] = input_shape
+        default['kwargs'] = {'blueprint': default,
+                             'kernel_size': kernel_size,
+                             'stride': stride,
+                             'padding': padding,
+                             'dilation': dilation,
+                             'groups': groups,
+                             'bias': bias}
+
         for i in range(group_depth):
             block_prefix = '%s/block' % prefix
             suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
@@ -115,11 +123,4 @@ class ScopedResGroup(Sequential):
         default['children'] = children
         default['depth'] = len(children)
         default['output_shape'] = input_shape
-        default['kwargs'] = {'blueprint': default,
-                             'kernel_size': kernel_size,
-                             'stride': stride,
-                             'padding': padding,
-                             'dilation': dilation,
-                             'groups': groups,
-                             'bias': bias}
         return default
