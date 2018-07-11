@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from stacked.models.blueprinted.optimizer import ScopedEpochEngine
 from stacked.models.blueprinted.resnet import ScopedResNet
+from stacked.models.blueprinted.densefractalgroup import ScopedDenseFractalGroup
 from stacked.models.blueprinted.densegroup import ScopedDenseGroup
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.modules.scoped_nn import ScopedConv2d, ScopedBatchNorm2d, \
@@ -110,22 +111,37 @@ def create_single_engine(net_blueprint, options, epochs, crop_size):
     return single_engine
 
 
-def train_with_single_engine(model, options, epochs, crop_size):
-    engine = create_single_engine(model, options, epochs, crop_size)
+def train_with_single_engine(model, options, epochs, crop,
+                             n_samples=50000, test_every_nth=0):
+    engine = create_single_engine(model, options, epochs, crop)
 
     print("Network architecture:")
     print("=====================")
     print(engine.net)
     print("=====================")
 
-    for j in range(options.epochs):
-        engine.train_one_epoch()
+    if test_every_nth > 0:
+        batch = options.batch_size * 17
+        repeat = n_samples // batch + 1
+        print("batch %d, repeat %d" % (batch, repeat))
+        for j in range(options.epochs):
+            engine.start_epoch()
+            for i in range(repeat):
+                engine.train_n_samples(batch)
+            if j % test_every_nth == test_every_nth - 1:
+                engine.end_epoch()
+            else:
+                engine.state['epoch'] += 1
+    else:
+        for j in range(options.epochs):
+            engine.train_one_epoch()
+
     engine.hook('on_end', engine.state)
 
 
-def train_with_double_engine(model, options, epochs, crop_size, n_samples=50000):
+def train_with_double_engine(model, options, epochs, crop, n_samples=50000):
     common_engine, generator_engine = create_engine_pair(model, options,
-                                                         epochs, crop_size)
+                                                         epochs, crop)
 
     print("Network architecture:")
     print("=====================")
@@ -199,10 +215,10 @@ if __name__ == '__main__':
     input_shape = (parsed.batch_size, num_channels, width, height)
     resnet = ScopedResNet.describe_default(prefix='ResNet', num_classes=num_classes,
                                            depth=parsed.depth, width=parsed.width,
-                                           block_depth=parsed.block_depth,
-                                           conv_module=ScopedMetaMasked,
+                                           block_depth=parsed.block_depth, drop_p=0.5,
+                                           conv_module=ScopedMetaMasked, dropout_p=0.2,
                                            callback=collect_depthwise_features,
-                                           group_module=ScopedDenseGroup,
+                                           group_module=ScopedDenseGroup, residual=False,
                                            skeleton=skeleton, group_depths=group_depths,
                                            input_shape=input_shape)
 
@@ -218,7 +234,8 @@ if __name__ == '__main__':
 
     crop_size = width
     if parsed.single_engine:
-        train_with_single_engine(resnet, parsed, lr_drop_epochs, crop_size)
+        train_with_single_engine(resnet, parsed, lr_drop_epochs,
+                                 crop_size, n_samples=num_samples, test_every_nth=10)
     else:
         train_with_double_engine(resnet, parsed, lr_drop_epochs,
                                  crop_size, n_samples=num_samples)

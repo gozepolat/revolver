@@ -6,6 +6,7 @@ from stacked.models.blueprinted.conv_unit import ScopedConvUnit
 from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
     ScopedReLU, ScopedConv2d
 from stacked.utils.transformer import all_to_none
+from stacked.utils.common import time_to_drop
 from six import add_metaclass
 from torch.nn.functional import dropout
 
@@ -43,16 +44,22 @@ class ScopedDenseFractalGroup(Sequential):
                              self.scope,
                              self.training,
                              self.dropout_p,
+                             self.drop_p,
                              id(self), x)
 
     @staticmethod
     def function(container, callback, depth, scope,
-                 training, dropout_p, module_id, x):
+                 training, dropout_p, drop_p, module_id, x):
         assert(depth > 0)
         half = depth // 2
 
         out = 0.0
+        drop_count = 0
         for j in range(half):
+            if time_to_drop(training, drop_p) and drop_count < half - 1:
+                drop_count += 1
+                continue
+
             o = container[j](x)
             if dropout_p > 0:
                 o = dropout(o, training=training, p=dropout_p)
@@ -60,6 +67,9 @@ class ScopedDenseFractalGroup(Sequential):
             out = o + out
         else:
             out = container[0](x)
+
+        if drop_count > 0:
+            out = out * (float(half) / (half - drop_count))
 
         callback(scope, module_id, out)
         return out
