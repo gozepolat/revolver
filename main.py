@@ -2,13 +2,12 @@
 from stacked.models.blueprinted.optimizer import ScopedEpochEngine
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.densefractalgroup import ScopedDenseFractalGroup
-from stacked.models.blueprinted.densegroup import ScopedDenseGroup
+from stacked.models.blueprinted.densesumgroup import ScopedDenseSumGroup
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.modules.scoped_nn import ScopedConv2d, ScopedBatchNorm2d, \
     ScopedFeatureSimilarityLoss, ScopedFeatureConvergenceLoss
 from stacked.modules.loss import collect_features, collect_depthwise_features
 from stacked.meta.blueprint import make_module, visit_modules
-
 from stacked.utils import common
 import argparse
 import json
@@ -121,13 +120,9 @@ def train_with_single_engine(model, options, epochs, crop,
     print("=====================")
 
     if test_every_nth > 0:
-        batch = options.batch_size * 17
-        repeat = n_samples // batch + 1
-        print("batch %d, repeat %d" % (batch, repeat))
         for j in range(options.epochs):
             engine.start_epoch()
-            for i in range(repeat):
-                engine.train_n_samples(batch)
+            engine.train_n_samples(n_samples)
             if j % test_every_nth == test_every_nth - 1:
                 engine.end_epoch()
             else:
@@ -218,7 +213,7 @@ if __name__ == '__main__':
                                            block_depth=parsed.block_depth, drop_p=0.5,
                                            conv_module=ScopedMetaMasked, dropout_p=0.2,
                                            callback=collect_depthwise_features,
-                                           group_module=ScopedDenseGroup, residual=False,
+                                           group_module=ScopedDenseSumGroup, residual=False,
                                            skeleton=skeleton, group_depths=group_depths,
                                            input_shape=input_shape)
 

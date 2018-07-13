@@ -2,27 +2,24 @@
 import torch
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
-from stacked.meta.blueprint import Blueprint, make_module
+from stacked.meta.blueprint import Blueprint
 from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.models.blueprinted.conv_unit import ScopedConvUnit
 from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
-    ScopedReLU, ScopedConv2d, ScopedParameterList
+    ScopedReLU, ScopedConv2d
 from stacked.utils.transformer import all_to_none
 from six import add_metaclass
-from torch.nn import Parameter
-from torch.nn.init import normal
-from torch.nn.functional import softmax
 from torch.nn.functional import dropout
 
 
 @add_metaclass(ScopedMeta)
-class ScopedDenseGroup(Sequential):
+class ScopedDenseConcatGroup(Sequential):
     """Group of residual blocks with the same number of output channels"""
     def __init__(self, scope, blueprint, *_, **__):
         self.scope = scope
         self.blueprint = blueprint
 
-        super(ScopedDenseGroup, self).__init__(blueprint)
+        super(ScopedDenseConcatGroup, self).__init__(blueprint)
         self.callback = None
         self.dropout_p = None
         self.drop_p = None
@@ -32,7 +29,7 @@ class ScopedDenseGroup(Sequential):
 
     def update(self, init=False):
         if not init:
-            super(ScopedDenseGroup, self).update()
+            super(ScopedDenseConcatGroup, self).update()
 
         blueprint = self.blueprint
 
@@ -40,53 +37,29 @@ class ScopedDenseGroup(Sequential):
         self.drop_p = blueprint['drop_p']
         self.dropout_p = blueprint['dropout_p']
         self.depth = len(self.container)
-        self.scalar_weights = make_module(blueprint["scalars"])
-
-        for i in range(len(self.scalar_weights) + 2, self.depth):
-            self.scalar_weights.append(Parameter(normal(torch.ones(i)),
-                                                 requires_grad=True))
 
     def forward(self, x):
         return self.function(self.container,
                              self.callback,
                              self.depth,
-                             self.scalar_weights,
                              self.scope,
                              self.training,
                              self.dropout_p,
                              id(self), x)
 
     @staticmethod
-    def weighted_sum(outputs, scalars, training, dropout_p):
-        index = len(outputs) - 2
-
-        if index == -1:
-            return outputs[0]
-
-        assert(index >= 0)
-        weights = softmax(scalars[index])
-
-        summed = 0.0
-        for i, o in enumerate(outputs):
-            if dropout_p > 0:
-                o = dropout(o, training=training, p=dropout_p)
-            summed = o * weights[i] + summed
-
-        return summed
-
-    @staticmethod
-    def function(container, callback, depth, scalars, scope,
+    def function(container, callback, depth, scope,
                  training, dropout_p, module_id, x):
         assert(depth > 1)
 
         # adjust input resolution
         x = container[0](x)
 
-        outputs = []
         for j in range(1, depth):
-            x = container[j](x)
-            outputs.append(x)
-            x = ScopedDenseGroup.weighted_sum(outputs, scalars, training, dropout_p)
+            if dropout_p > 0:
+                x = dropout(x, training=training, p=dropout_p)
+            o = container[j](x)
+            x = torch.cat((x, o), axis=1)
 
         callback(scope, module_id, x)
         return x
@@ -101,7 +74,7 @@ class ScopedDenseGroup(Sequential):
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True, block_module=ScopedResBlock,
                          group_depth=2, drop_p=0.0, dense_unit_module=ScopedConvUnit,
-                         scalar_container=ScopedParameterList, *_, **__):
+                         *_, **__):
         """Create a default DenseGroup blueprint
 
         Args:
@@ -133,9 +106,8 @@ class ScopedDenseGroup(Sequential):
             group_depth (int): Number of blocks in the group
             drop_p (float): Probability of vertical drop
             dense_unit_module: Children modules that will be used in dense connections
-            scalar_container: Sequential container of scalars for dense layers
         """
-        default = Blueprint(prefix, suffix, parent, False, ScopedDenseGroup)
+        default = Blueprint(prefix, suffix, parent, False, ScopedDenseConcatGroup)
         children = []
         default['input_shape'] = input_shape
         default['kwargs'] = {'blueprint': default,
@@ -164,13 +136,14 @@ class ScopedDenseGroup(Sequential):
             input_shape = block['output_shape']
             children.append(block)
 
-            # for the next groups, stride and in_channels are changed
+            # for the next blocks, stride and in_channels are changed
             stride = 1
-            in_channels = out_channels
+            if i == 0:
+                in_channels = out_channels
+            else:
+                in_channels += out_channels
             block_module = dense_unit_module
 
-        default['scalars'] = Blueprint("%s/scalars" % prefix, "", default,
-                                       False, scalar_container)
         default['drop_p'] = drop_p
         default['dropout_p'] = dropout_p
         default['callback'] = callback

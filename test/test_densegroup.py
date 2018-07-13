@@ -1,7 +1,7 @@
 import unittest
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.models.blueprinted.resnet import ScopedResNet
-from stacked.models.blueprinted.densegroup import ScopedDenseGroup
+from stacked.models.blueprinted.densesumgroup import ScopedDenseGroup
 from stacked.utils import transformer, common
 from stacked.meta.blueprint import visualize
 from PIL import Image
