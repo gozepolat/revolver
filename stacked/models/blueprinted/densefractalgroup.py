@@ -8,7 +8,6 @@ from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
 from stacked.utils.transformer import all_to_none
 from stacked.utils.common import time_to_drop
 from six import add_metaclass
-from torch.nn.functional import dropout
 
 
 @add_metaclass(ScopedMeta)
@@ -34,7 +33,6 @@ class ScopedDenseFractalGroup(Sequential):
 
         self.callback = blueprint['callback']
         self.drop_p = blueprint['drop_p']
-        self.dropout_p = blueprint['dropout_p']
         self.depth = len(self.container)
 
     def forward(self, x):
@@ -43,13 +41,12 @@ class ScopedDenseFractalGroup(Sequential):
                              self.depth,
                              self.scope,
                              self.training,
-                             self.dropout_p,
                              self.drop_p,
                              id(self), x)
 
     @staticmethod
     def function(container, callback, depth, scope,
-                 training, dropout_p, drop_p, module_id, x):
+                 training, drop_p, module_id, x):
         assert(depth > 0)
         half = depth // 2
 
@@ -59,8 +56,6 @@ class ScopedDenseFractalGroup(Sequential):
         out = 0.0
         for j in range(half):
             o = container[j](x)
-            if dropout_p > 0:
-                o = dropout(o, training=training, p=dropout_p)
             o = container[j + half](o)
             out = o + out
         else:
@@ -134,7 +129,8 @@ class ScopedDenseFractalGroup(Sequential):
                                                      dilation, groups, bias,
                                                      act_module, bn_module, conv_module,
                                                      callback, conv_kwargs,
-                                                     bn_kwargs, act_kwargs)
+                                                     bn_kwargs, act_kwargs,
+                                                     dropout_p=dropout_p)
         children.append(unit_fractal)
 
         block_prefix = '%s/block' % prefix
@@ -148,8 +144,9 @@ class ScopedDenseFractalGroup(Sequential):
                                             dilation, groups, bias,
                                             act_module, bn_module, conv_module,
                                             callback, conv_kwargs,
-                                            bn_kwargs, act_kwargs, unit_module,
-                                            block_depth, dropout_p, residual,
+                                            bn_kwargs, act_kwargs, unit_module=unit_module,
+                                            block_depth=block_depth, dropout_p=dropout_p,
+                                            residual=residual,
                                             block_module=block_module,
                                             group_depth=group_depth, drop_p=drop_p,
                                             fractal_depth=fractal_depth - i)

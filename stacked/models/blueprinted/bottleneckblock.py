@@ -12,7 +12,7 @@ from torch.nn.functional import dropout
 
 @add_metaclass(ScopedMeta)
 class ScopedBottleneckBlock(Sequential):
-    """Pre-ResNet block
+    """Pre-ResNet BottleNeck block
 
     Args:
         scope: Scope for the self (ScopedBottleneckBlock instance)
@@ -75,7 +75,7 @@ class ScopedBottleneckBlock(Sequential):
 
     @staticmethod
     def __set_default_items(prefix, default, input_shape, ni, no,
-                            stride, padding, conv_module, act_module, bn_module,
+                            stride, conv_module, act_module, bn_module,
                             dilation=1, groups=1, bias=True,
                             callback=all_to_none, dropout_p=0.0, conv_kwargs=None,
                             bn_kwargs=None, act_kwargs=None):
@@ -85,7 +85,7 @@ class ScopedBottleneckBlock(Sequential):
 
         # bn, act, conv
         ScopedConvUnit.set_unit_description(default, prefix, input_shape, ni, no,
-                                            1, stride, padding,
+                                            1, stride, 0,
                                             conv_module, act_module, bn_module,
                                             dilation, groups, bias,
                                             callback, conv_kwargs,
@@ -111,16 +111,18 @@ class ScopedBottleneckBlock(Sequential):
                                bn_kwargs=None, act_kwargs=None):
         children = []
         for i in range(depth-1):
+            out, kernel, pad = (no, kernel_size, padding) if i == depth - 2 else (ni, 1, 0)
             unit_prefix = '%s/unit' % prefix
-            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
-                                                  padding, dilation, groups, bias)
+            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, out, kernel, stride,
+                                                  pad, dilation, groups, bias)
             assert(shape[1] == ni)
             unit = unit_module.describe_default(unit_prefix, suffix, default, shape,
-                                                ni, no, kernel_size, stride, padding,
+                                                ni, out, kernel, stride, pad,
                                                 dilation, groups, bias, act_module,
                                                 bn_module, conv_module,
                                                 callback, conv_kwargs,
                                                 bn_kwargs, act_kwargs)
+
             shape = unit['output_shape']
             children.append(unit)
 
@@ -144,10 +146,10 @@ class ScopedBottleneckBlock(Sequential):
             prefix (str): Prefix from which the member scopes will be created
             suffix (str): Suffix to append the name of the scoped object
             parent (Blueprint): None or the instance of the parent blueprint
-            unit_module (type): basic building unit of resblock
-            conv_module (type): CNN module to use in block_module
+            unit_module: basic building unit of resblock
+            conv_module: CNN module to use in block_module
             bn_module: Batch normalization module. e.g. ScopedBatchNorm2d
-            act_module (type): Activation module e.g ScopedReLU
+            act_module: Activation module e.g ScopedReLU
             in_channels (int): Number of channels in the input
             out_channels (int): Number of channels produced by the block
             kernel_size (int or tuple): Size of the convolving kernel. Default: 3
@@ -173,7 +175,7 @@ class ScopedBottleneckBlock(Sequential):
 
         input_shape = ScopedBottleneckBlock.__set_default_items(prefix, default, input_shape,
                                                                 in_channels, hidden_channels,
-                                                                stride, padding, conv_module, act_module,
+                                                                stride, conv_module, act_module,
                                                                 bn_module, dilation, groups, bias,
                                                                 callback, dropout_p, conv_kwargs,
                                                                 bn_kwargs, act_kwargs)
@@ -226,4 +228,5 @@ class ScopedBottleneckBlock(Sequential):
                                                       dilation=_dilation,
                                                       groups=_groups,
                                                       bias=_bias,
-                                                      callback=callback)
+                                                      callback=callback,
+                                                      hidden_channels=output_shape[1] * 4)

@@ -159,8 +159,10 @@ class ScopedDenseSumGroup(Sequential):
                                                   dilation, groups, bias,
                                                   act_module, bn_module, conv_module,
                                                   callback, conv_kwargs,
-                                                  bn_kwargs, act_kwargs, unit_module,
-                                                  block_depth, dropout_p, residual)
+                                                  bn_kwargs, act_kwargs,
+                                                  unit_module=unit_module,
+                                                  block_depth=block_depth,
+                                                  dropout_p=dropout_p, residual=residual)
             input_shape = block['output_shape']
             children.append(block)
 

@@ -9,7 +9,6 @@ from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
     ScopedReLU, ScopedConv2d
 from stacked.utils.transformer import all_to_none
 from six import add_metaclass
-from torch.nn.functional import dropout
 
 
 @add_metaclass(ScopedMeta)
@@ -21,8 +20,6 @@ class ScopedDenseConcatGroup(Sequential):
 
         super(ScopedDenseConcatGroup, self).__init__(blueprint)
         self.callback = None
-        self.dropout_p = None
-        self.drop_p = None
         self.depth = None
         self.scalar_weights = None
         self.update(True)
@@ -34,8 +31,6 @@ class ScopedDenseConcatGroup(Sequential):
         blueprint = self.blueprint
 
         self.callback = blueprint['callback']
-        self.drop_p = blueprint['drop_p']
-        self.dropout_p = blueprint['dropout_p']
         self.depth = len(self.container)
 
     def forward(self, x):
@@ -43,21 +38,17 @@ class ScopedDenseConcatGroup(Sequential):
                              self.callback,
                              self.depth,
                              self.scope,
-                             self.training,
-                             self.dropout_p,
                              id(self), x)
 
     @staticmethod
     def function(container, callback, depth, scope,
-                 training, dropout_p, module_id, x):
+                 module_id, x):
         assert(depth > 1)
 
         # adjust input resolution
         x = container[0](x)
 
         for j in range(1, depth):
-            if dropout_p > 0:
-                x = dropout(x, training=training, p=dropout_p)
             o = container[j](x)
             x = torch.cat((x, o), axis=1)
 

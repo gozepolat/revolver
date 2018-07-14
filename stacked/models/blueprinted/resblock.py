@@ -89,7 +89,7 @@ class ScopedResBlock(Sequential):
                                             conv_module, act_module, bn_module,
                                             dilation, groups, bias,
                                             callback, conv_kwargs,
-                                            bn_kwargs, act_kwargs)
+                                            bn_kwargs, act_kwargs, dropout_p)
         # convdim
         suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, 1, stride,
                                               0, dilation, groups, bias)
@@ -108,7 +108,7 @@ class ScopedResBlock(Sequential):
                                padding, unit_module, conv_module, act_module,
                                bn_module, depth, dilation=1, groups=1, bias=True,
                                callback=all_to_none, conv_kwargs=None,
-                               bn_kwargs=None, act_kwargs=None):
+                               bn_kwargs=None, act_kwargs=None, dropout_p=0.0):
         children = []
         for i in range(depth-1):
             unit_prefix = '%s/unit' % prefix
@@ -120,7 +120,7 @@ class ScopedResBlock(Sequential):
                                                 dilation, groups, bias, act_module,
                                                 bn_module, conv_module,
                                                 callback, conv_kwargs,
-                                                bn_kwargs, act_kwargs)
+                                                bn_kwargs, act_kwargs, dropout_p)
             shape = unit['output_shape']
             children.append(unit)
 
@@ -180,7 +180,7 @@ class ScopedResBlock(Sequential):
                                                             unit_module, conv_module, act_module,
                                                             bn_module, block_depth, dilation,
                                                             groups, bias, callback, conv_kwargs,
-                                                            bn_kwargs, act_kwargs)
+                                                            bn_kwargs, act_kwargs, dropout_p)
         default['output_shape'] = input_shape
         default['residual'] = residual
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,

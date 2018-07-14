@@ -6,6 +6,7 @@ from stacked.modules.scoped_nn import ScopedReLU, \
     ScopedConv2d, ScopedBatchNorm2d
 from stacked.utils.transformer import all_to_none
 from six import add_metaclass
+from torch.nn.functional import dropout
 
 
 @add_metaclass(ScopedMeta)
@@ -26,17 +27,24 @@ class ScopedConvUnit(Module):
         self.act = make_module(blueprint['act'])
         self.conv = make_module(blueprint['conv'])
         self.callback = blueprint['callback']
+        self.dropout_p = blueprint['dropout_p']
 
     def forward(self, x):
         return self.function(self.bn, self.act, self.conv,
                              self.callback, self.scope,
+                             self.training, self.dropout_p,
                              id(self), x)
 
     @staticmethod
-    def function(bn, act, conv, callback, scope, module_id, x):
+    def function(bn, act, conv, callback, scope,
+                 training, dropout_p, module_id, x):
         if bn is not None:
             x = bn(x)
         x = act(x)
+
+        if dropout_p > 0:
+            x = dropout(x, training=training, p=dropout_p)
+
         x = conv(x)
         callback(scope, module_id, x)
         return x
@@ -46,7 +54,7 @@ class ScopedConvUnit(Module):
                              stride, padding, conv_module, act_module,
                              bn_module=all_to_none, dilation=1, groups=1,
                              bias=True, callback=all_to_none, conv_kwargs=None,
-                             bn_kwargs=None, act_kwargs=None):
+                             bn_kwargs=None, act_kwargs=None, dropout_p=0.0):
         """Set descriptions for act, bn, and conv"""
         suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
                                               padding, dilation, groups, bias)
@@ -59,6 +67,8 @@ class ScopedConvUnit(Module):
 
         default['act'] = Blueprint('%s/act' % prefix, suffix, default,
                                    False, act_module, kwargs=act_kwargs)
+        default['dropout_p'] = dropout_p
+
         if bn_kwargs is None:
             bn_kwargs = {'num_features': ni}
         default['bn'] = Blueprint('%s/bn' % prefix, suffix, default,
@@ -77,7 +87,8 @@ class ScopedConvUnit(Module):
                          act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
                          conv_module=ScopedConv2d,
                          callback=all_to_none, conv_kwargs=None,
-                         bn_kwargs=None, act_kwargs=None, *_, **__):
+                         bn_kwargs=None, act_kwargs=None,
+                         dropout_p=0.0, *_, **__):
         """Create a default ScopedConvUnit blueprint
 
         Args:
@@ -90,9 +101,9 @@ class ScopedConvUnit(Module):
             stride (int or tuple, optional): Stride for the first convolution
             padding (int or tuple, optional): Padding for the first convolution
             input_shape (tuple): (N, C_{in}, H_{in}, W_{in})
-            dilation: Spacing between kernel elements.
-            groups: Number of blocked connections from input to output channels.
-            bias: Add a learnable bias if True
+            dilation (int): Spacing between kernel elements.
+            groups (int): Number of blocked connections from input to output channels.
+            bias (bool): Add a learnable bias if True
             conv_module: CNN module to use in forward. e.g. ScopedConv2d
             bn_module: Batch normalization module. e.g. ScopedBatchNorm2d
             act_module: Activation module e.g ScopedReLU
@@ -100,6 +111,7 @@ class ScopedConvUnit(Module):
             conv_kwargs: extra conv arguments to be used in children
             bn_kwargs: extra bn args, if bn module requires other than 'num_features'
             act_kwargs: extra act args, if act module requires other than defaults
+            dropout_p (float): Probability of dropout
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedConvUnit)
         default['input_shape'] = input_shape
@@ -110,7 +122,7 @@ class ScopedConvUnit(Module):
                                             conv_module, act_module, bn_module,
                                             dilation, groups, bias,
                                             callback, conv_kwargs,
-                                            bn_kwargs, act_kwargs)
+                                            bn_kwargs, act_kwargs, dropout_p)
 
         default['output_shape'] = default['conv']['output_shape']
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,

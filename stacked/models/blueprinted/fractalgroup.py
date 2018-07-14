@@ -129,7 +129,8 @@ class ScopedFractalGroup(Sequential):
                                                        dilation, groups, bias,
                                                        act_module, bn_module, conv_module,
                                                        callback, conv_kwargs,
-                                                       bn_kwargs, act_kwargs)
+                                                       bn_kwargs, act_kwargs,
+                                                       dropout_p=dropout_p)
 
         block_prefix = '%s/block' % prefix
         for i in range(group_depth):
@@ -144,8 +145,10 @@ class ScopedFractalGroup(Sequential):
                                             dilation, groups, bias,
                                             act_module, bn_module, conv_module,
                                             callback, conv_kwargs,
-                                            bn_kwargs, act_kwargs, unit_module,
-                                            block_depth, dropout_p, residual,
+                                            bn_kwargs, act_kwargs,
+                                            unit_module=unit_module,
+                                            block_depth=block_depth,
+                                            dropout_p=dropout_p, residual=residual,
                                             block_module=block_module,
                                             group_depth=group_depth, drop_p=drop_p,
                                             fractal_depth=fractal_depth - 1)

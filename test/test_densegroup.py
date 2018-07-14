@@ -1,7 +1,7 @@
 import unittest
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.models.blueprinted.resnet import ScopedResNet
-from stacked.models.blueprinted.densesumgroup import ScopedDenseGroup
+from stacked.models.blueprinted.densesumgroup import ScopedDenseSumGroup
 from stacked.utils import transformer, common
 from stacked.meta.blueprint import visualize
 from PIL import Image
@@ -36,7 +36,7 @@ class TestScopedFractalGroup(unittest.TestCase):
                                                conv_module=ScopedMetaMasked,
                                                input_shape=(1, 3, 32, 32),
                                                num_classes=10,
-                                               group_module=ScopedDenseGroup)
+                                               group_module=ScopedDenseSumGroup)
 
             model = ScopedResNet('ResNet_dense%d' % dense_depth, bp).cuda()
             self.model_run(model)
