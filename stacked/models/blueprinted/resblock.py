@@ -99,7 +99,7 @@ class ScopedResBlock(Sequential):
                                                           input_shape, ni, no, 1,
                                                           stride, 0, dilation,
                                                           groups, bias)
-        default['convdim']['type'] = conv_module if ni != no else all_to_none
+        default['convdim']['type'] = conv_module if ni != no or stride > 1 else all_to_none
 
         return default['conv']['output_shape']
 

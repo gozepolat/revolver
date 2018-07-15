@@ -186,7 +186,7 @@ class ScopedResNet(Sequential):
             shape = block['output_shape']
             children.append(block)
             stride = 2
-            ni = no
+            ni = shape[1]
 
         default['children'] = children
         default['depth'] = len(children)

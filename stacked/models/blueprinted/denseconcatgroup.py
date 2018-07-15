@@ -50,7 +50,7 @@ class ScopedDenseConcatGroup(Sequential):
 
         for j in range(1, depth):
             o = container[j](x)
-            x = torch.cat((x, o), axis=1)
+            x = torch.cat((x, o), dim=1)
 
         callback(scope, module_id, x)
         return x
@@ -108,7 +108,7 @@ class ScopedDenseConcatGroup(Sequential):
                              'dilation': dilation,
                              'groups': groups,
                              'bias': bias}
-
+        concat_out_channels = 0
         for i in range(group_depth):
             block_prefix = '%s/block' % prefix
             suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
@@ -125,6 +125,7 @@ class ScopedDenseConcatGroup(Sequential):
                                                   bn_kwargs, act_kwargs, unit_module,
                                                   block_depth, dropout_p, residual)
             input_shape = block['output_shape']
+            concat_out_channels += input_shape[1]
             children.append(block)
 
             # for the next blocks, stride and in_channels are changed
@@ -133,12 +134,14 @@ class ScopedDenseConcatGroup(Sequential):
                 in_channels = out_channels
             else:
                 in_channels += out_channels
+
             block_module = dense_unit_module
 
+        output_shape = (input_shape[0], concat_out_channels, input_shape[2], input_shape[3])
         default['drop_p'] = drop_p
         default['dropout_p'] = dropout_p
         default['callback'] = callback
         default['children'] = children
         default['depth'] = len(children)
-        default['output_shape'] = input_shape
+        default['output_shape'] = output_shape
         return default

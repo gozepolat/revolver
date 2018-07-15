@@ -8,6 +8,7 @@ from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
 from stacked.utils.transformer import all_to_none
 from stacked.utils.common import time_to_drop
 from six import add_metaclass
+import torch
 
 
 @add_metaclass(ScopedMeta)
@@ -22,6 +23,7 @@ class ScopedDenseFractalGroup(Sequential):
         self.dropout_p = None
         self.drop_p = None
         self.depth = None
+        self.squeeze = None
         self.scalar_weights = None
         self.update(True)
 
@@ -33,6 +35,7 @@ class ScopedDenseFractalGroup(Sequential):
 
         self.callback = blueprint['callback']
         self.drop_p = blueprint['drop_p']
+        self.squeeze = blueprint['squeeze']
         self.depth = len(self.container)
 
     def forward(self, x):
@@ -42,25 +45,33 @@ class ScopedDenseFractalGroup(Sequential):
                              self.scope,
                              self.training,
                              self.drop_p,
+                             self.squeeze,
                              id(self), x)
 
     @staticmethod
     def function(container, callback, depth, scope,
-                 training, drop_p, module_id, x):
+                 training, drop_p, squeeze, module_id, x):
         assert(depth > 0)
         half = depth // 2
 
-        if time_to_drop(training, drop_p):
+        if squeeze and time_to_drop(training, drop_p):
             half = 0
 
-        out = 0.0
+        outs = []
         for j in range(half):
             o = container[j](x)
             o = container[j + half](o)
-            out = o + out
-        else:
-            out = container[0](x)
+            outs.append(o)
 
+        if half == 0:
+            outs = [container[0](x)]
+
+        if squeeze:
+            out = 0.0
+            for o in outs:
+                out = o + out
+        else:
+            out = torch.cat(outs, dim=1)
         callback(scope, module_id, out)
         return out
 
@@ -73,7 +84,8 @@ class ScopedDenseFractalGroup(Sequential):
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True, block_module=ScopedConvUnit,
-                         group_depth=2, drop_p=0.0, fractal_depth=1, *_, **__):
+                         group_depth=2, drop_p=0.0, fractal_depth=1,
+                         squeeze=False, *_, **__):
         """Create a default DenseFractalGroup blueprint
 
         Args:
@@ -104,7 +116,8 @@ class ScopedDenseFractalGroup(Sequential):
             block_module: Children modules used as the output units or smallest fractal
             group_depth (int): Number of blocks in the group
             drop_p (float): Probability of vertical drop
-            fractal_depth: recursion depth for dense fractal group module
+            fractal_depth (int): Recursion depth for dense fractal group module
+            squeeze (bool): Sum the outputs of smaller fractals if true, else concat
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedDenseFractalGroup)
         children = []
@@ -149,16 +162,16 @@ class ScopedDenseFractalGroup(Sequential):
                                             residual=residual,
                                             block_module=block_module,
                                             group_depth=group_depth, drop_p=drop_p,
-                                            fractal_depth=fractal_depth - i)
+                                            fractal_depth=fractal_depth - i,
+                                            squeeze=True)
             children.append(block)
 
-        # for the output units, stride = 1 and in_channels = out_channels
-        input_shape = unit_fractal['output_shape']
-        in_channels = out_channels
-        suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
-                                              kernel_size, 1,
-                                              padding, dilation, groups, bias)
         for i in range(fractal_depth):
+            input_shape = children[i]['output_shape']
+            in_channels = input_shape[1]
+            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
+                                                  kernel_size, 1,
+                                                  padding, dilation, groups, bias)
             unit = block_module.describe_default('%s/unit' % block_prefix, suffix,
                                                  default, input_shape,
                                                  in_channels, out_channels,
@@ -169,11 +182,14 @@ class ScopedDenseFractalGroup(Sequential):
                                                  conv_kwargs, bn_kwargs, act_kwargs)
             children.append(unit)
 
+        out_channels = out_channels * fractal_depth if fractal_depth > 0 and not squeeze else out_channels
+        output_shape = (input_shape[0], out_channels, input_shape[2], input_shape[3])
+        default['squeeze'] = squeeze
         default['drop_p'] = drop_p
         default['dropout_p'] = dropout_p
         default['callback'] = callback
         default['children'] = children
         default['depth'] = len(children)
         default['fractal_depth'] = fractal_depth
-        default['output_shape'] = input_shape
+        default['output_shape'] = output_shape
         return default

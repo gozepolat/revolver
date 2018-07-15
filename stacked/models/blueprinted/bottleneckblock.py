@@ -99,7 +99,7 @@ class ScopedBottleneckBlock(Sequential):
                                                           input_shape, ni, no, 1,
                                                           stride, 0, dilation,
                                                           groups, bias)
-        default['convdim']['type'] = conv_module if ni != no else all_to_none
+        default['convdim']['type'] = conv_module if ni != no or stride > 1 else all_to_none
 
         return default['conv']['output_shape']
 
@@ -139,7 +139,7 @@ class ScopedBottleneckBlock(Sequential):
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True,
-                         hidden_channels=0, *_, **__):
+                         hidden_channels=0, hidden_scale=4, *_, **__):
         """Create a default ScopedBottleneckBlock blueprint
 
         Args:
@@ -167,11 +167,12 @@ class ScopedBottleneckBlock(Sequential):
             act_kwargs: extra act args, if act module requires other than defaults
             block_depth: Number of (bn, act, conv) units in the block
             hidden_channels: Number of hidden channels as the output of the first layer
+            hidden_scale: Default multiplier for the hidden_channels
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedBottleneckBlock)
 
         if hidden_channels == 0:
-            hidden_channels = out_channels
+            hidden_channels = out_channels * hidden_scale
 
         input_shape = ScopedBottleneckBlock.__set_default_items(prefix, default, input_shape,
                                                                 in_channels, hidden_channels,
@@ -180,14 +181,14 @@ class ScopedBottleneckBlock(Sequential):
                                                                 callback, dropout_p, conv_kwargs,
                                                                 bn_kwargs, act_kwargs)
 
-        input_shape = ScopedBottleneckBlock.__set_default_children(prefix, default, input_shape,
-                                                                   hidden_channels, out_channels,
-                                                                   kernel_size, 1, padding,
-                                                                   unit_module, conv_module, act_module,
-                                                                   bn_module, block_depth, dilation,
-                                                                   groups, bias, callback, conv_kwargs,
-                                                                   bn_kwargs, act_kwargs)
-        default['output_shape'] = input_shape
+        output_shape = ScopedBottleneckBlock.__set_default_children(prefix, default, input_shape,
+                                                                    hidden_channels, out_channels,
+                                                                    kernel_size, 1, padding,
+                                                                    unit_module, conv_module, act_module,
+                                                                    bn_module, block_depth, dilation,
+                                                                    groups, bias, callback, conv_kwargs,
+                                                                    bn_kwargs, act_kwargs)
+        default['output_shape'] = output_shape
         default['residual'] = residual
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
                              'stride': stride, 'padding': padding, 'dilation': dilation,

@@ -24,7 +24,6 @@ class ScopedDenseSumGroup(Sequential):
 
         super(ScopedDenseSumGroup, self).__init__(blueprint)
         self.callback = None
-        self.dropout_p = None
         self.drop_p = None
         self.depth = None
         self.scalar_weights = None
@@ -38,7 +37,6 @@ class ScopedDenseSumGroup(Sequential):
 
         self.callback = blueprint['callback']
         self.drop_p = blueprint['drop_p']
-        self.dropout_p = blueprint['dropout_p']
         self.depth = len(self.container)
         self.scalar_weights = make_module(blueprint["scalars"])
 
@@ -52,12 +50,10 @@ class ScopedDenseSumGroup(Sequential):
                              self.depth,
                              self.scalar_weights,
                              self.scope,
-                             self.training,
-                             self.dropout_p,
                              id(self), x)
 
     @staticmethod
-    def weighted_sum(outputs, scalars, training, dropout_p):
+    def weighted_sum(outputs, scalars):
         index = len(outputs) - 2
 
         if index == -1:
@@ -68,26 +64,25 @@ class ScopedDenseSumGroup(Sequential):
 
         summed = 0.0
         for i, o in enumerate(outputs):
-            if dropout_p > 0:
-                o = dropout(o, training=training, p=dropout_p)
             summed = o * weights[i] + summed
 
         return summed
 
     @staticmethod
     def function(container, callback, depth, scalars, scope,
-                 training, dropout_p, module_id, x):
+                 module_id, x):
         assert(depth > 1)
 
         # adjust input resolution
         x = container[0](x)
 
-        outputs = []
+        outputs = [x]
         for j in range(1, depth):
+            x = ScopedDenseSumGroup.weighted_sum(outputs, scalars)
             x = container[j](x)
             outputs.append(x)
-            x = ScopedDenseSumGroup.weighted_sum(outputs, scalars, training, dropout_p)
 
+        x = torch.cat(outputs, dim=1)
         callback(scope, module_id, x)
         return x
 
@@ -145,7 +140,7 @@ class ScopedDenseSumGroup(Sequential):
                              'dilation': dilation,
                              'groups': groups,
                              'bias': bias}
-
+        concat_out_channels = 0
         for i in range(group_depth):
             block_prefix = '%s/block' % prefix
             suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
@@ -164,19 +159,20 @@ class ScopedDenseSumGroup(Sequential):
                                                   block_depth=block_depth,
                                                   dropout_p=dropout_p, residual=residual)
             input_shape = block['output_shape']
+            concat_out_channels += input_shape[1]
             children.append(block)
 
             # for the next groups, stride and in_channels are changed
             stride = 1
-            in_channels = out_channels
+            in_channels = block['output_shape'][1]
             block_module = dense_unit_module
 
+        output_shape = (input_shape[0], concat_out_channels, input_shape[2], input_shape[3])
         default['scalars'] = Blueprint("%s/scalars" % prefix, "", default,
                                        False, scalar_container)
         default['drop_p'] = drop_p
-        default['dropout_p'] = dropout_p
         default['callback'] = callback
         default['children'] = children
         default['depth'] = len(children)
-        default['output_shape'] = input_shape
+        default['output_shape'] = output_shape
         return default
