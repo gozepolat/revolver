@@ -12,7 +12,6 @@ from six import add_metaclass
 from torch.nn import Parameter
 from torch.nn.init import normal
 from torch.nn.functional import softmax
-from torch.nn.functional import dropout
 
 
 @add_metaclass(ScopedMeta)
