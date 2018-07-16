@@ -108,7 +108,7 @@ class ScopedDenseConcatGroup(Sequential):
                              'dilation': dilation,
                              'groups': groups,
                              'bias': bias}
-        concat_out_channels = 0
+
         for i in range(group_depth):
             block_prefix = '%s/block' % prefix
             suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
@@ -127,20 +127,20 @@ class ScopedDenseConcatGroup(Sequential):
                                                   block_depth=block_depth,
                                                   dropout_p=dropout_p,
                                                   residual=residual)
-            input_shape = block['output_shape']
-            concat_out_channels += input_shape[1]
-            children.append(block)
-
-            # for the next blocks, stride and in_channels are changed
-            stride = 1
             if i == 0:
                 in_channels = out_channels
             else:
                 in_channels += out_channels
 
+            input_shape = (block['output_shape'][0], in_channels,
+                           block['output_shape'][2], block['output_shape'][3])
+            children.append(block)
+
+            # for the next blocks, stride and in_channels are changed
+            stride = 1
             block_module = dense_unit_module
 
-        output_shape = (input_shape[0], concat_out_channels, input_shape[2], input_shape[3])
+        output_shape = input_shape
         default['drop_p'] = drop_p
         default['dropout_p'] = dropout_p
         default['callback'] = callback
