@@ -22,6 +22,7 @@ class ScopedDenseConcatGroup(Sequential):
         self.callback = None
         self.depth = None
         self.scalar_weights = None
+        self.transition = None
         self.update(True)
 
     def update(self, init=False):
@@ -32,23 +33,26 @@ class ScopedDenseConcatGroup(Sequential):
 
         self.callback = blueprint['callback']
         self.depth = len(self.container)
+        self.transition = blueprint['input_shape'][2] != blueprint['output_shape'][2]
 
     def forward(self, x):
         return self.function(self.container,
                              self.callback,
                              self.depth,
+                             self.transition,
                              self.scope,
                              id(self), x)
 
     @staticmethod
-    def function(container, callback, depth, scope,
-                 module_id, x):
+    def function(container, callback, depth,
+                 transition, scope, module_id, x):
         assert(depth > 1)
+        i = 0
+        if transition:
+            x = container[0](x)
+            i = 1
 
-        # adjust input resolution
-        x = container[0](x)
-
-        for j in range(1, depth):
+        for j in range(i, depth):
             o = container[j](x)
             x = torch.cat((x, o), dim=1)
 
@@ -108,6 +112,23 @@ class ScopedDenseConcatGroup(Sequential):
                              'dilation': dilation,
                              'groups': groups,
                              'bias': bias}
+        if stride > 1:
+            block_prefix = '%s/block' % prefix
+            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, in_channels * 2,
+                                                  1, stride, 0, dilation, groups, bias)
+            block = ScopedConvUnit.describe_default(block_prefix, suffix,
+                                                    default, input_shape,
+                                                    in_channels, in_channels * 2,
+                                                    1, stride, 0, dilation,
+                                                    groups, bias, act_module,
+                                                    bn_module, conv_module,
+                                                    callback, conv_kwargs,
+                                                    bn_kwargs, act_kwargs)
+
+            input_shape = block['output_shape']
+            children.append(block)
+            in_channels = in_channels * 2
+            stride = 1
 
         for i in range(group_depth):
             block_prefix = '%s/block' % prefix
@@ -127,10 +148,7 @@ class ScopedDenseConcatGroup(Sequential):
                                                   block_depth=block_depth,
                                                   dropout_p=dropout_p,
                                                   residual=residual)
-            if i == 0:
-                in_channels = out_channels
-            else:
-                in_channels += out_channels
+            in_channels += out_channels
 
             input_shape = (block['output_shape'][0], in_channels,
                            block['output_shape'][2], block['output_shape'][3])

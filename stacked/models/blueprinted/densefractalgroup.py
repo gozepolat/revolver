@@ -57,23 +57,24 @@ class ScopedDenseFractalGroup(Sequential):
         if squeeze and time_to_drop(training, drop_p):
             half = 0
 
-        outs = []
+        dense_inputs = []
+        fractal_out = 0.0
         for j in range(half):
             o = container[j](x)
+            dense_inputs.append(o)
             o = container[j + half](o)
-            outs.append(o)
+            fractal_out = o + fractal_out
 
         if half == 0:
-            outs = [container[0](x)]
+            fractal_out = container[0](x)
 
-        if squeeze:
-            out = 0.0
-            for o in outs:
-                out = o + out
-        else:
-            out = torch.cat(outs, dim=1)
-        callback(scope, module_id, out)
-        return out
+        # concatenate with previous inputs
+        if not squeeze and half > 0:
+            dense_inputs.append(fractal_out)
+            fractal_out = torch.cat(dense_inputs, dim=1)
+
+        callback(scope, module_id, fractal_out)
+        return fractal_out
 
     @staticmethod
     def describe_default(prefix, suffix, parent, input_shape,
@@ -143,7 +144,8 @@ class ScopedDenseFractalGroup(Sequential):
                                                      act_module, bn_module, conv_module,
                                                      callback, conv_kwargs,
                                                      bn_kwargs, act_kwargs,
-                                                     dropout_p=dropout_p)
+                                                     dropout_p=dropout_p,
+                                                     residual=residual)
         children.append(unit_fractal)
 
         block_prefix = '%s/block' % prefix
@@ -179,10 +181,12 @@ class ScopedDenseFractalGroup(Sequential):
                                                  dilation, groups, bias,
                                                  act_module, bn_module,
                                                  conv_module, callback,
-                                                 conv_kwargs, bn_kwargs, act_kwargs)
+                                                 conv_kwargs, bn_kwargs,
+                                                 act_kwargs, dropout_p=dropout_p,
+                                                 residual=residual)
             children.append(unit)
 
-        out_channels = out_channels * fractal_depth if fractal_depth > 0 and not squeeze else out_channels
+        out_channels = out_channels * (fractal_depth + 1) if fractal_depth > 0 and not squeeze else out_channels
         output_shape = (input_shape[0], out_channels, input_shape[2], input_shape[3])
         default['squeeze'] = squeeze
         default['drop_p'] = drop_p

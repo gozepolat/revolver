@@ -25,6 +25,7 @@ class ScopedDenseSumGroup(Sequential):
         self.callback = None
         self.drop_p = None
         self.depth = None
+        self.transition = None
         self.scalar_weights = None
         self.update(True)
 
@@ -38,6 +39,7 @@ class ScopedDenseSumGroup(Sequential):
         self.drop_p = blueprint['drop_p']
         self.depth = len(self.container)
         self.scalar_weights = make_module(blueprint["scalars"])
+        self.transition = blueprint['input_shape'][2] != blueprint['output_shape'][2]
 
         for i in range(len(self.scalar_weights) + 2, self.depth):
             self.scalar_weights.append(Parameter(normal(torch.ones(i)),
@@ -47,6 +49,7 @@ class ScopedDenseSumGroup(Sequential):
         return self.function(self.container,
                              self.callback,
                              self.depth,
+                             self.transition,
                              self.scalar_weights,
                              self.scope,
                              id(self), x)
@@ -68,18 +71,26 @@ class ScopedDenseSumGroup(Sequential):
         return summed
 
     @staticmethod
-    def function(container, callback, depth, scalars, scope,
+    def function(container, callback, depth,
+                 transition, scalars, scope,
                  module_id, x):
         assert(depth > 1)
+        i = 0
 
         # adjust input resolution
-        x = container[0](x)
+        if transition:
+            t = x = container[0](x)
+            i = 1
 
-        outputs = [x]
-        for j in range(1, depth):
-            x = ScopedDenseSumGroup.weighted_sum(outputs, scalars)
+        outputs = []
+        for j in range(i, depth):
             x = container[j](x)
             outputs.append(x)
+            x = ScopedDenseSumGroup.weighted_sum(outputs, scalars)
+
+        # preserve previous input
+        if transition:
+            outputs.append(t)
 
         x = torch.cat(outputs, dim=1)
         callback(scope, module_id, x)
@@ -139,7 +150,27 @@ class ScopedDenseSumGroup(Sequential):
                              'dilation': dilation,
                              'groups': groups,
                              'bias': bias}
+
         concat_out_channels = 0
+        if stride > 1:
+            block_prefix = '%s/block' % prefix
+            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, in_channels * 2,
+                                                  1, stride, 0, dilation, groups, bias)
+            block = ScopedConvUnit.describe_default(block_prefix, suffix,
+                                                    default, input_shape,
+                                                    in_channels, in_channels * 2,
+                                                    1, stride, 0, dilation,
+                                                    groups, bias, act_module,
+                                                    bn_module, conv_module,
+                                                    callback, conv_kwargs,
+                                                    bn_kwargs, act_kwargs)
+
+            input_shape = block['output_shape']
+            children.append(block)
+            in_channels = in_channels * 2
+            concat_out_channels = in_channels
+            stride = 1
+
         for i in range(group_depth):
             block_prefix = '%s/block' % prefix
             suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
