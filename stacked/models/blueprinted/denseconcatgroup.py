@@ -114,12 +114,13 @@ class ScopedDenseConcatGroup(Sequential):
                              'bias': bias}
         if stride > 1:
             block_prefix = '%s/block' % prefix
-            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, in_channels * 2,
-                                                  1, stride, 0, dilation, groups, bias)
+            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, in_channels // 2,
+                                                  kernel_size, stride, padding,
+                                                  dilation, groups, bias)
             block = ScopedConvUnit.describe_default(block_prefix, suffix,
                                                     default, input_shape,
-                                                    in_channels, in_channels * 2,
-                                                    1, stride, 0, dilation,
+                                                    in_channels, in_channels // 2,
+                                                    kernel_size, stride, padding, dilation,
                                                     groups, bias, act_module,
                                                     bn_module, conv_module,
                                                     callback, conv_kwargs,
@@ -127,7 +128,7 @@ class ScopedDenseConcatGroup(Sequential):
 
             input_shape = block['output_shape']
             children.append(block)
-            in_channels = in_channels * 2
+            in_channels = in_channels // 2
             stride = 1
 
         for i in range(group_depth):

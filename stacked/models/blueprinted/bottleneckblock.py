@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
-    ScopedReLU, ScopedConv2d
+    ScopedReLU, ScopedConv2d, ScopedAvgPool2d
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
@@ -28,6 +28,7 @@ class ScopedBottleneckBlock(Sequential):
         self.bn = make_module(blueprint['bn'])
         self.act = make_module(blueprint['act'])
         self.conv = make_module(blueprint['conv'])
+        self.pool = make_module(blueprint['pool'])
         self.callback = blueprint['callback']
         self.dropout_p = blueprint['dropout_p']
         self.residual = blueprint['residual']
@@ -39,14 +40,14 @@ class ScopedBottleneckBlock(Sequential):
 
     def forward(self, x, *_):
         return self.function(self.bn, self.act,
-                             self.conv, self.container,
+                             self.conv, self.pool, self.container,
                              self.convdim, self.callback,
                              self.scope, self.dropout_p,
                              self.residual, self.training,
                              id(self), x)
 
     @staticmethod
-    def function(bn, act, conv, container, convdim,
+    def function(bn, act, conv, pool, container, convdim,
                  callback, scope, dropout_p,
                  residual, training, module_id, x):
         o = x
@@ -59,6 +60,9 @@ class ScopedBottleneckBlock(Sequential):
             o = dropout(o, training=training, p=dropout_p)
 
         z = conv(o)
+
+        if pool is not None:
+            z = pool(z)
 
         for unit in container:
             z = unit(z)
@@ -85,11 +89,17 @@ class ScopedBottleneckBlock(Sequential):
 
         # bn, act, conv
         ScopedConvUnit.set_unit_description(default, prefix, input_shape, ni, no,
-                                            1, stride, 0,
-                                            conv_module, act_module, bn_module,
-                                            dilation, groups, bias,
+                                            1, 1, 0, conv_module, act_module,
+                                            bn_module, dilation, groups, bias,
                                             callback, conv_kwargs,
                                             bn_kwargs, act_kwargs)
+
+        pool_module = all_to_none
+        if stride > 1:
+            pool_module = ScopedAvgPool2d
+        pool_kwargs = {'kernel_size': 2, 'stride': stride}
+        default['pool'] = Blueprint("%s/pool" % prefix, "2_%d" % stride,
+                                    default, False, pool_module, kwargs=pool_kwargs)
         # convdim
         suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, 1, stride,
                                               0, dilation, groups, bias)

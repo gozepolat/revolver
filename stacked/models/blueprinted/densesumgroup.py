@@ -41,7 +41,7 @@ class ScopedDenseSumGroup(Sequential):
         self.scalar_weights = make_module(blueprint["scalars"])
         self.transition = blueprint['input_shape'][2] != blueprint['output_shape'][2]
 
-        for i in range(len(self.scalar_weights) + 2, self.depth):
+        for i in range(len(self.scalar_weights) + 2, self.depth + 1):
             self.scalar_weights.append(Parameter(normal(torch.ones(i)),
                                                  requires_grad=True))
 
@@ -154,12 +154,13 @@ class ScopedDenseSumGroup(Sequential):
         concat_out_channels = 0
         if stride > 1:
             block_prefix = '%s/block' % prefix
-            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, in_channels * 2,
-                                                  1, stride, 0, dilation, groups, bias)
+            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, in_channels // 2,
+                                                  kernel_size, stride, padding,
+                                                  dilation, groups, bias)
             block = ScopedConvUnit.describe_default(block_prefix, suffix,
                                                     default, input_shape,
-                                                    in_channels, in_channels * 2,
-                                                    1, stride, 0, dilation,
+                                                    in_channels, in_channels // 2,
+                                                    kernel_size, stride, padding, dilation,
                                                     groups, bias, act_module,
                                                     bn_module, conv_module,
                                                     callback, conv_kwargs,
@@ -167,7 +168,7 @@ class ScopedDenseSumGroup(Sequential):
 
             input_shape = block['output_shape']
             children.append(block)
-            in_channels = in_channels * 2
+            in_channels = in_channels // 2
             concat_out_channels = in_channels
             stride = 1
 
