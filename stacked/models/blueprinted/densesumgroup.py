@@ -12,6 +12,7 @@ from six import add_metaclass
 from torch.nn import Parameter
 from torch.nn.init import normal
 from torch.nn.functional import softmax
+from torch.nn.functional import dropout
 
 
 @add_metaclass(ScopedMeta)
@@ -24,6 +25,7 @@ class ScopedDenseSumGroup(Sequential):
         super(ScopedDenseSumGroup, self).__init__(blueprint)
         self.callback = None
         self.drop_p = None
+        self.dropout_p = None
         self.depth = None
         self.transition = None
         self.scalar_weights = None
@@ -37,6 +39,7 @@ class ScopedDenseSumGroup(Sequential):
 
         self.callback = blueprint['callback']
         self.drop_p = blueprint['drop_p']
+        self.dropout_p = blueprint['dropout_p']
         self.depth = len(self.container)
         self.scalar_weights = make_module(blueprint["scalars"])
         self.transition = blueprint['input_shape'][2] != blueprint['output_shape'][2]
@@ -51,18 +54,25 @@ class ScopedDenseSumGroup(Sequential):
                              self.depth,
                              self.transition,
                              self.scalar_weights,
+                             self.dropout_p,
+                             self.training,
                              self.scope,
                              id(self), x)
 
     @staticmethod
-    def weighted_sum(outputs, scalars):
+    def weighted_sum(outputs, scalars, dropout_p, training):
         index = len(outputs) - 2
 
         if index == -1:
             return outputs[0]
 
         assert(index >= 0)
-        weights = softmax(scalars[index])
+
+        weights = scalars[index]
+        if dropout_p > 0:
+            weights = dropout(weights, training=training, p=dropout_p)
+
+        weights = softmax(weights)
 
         summed = 0.0
         for i, o in enumerate(outputs):
@@ -72,8 +82,8 @@ class ScopedDenseSumGroup(Sequential):
 
     @staticmethod
     def function(container, callback, depth,
-                 transition, scalars, scope,
-                 module_id, x):
+                 transition, scalars, dropout_p,
+                 training, scope, module_id, x):
         assert(depth > 1)
         i = 0
 
@@ -86,7 +96,8 @@ class ScopedDenseSumGroup(Sequential):
         for j in range(i, depth):
             x = container[j](x)
             outputs.append(x)
-            x = ScopedDenseSumGroup.weighted_sum(outputs, scalars)
+            x = ScopedDenseSumGroup.weighted_sum(outputs, scalars,
+                                                 dropout_p, training)
 
         # preserve previous input
         if transition:
@@ -202,6 +213,7 @@ class ScopedDenseSumGroup(Sequential):
         default['scalars'] = Blueprint("%s/scalars" % prefix, "", default,
                                        False, scalar_container)
         default['drop_p'] = drop_p
+        default['dropout_p'] = dropout_p
         default['callback'] = callback
         default['children'] = children
         default['depth'] = len(children)

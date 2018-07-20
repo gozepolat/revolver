@@ -70,7 +70,7 @@ class ScopedDenseFractalGroup(Sequential):
 
         # concatenate with previous inputs
         if not squeeze and half > 0:
-            dense_inputs.append(fractal_out)
+            dense_inputs.append(fractal_out / half)
             fractal_out = torch.cat(dense_inputs, dim=1)
 
         callback(scope, module_id, fractal_out)

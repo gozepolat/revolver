@@ -78,6 +78,19 @@ class ScopedBottleneckBlock(Sequential):
         return z
 
     @staticmethod
+    def __set_pooling(prefix, default, stride):
+        pool_module = all_to_none
+        if stride > 1:
+            pool_module = ScopedAvgPool2d
+        pool_kwargs = {'kernel_size': 2, 'stride': stride}
+        default['pool'] = Blueprint("%s/pool" % prefix, "2_%d" % stride,
+                                    default, False, pool_module, kwargs=pool_kwargs)
+
+        shape = default['pool']['input_shape'] = default['conv']['output_shape']
+        default['pool']['output_shape'] = (shape[0], shape[1],
+                                           shape[2] // stride, shape[3] // stride)
+
+    @staticmethod
     def __set_default_items(prefix, default, input_shape, ni, no,
                             stride, conv_module, act_module, bn_module,
                             dilation=1, groups=1, bias=True,
@@ -94,12 +107,8 @@ class ScopedBottleneckBlock(Sequential):
                                             callback, conv_kwargs,
                                             bn_kwargs, act_kwargs)
 
-        pool_module = all_to_none
-        if stride > 1:
-            pool_module = ScopedAvgPool2d
-        pool_kwargs = {'kernel_size': 2, 'stride': stride}
-        default['pool'] = Blueprint("%s/pool" % prefix, "2_%d" % stride,
-                                    default, False, pool_module, kwargs=pool_kwargs)
+        ScopedBottleneckBlock.__set_pooling(prefix, default, stride)
+
         # convdim
         suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, 1, stride,
                                               0, dilation, groups, bias)
@@ -111,7 +120,7 @@ class ScopedBottleneckBlock(Sequential):
                                                           groups, bias)
         default['convdim']['type'] = conv_module if ni != no or stride > 1 else all_to_none
 
-        return default['conv']['output_shape']
+        return default['pool']['output_shape']
 
     @staticmethod
     def __set_default_children(prefix, default, shape, ni, no, kernel_size, stride,

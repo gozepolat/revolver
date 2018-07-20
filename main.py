@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 from stacked.models.blueprinted.optimizer import ScopedEpochEngine
 from stacked.models.blueprinted.resnet import ScopedResNet
+from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
 from stacked.models.blueprinted.densefractalgroup import ScopedDenseFractalGroup
+from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
 from stacked.models.blueprinted.densesumgroup import ScopedDenseSumGroup
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.modules.scoped_nn import ScopedConv2d, ScopedBatchNorm2d, \
@@ -23,7 +25,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='In construction..')
 
     parser.add_argument('--depth', default=22, type=int)
-    parser.add_argument('--skeleton', default='[16,32,64]', type=str,
+    parser.add_argument('--skeleton', default='[12,24,48]', type=str,
                         help='json list with epochs to drop lr on')
     parser.add_argument('--block_depth', default=2, type=int)
     parser.add_argument('--width', default=1, type=int)
@@ -32,12 +34,12 @@ def parse_args():
 
     parser.add_argument('--batch_size', default=128, type=int)
     parser.add_argument('--lr', default=0.1, type=float)
-    parser.add_argument('--epochs', default=200, type=int, metavar='N',
+    parser.add_argument('--epochs', default=300, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('--weight_decay', default=0.0005, type=float)
-    parser.add_argument('--lr_drop_epochs', default='[60,120,180]', type=str,
+    parser.add_argument('--lr_drop_epochs', default='[150,225]', type=str,
                         help='json list with epochs to drop lr on')
-    parser.add_argument('--lr_decay_ratio', default=0.2, type=float)
+    parser.add_argument('--lr_decay_ratio', default=0.1, type=float)
     parser.add_argument('--single_engine', default=True, type=bool)
     parser.add_argument('--gpu_id', default='0', type=str,
                         help='id(s) for CUDA_VISIBLE_DEVICES')
@@ -211,11 +213,14 @@ if __name__ == '__main__':
     resnet = ScopedResNet.describe_default(prefix='ResNet', num_classes=num_classes,
                                            depth=parsed.depth, width=parsed.width,
                                            block_depth=parsed.block_depth, drop_p=0.5,
-                                           conv_module=ScopedMetaMasked, dropout_p=0.2,
+                                           conv_module=ScopedMetaMasked,
+                                           dropout_p=0.2,
                                            callback=collect_depthwise_features,
-                                           group_module=ScopedDenseSumGroup, residual=False,
+                                           group_module=ScopedDenseConcatGroup, residual=False,
                                            skeleton=skeleton, group_depths=group_depths,
-                                           input_shape=input_shape)
+                                           block_module=ScopedBottleneckBlock,
+                                           dense_unit_module=ScopedBottleneckBlock,
+                                           input_shape=input_shape, fractal_depth=3)
 
     def make_conv2d_unique(bp, _, __):
         if issubclass(bp['type'], ScopedBatchNorm2d):
@@ -230,7 +235,7 @@ if __name__ == '__main__':
     crop_size = width
     if parsed.single_engine:
         train_with_single_engine(resnet, parsed, lr_drop_epochs,
-                                 crop_size, n_samples=num_samples, test_every_nth=10)
+                                 crop_size, n_samples=num_samples, test_every_nth=2)
     else:
         train_with_double_engine(resnet, parsed, lr_drop_epochs,
                                  crop_size, n_samples=num_samples)
