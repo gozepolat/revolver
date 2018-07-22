@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
-    ScopedReLU, ScopedConv2d, ScopedAvgPool2d
+    ScopedReLU, ScopedConv2d
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.utils.transformer import all_to_none
 from stacked.models.blueprinted.conv_unit import ScopedConvUnit
+from stacked.models.blueprinted.unit import set_pooling
 from six import add_metaclass
 from torch.nn.functional import dropout
 
@@ -25,10 +26,16 @@ class ScopedBottleneckBlock(Sequential):
         self.blueprint = blueprint
 
         self.depth = len(blueprint['children'])
-        self.bn = make_module(blueprint['bn'])
-        self.act = make_module(blueprint['act'])
-        self.conv = make_module(blueprint['conv'])
-        self.pool = make_module(blueprint['pool'])
+
+        if 'bn' in blueprint:
+            self.bn = make_module(blueprint['bn'])
+        if 'act' in blueprint:
+            self.act = make_module(blueprint['act'])
+        if 'conv' in blueprint:
+            self.conv = make_module(blueprint['conv'])
+        if 'pool' in blueprint:
+            self.pool = make_module(blueprint['pool'])
+
         self.callback = blueprint['callback']
         self.dropout_p = blueprint['dropout_p']
         self.residual = blueprint['residual']
@@ -78,19 +85,6 @@ class ScopedBottleneckBlock(Sequential):
         return z
 
     @staticmethod
-    def __set_pooling(prefix, default, stride):
-        pool_module = all_to_none
-        if stride > 1:
-            pool_module = ScopedAvgPool2d
-        pool_kwargs = {'kernel_size': 2, 'stride': stride}
-        default['pool'] = Blueprint("%s/pool" % prefix, "2_%d" % stride,
-                                    default, False, pool_module, kwargs=pool_kwargs)
-
-        shape = default['pool']['input_shape'] = default['conv']['output_shape']
-        default['pool']['output_shape'] = (shape[0], shape[1],
-                                           shape[2] // stride, shape[3] // stride)
-
-    @staticmethod
     def __set_default_items(prefix, default, input_shape, ni, no,
                             stride, conv_module, act_module, bn_module,
                             dilation=1, groups=1, bias=True,
@@ -106,8 +100,12 @@ class ScopedBottleneckBlock(Sequential):
                                             bn_module, dilation, groups, bias,
                                             callback, conv_kwargs,
                                             bn_kwargs, act_kwargs)
-
-        ScopedBottleneckBlock.__set_pooling(prefix, default, stride)
+        pool_kernel = 2
+        if stride == 1:
+            pool_module = all_to_none
+            pool_kernel = 1
+        set_pooling(default, prefix, default['conv']['output_shape'],
+                    kernel_size=pool_kernel, stride=stride, module=pool_module)
 
         # convdim
         suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, 1, stride,

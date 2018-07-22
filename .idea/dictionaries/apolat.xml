@@ -1,6 +1,7 @@
 <component name="ProjectDictionaryState">
   <dictionary name="apolat">
     <words>
+      <w>batchnorm</w>
       <w>convdim</w>
       <w>evolvables</w>
       <w>learnable</w>

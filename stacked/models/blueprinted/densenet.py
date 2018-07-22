@@ -15,15 +15,15 @@ from six import add_metaclass
 
 
 @add_metaclass(ScopedMeta)
-class ScopedResNet(Sequential):
-    """WRN inspired implementation of ResNet
+class ScopedDenseNet(Sequential):
+    """WRN inspired implementation of DenseNet
 
     Args:
         scope (string): Scope for the self (ScopedResBlock instance)
         blueprint: Description of the scopes and member module types
     """
     def __init__(self, scope, blueprint, *_, **__):
-        super(ScopedResNet, self).__init__(blueprint)
+        super(ScopedDenseNet, self).__init__(blueprint)
         self.scope = scope
         self.blueprint = blueprint
 
@@ -31,7 +31,7 @@ class ScopedResNet(Sequential):
         self.conv = make_module(blueprint['conv'])
 
         # readjust linear layer and bns in case there has been mutation / crossover
-        self.shortcut_index = ScopedResNet.__readjust_tail(blueprint['prefix'],
+        self.shortcut_index = ScopedDenseNet.__readjust_tail(blueprint['prefix'],
                                                            blueprint,
                                                            blueprint['shortcut_index'])
         self.bns = ModuleList()
@@ -203,14 +203,14 @@ class ScopedResNet(Sequential):
                       unit_module=ScopedConvUnit, group_module=ScopedResGroup,
                       fractal_depth=1, dense_unit_module=ScopedConvUnit):
         """Set the items and the children of the default blueprint object"""
-        default = Blueprint(prefix, suffix, parent, False, ScopedResNet)
+        default = Blueprint(prefix, suffix, parent, False, ScopedDenseNet)
 
-        shape = ScopedResNet.__set_default_items(prefix, default, shape, ni, no,
+        shape = ScopedDenseNet.__set_default_items(prefix, default, shape, ni, no,
                                                  kernel_size, act_module, conv_module,
                                                  dilation, groups, bias, callback,
                                                  conv_kwargs, act_kwargs)
 
-        shape = ScopedResNet.__set_default_children(prefix, default, ni, widths,
+        shape = ScopedDenseNet.__set_default_children(prefix, default, ni, widths,
                                                     group_depths, block_depth,
                                                     block_module, conv_module,
                                                     bn_module, act_module,
@@ -228,7 +228,7 @@ class ScopedResNet(Sequential):
         return default
 
     @staticmethod
-    def describe_default(prefix='ResNet', suffix='', parent=None,
+    def describe_default(prefix='DenseNet', suffix='', parent=None,
                          skeleton=(16, 32, 64), group_depths=None,
                          num_classes=10, depth=28,
                          width=1, block_depth=2,
@@ -242,7 +242,7 @@ class ScopedResNet(Sequential):
                          unit_module=ScopedConvUnit, group_module=ScopedResGroup,
                          fractal_depth=1, shortcut_index=-1,
                          dense_unit_module=ScopedConvUnit):
-        """Create a default ResNet blueprint
+        """Create a default DenseNet blueprint
 
         Args:
             prefix (str): Prefix from which the member scopes will be created
@@ -287,7 +287,7 @@ class ScopedResNet(Sequential):
         num_groups = len(skeleton)
 
         if group_depths is None:
-            group_depth = ScopedResNet.get_num_blocks_per_group(depth, num_groups,
+            group_depth = ScopedDenseNet.get_num_blocks_per_group(depth, num_groups,
                                                                 block_depth)
             group_depths = []
             for _ in widths:
@@ -296,7 +296,7 @@ class ScopedResNet(Sequential):
         ni = skeleton[0]
         no = widths[-1]
 
-        default = ScopedResNet.__get_default(prefix, suffix, parent,
+        default = ScopedDenseNet.__get_default(prefix, suffix, parent,
                                              input_shape, ni, no,
                                              kernel_size, num_classes,
                                              block_module, bn_module,
@@ -309,7 +309,7 @@ class ScopedResNet(Sequential):
                                              unit_module, group_module,
                                              fractal_depth, dense_unit_module)
 
-        ScopedResNet.__readjust_tail(prefix, default,
+        ScopedDenseNet.__readjust_tail(prefix, default,
                                      shortcut_index=shortcut_index,
                                      linear_module=linear_module,
                                      bn_module=bn_module)

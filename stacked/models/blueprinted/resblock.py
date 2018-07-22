@@ -25,9 +25,12 @@ class ScopedResBlock(Sequential):
         self.blueprint = blueprint
 
         self.depth = len(blueprint['children'])
-        self.bn = make_module(blueprint['bn'])
-        self.act = make_module(blueprint['act'])
-        self.conv = make_module(blueprint['conv'])
+        if 'bn' in blueprint:
+            self.bn = make_module(blueprint['bn'])
+        if 'act' in blueprint:
+            self.act = make_module(blueprint['act'])
+        if 'conv' in blueprint:
+            self.conv = make_module(blueprint['conv'])
         self.callback = blueprint['callback']
         self.dropout_p = blueprint['dropout_p']
         self.residual = blueprint['residual']
