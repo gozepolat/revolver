@@ -81,6 +81,7 @@ class ScopedConvUnit(Module):
 
         for key in module_order:
             if key == 'bn':
+                ni = input_shape[1]
                 set_batchnorm(default, prefix, suffix, ni, bn_module, bn_kwargs)
                 default['bn']['output_shape'] = input_shape
 
@@ -89,12 +90,9 @@ class ScopedConvUnit(Module):
                 default['act']['output_shape'] = input_shape
 
             elif key == 'conv':
-                conv_stride = stride
-                if 'pool' in module_order:
-                    conv_stride = 1
-
+                ni = input_shape[1]
                 set_conv(default, prefix, suffix, input_shape, ni, no, kernel_size,
-                         conv_stride, padding, dilation, groups, bias, conv_module,
+                         stride, padding, dilation, groups, bias, conv_module,
                          conv_kwargs)
                 input_shape = default['conv']['output_shape']
 

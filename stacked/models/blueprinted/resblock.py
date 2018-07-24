@@ -24,18 +24,33 @@ class ScopedResBlock(Sequential):
         self.scope = scope
         self.blueprint = blueprint
 
+        self.depth = None
+        self.bn = None
+        self.act = None
+        self.conv = None
+        self.convdim = None
+        self.callback = None
+        self.dropout_p = None
+        self.residual = None
+        self.update(True)
+
+    def update(self, init=False):
+        if not init:
+            super(ScopedResBlock, self).update()
+        blueprint = self.blueprint
         self.depth = len(blueprint['children'])
+
         if 'bn' in blueprint:
             self.bn = make_module(blueprint['bn'])
         if 'act' in blueprint:
             self.act = make_module(blueprint['act'])
         if 'conv' in blueprint:
             self.conv = make_module(blueprint['conv'])
+
         self.callback = blueprint['callback']
         self.dropout_p = blueprint['dropout_p']
         self.residual = blueprint['residual']
 
-        self.convdim = None
         # 1x1 conv to correct the number of channels for summation
         if self.residual:
             self.convdim = make_module(blueprint['convdim'])
@@ -107,11 +122,11 @@ class ScopedResBlock(Sequential):
         return default['conv']['output_shape']
 
     @staticmethod
-    def __set_default_children(prefix, default, shape, ni, no, kernel_size, stride,
-                               padding, unit_module, conv_module, act_module,
-                               bn_module, depth, dilation=1, groups=1, bias=True,
-                               callback=all_to_none, conv_kwargs=None,
-                               bn_kwargs=None, act_kwargs=None, dropout_p=0.0):
+    def __set_children(prefix, default, shape, ni, no, kernel_size, stride,
+                       padding, unit_module, conv_module, act_module,
+                       bn_module, depth, dilation=1, groups=1, bias=True,
+                       callback=all_to_none, conv_kwargs=None,
+                       bn_kwargs=None, act_kwargs=None, dropout_p=0.0):
         children = []
         for i in range(depth-1):
             unit_prefix = '%s/unit' % prefix
@@ -177,13 +192,13 @@ class ScopedResBlock(Sequential):
                                                          callback, dropout_p, conv_kwargs,
                                                          bn_kwargs, act_kwargs)
 
-        input_shape = ScopedResBlock.__set_default_children(prefix, default, input_shape,
-                                                            out_channels, out_channels,
-                                                            kernel_size, 1, padding,
-                                                            unit_module, conv_module, act_module,
-                                                            bn_module, block_depth, dilation,
-                                                            groups, bias, callback, conv_kwargs,
-                                                            bn_kwargs, act_kwargs, dropout_p)
+        input_shape = ScopedResBlock.__set_children(prefix, default, input_shape,
+                                                    out_channels, out_channels,
+                                                    kernel_size, 1, padding,
+                                                    unit_module, conv_module, act_module,
+                                                    bn_module, block_depth, dilation,
+                                                    groups, bias, callback, conv_kwargs,
+                                                    bn_kwargs, act_kwargs, dropout_p)
         default['output_shape'] = input_shape
         default['residual'] = residual
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,

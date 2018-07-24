@@ -107,7 +107,7 @@ class ScopedResNet(Sequential):
                                                        callback=callback,
                                                        conv_kwargs=conv_kwargs)
 
-        # return input shape for __set_default_children
+        # return input shape for __set_children
         return default['conv']['output_shape']
 
     @staticmethod
@@ -153,15 +153,15 @@ class ScopedResNet(Sequential):
         return shortcut_index
 
     @staticmethod
-    def __set_default_children(prefix, default, ni, widths, group_depths,
-                               block_depth, block_module, conv_module,
-                               bn_module, act_module, kernel_size, stride,
-                               padding, shape, dilation=1, groups=1, bias=False,
-                               callback=all_to_none, drop_p=0.0, dropout_p=0.0,
-                               residual=True, conv_kwargs=None,
-                               bn_kwargs=None, act_kwargs=None,
-                               unit_module=ScopedConvUnit, group_module=ScopedResGroup,
-                               fractal_depth=1, dense_unit_module=ScopedConvUnit):
+    def __set_children(prefix, default, ni, widths, group_depths,
+                       block_depth, block_module, conv_module,
+                       bn_module, act_module, kernel_size, stride,
+                       padding, shape, dilation=1, groups=1, bias=False,
+                       callback=all_to_none, drop_p=0.0, dropout_p=0.0,
+                       residual=True, conv_kwargs=None,
+                       bn_kwargs=None, act_kwargs=None,
+                       unit_module=ScopedConvUnit, group_module=ScopedResGroup,
+                       fractal_depth=1, dense_unit_module=ScopedConvUnit):
         """Sequentially set children and bn blueprints"""
         children = []
         default['bns'] = []
@@ -210,16 +210,16 @@ class ScopedResNet(Sequential):
                                                  dilation, groups, bias, callback,
                                                  conv_kwargs, act_kwargs)
 
-        shape = ScopedResNet.__set_default_children(prefix, default, ni, widths,
-                                                    group_depths, block_depth,
-                                                    block_module, conv_module,
-                                                    bn_module, act_module,
-                                                    kernel_size, stride, padding, shape,
-                                                    dilation, groups, bias, callback,
-                                                    drop_p, dropout_p, residual,
-                                                    conv_kwargs, bn_kwargs, act_kwargs,
-                                                    unit_module, group_module,
-                                                    fractal_depth, dense_unit_module)
+        shape = ScopedResNet.__set_children(prefix, default, ni, widths,
+                                            group_depths, block_depth,
+                                            block_module, conv_module,
+                                            bn_module, act_module,
+                                            kernel_size, stride, padding, shape,
+                                            dilation, groups, bias, callback,
+                                            drop_p, dropout_p, residual,
+                                            conv_kwargs, bn_kwargs, act_kwargs,
+                                            unit_module, group_module,
+                                            fractal_depth, dense_unit_module)
 
         default['output_shape'] = (shape[0], num_classes)
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
@@ -241,7 +241,7 @@ class ScopedResNet(Sequential):
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, group_module=ScopedResGroup,
                          fractal_depth=1, shortcut_index=-1,
-                         dense_unit_module=ScopedConvUnit):
+                         dense_unit_module=ScopedConvUnit, *_, **__):
         """Create a default ResNet blueprint
 
         Args:
@@ -265,7 +265,7 @@ class ScopedResNet(Sequential):
             dilation (int): Spacing between kernel elements.
             groups (int): Number of blocked connections from input to output channels.
             bias (bool): Add a learnable bias if True
-            callback: function to call after the output in forward is calculated
+            callback: Function to call after the output in forward is calculated
             drop_p (float): Probability of vertical drop
             dropout_p (float): Probability of dropout in the blocks
             residual (bool): True if a shortcut connection will be used

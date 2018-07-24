@@ -121,11 +121,11 @@ class ScopedBottleneckBlock(Sequential):
         return default['pool']['output_shape']
 
     @staticmethod
-    def __set_default_children(prefix, default, shape, ni, no, kernel_size, stride,
-                               padding, unit_module, conv_module, act_module,
-                               bn_module, depth, dilation=1, groups=1, bias=True,
-                               callback=all_to_none, conv_kwargs=None,
-                               bn_kwargs=None, act_kwargs=None):
+    def __set_children(prefix, default, shape, ni, no, kernel_size, stride,
+                       padding, unit_module, conv_module, act_module,
+                       bn_module, depth, dilation=1, groups=1, bias=True,
+                       callback=all_to_none, conv_kwargs=None,
+                       bn_kwargs=None, act_kwargs=None):
         children = []
         for i in range(depth-1):
             out, kernel, pad = (no, kernel_size, padding) if i == depth - 2 else (ni, 1, 0)
@@ -198,13 +198,13 @@ class ScopedBottleneckBlock(Sequential):
                                                                 callback, dropout_p, conv_kwargs,
                                                                 bn_kwargs, act_kwargs)
 
-        output_shape = ScopedBottleneckBlock.__set_default_children(prefix, default, input_shape,
-                                                                    hidden_channels, out_channels,
-                                                                    kernel_size, 1, padding,
-                                                                    unit_module, conv_module, act_module,
-                                                                    bn_module, block_depth, dilation,
-                                                                    groups, bias, callback, conv_kwargs,
-                                                                    bn_kwargs, act_kwargs)
+        output_shape = ScopedBottleneckBlock.__set_children(prefix, default, input_shape,
+                                                            hidden_channels, out_channels,
+                                                            kernel_size, 1, padding,
+                                                            unit_module, conv_module, act_module,
+                                                            bn_module, block_depth, dilation,
+                                                            groups, bias, callback, conv_kwargs,
+                                                            bn_kwargs, act_kwargs)
         default['output_shape'] = output_shape
         default['residual'] = residual
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,

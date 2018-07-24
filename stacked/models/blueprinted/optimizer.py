@@ -143,6 +143,7 @@ class ScopedNetRunner:
 @add_metaclass(ScopedMeta)
 class ScopedEpochEngine(EpochEngine):
     """Training engine with blueprint"""
+
     def __init__(self, scope, blueprint, *_, **__):
         super(ScopedEpochEngine, self).__init__()
         self.scope = scope
@@ -186,8 +187,8 @@ class ScopedEpochEngine(EpochEngine):
 
     @staticmethod
     def describe_default(prefix='EpochEngine', suffix='', parent=None,
-                         net_blueprint=None, skeleton=(16, 32, 64),
-                         group_depths=None, num_classes=10,
+                         net_blueprint=None, net_module=ScopedResNet,
+                         skeleton=(16, 32, 64), group_depths=None, num_classes=10,
                          depth=28, width=1, block_depth=2,
                          block_module=ScopedResBlock, conv_module=ScopedConv2d,
                          bn_module=ScopedBatchNorm2d, linear_module=ScopedLinear,
@@ -198,6 +199,9 @@ class ScopedEpochEngine(EpochEngine):
                          unit_module=ScopedConvUnit, group_module=ScopedResGroup,
                          fractal_depth=1, shortcut_index=-1,
                          dense_unit_module=ScopedConvUnit,
+                         head_kernel=7, head_stride=2, head_padding=3,
+                         head_pool_kernel=3, head_pool_stride=2,
+                         head_pool_padding=1, head_modules=('conv', 'bn', 'act', 'pool'),
                          optimizer_maker=ScopedOptimizerMaker,
                          optimizer_type=SGD, optimizer_parameter_picker=None,
                          max_epoch=200, batch_size=128,
@@ -215,6 +219,7 @@ class ScopedEpochEngine(EpochEngine):
             suffix (str): Suffix to append the name of the scoped object
             parent (Blueprint): None or the instance of the parent blueprint
             net_blueprint (Blueprint): None or the blueprint of the network to be used
+            net_module: Main network type (e.g. ScopedDenseNet, ScopedResNet etc.)
             skeleton (iterable): Smallest possible widths per group
             group_depths (iterable): Finer grained group depth description
             num_classes (int): Number of categories for supervised learning
@@ -243,6 +248,13 @@ class ScopedEpochEngine(EpochEngine):
             fractal_depth (int): recursion depth for fractal group module
             shortcut_index (int): Starting index for groups shortcuts to the linear layer
             dense_unit_module: Children modules that will be used in dense connections
+            head_kernel (int or tuple): Size of the kernel for head conv
+            head_stride (int or tuple): Size of the stride for head conv
+            head_padding (int or tuple): Size of the padding for head conv
+            head_pool_kernel (int or tuple): Size of the first pool kernel
+            head_pool_stride (int or tuple): Size of the first pool stride
+            head_pool_padding (int or tuple): Size of the first pool padding
+            head_modules (iterable): Key list of head modules
             optimizer_maker: Functor that will return an optimizer
             optimizer_type: Type of the optimizer that will be returned
             optimizer_parameter_picker: Function to pick the parameters to be optimized
@@ -301,22 +313,26 @@ class ScopedEpochEngine(EpochEngine):
             default['net'] = net_blueprint
             default['net']['parent'] = default
         else:
-            default['net'] = ScopedResNet.describe_default("%s/ResNet" % prefix, suffix, parent=parent,
-                                                           skeleton=skeleton, group_depths=group_depths,
-                                                           num_classes=num_classes, depth=depth,
-                                                           width=width, block_depth=block_depth,
-                                                           block_module=block_module, conv_module=conv_module,
-                                                           bn_module=bn_module, linear_module=linear_module,
-                                                           act_module=act_module, kernel_size=kernel_size,
-                                                           padding=padding, input_shape=input_shape,
-                                                           dilation=dilation, groups=groups, bias=bias,
-                                                           callback=callback, drop_p=drop_p, dropout_p=dropout_p,
-                                                           residual=residual, conv_kwargs=conv_kwargs,
-                                                           bn_kwargs=bn_kwargs, act_kwargs=act_kwargs,
-                                                           unit_module=unit_module, group_module=group_module,
-                                                           fractal_depth=fractal_depth,
-                                                           shortcut_index=shortcut_index,
-                                                           dense_unit_module=dense_unit_module)
+            default['net'] = net_module.describe_default("%s/Network" % prefix, suffix, parent=parent,
+                                                         skeleton=skeleton, group_depths=group_depths,
+                                                         num_classes=num_classes, depth=depth,
+                                                         width=width, block_depth=block_depth,
+                                                         block_module=block_module, conv_module=conv_module,
+                                                         bn_module=bn_module, linear_module=linear_module,
+                                                         act_module=act_module, kernel_size=kernel_size,
+                                                         padding=padding, input_shape=input_shape,
+                                                         dilation=dilation, groups=groups, bias=bias,
+                                                         callback=callback, drop_p=drop_p, dropout_p=dropout_p,
+                                                         residual=residual, conv_kwargs=conv_kwargs,
+                                                         bn_kwargs=bn_kwargs, act_kwargs=act_kwargs,
+                                                         unit_module=unit_module, group_module=group_module,
+                                                         fractal_depth=fractal_depth, shortcut_index=shortcut_index,
+                                                         dense_unit_module=dense_unit_module, head_kernel=head_kernel,
+                                                         head_stride=head_stride, head_padding=head_padding,
+                                                         head_pool_kernel=head_pool_kernel,
+                                                         head_pool_stride=head_pool_stride,
+                                                         head_pool_padding=head_pool_padding,
+                                                         head_modules=head_modules)
 
         default['kwargs'] = {'blueprint': default}
         return default
