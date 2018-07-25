@@ -291,5 +291,8 @@ class ScopedDenseNet(Sequential):
 
         ScopedDenseNet.__set_tail(prefix, default, bn_module, act_module,
                                   act_kwargs, num_classes, linear_module, batch_size)
+        default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
+                             'stride': head_stride, 'padding': padding,
+                             'dilation': dilation, 'groups': groups, 'bias': bias}
 
         return default

@@ -208,6 +208,14 @@ class ScopedMetaMasked(Module):
                                                  kernel_size, dilation,
                                                  groups, bias)
 
+        # skip transition layers
+        if stride == 1:
+            return ScopedConv2d.describe_default(prefix, suffix, parent,
+                                                 shape, in_channels, out_channels,
+                                                 kernel_size=kernel_size,
+                                                 stride=stride, padding=padding,
+                                                 dilation=dilation, groups=groups,
+                                                 bias=bias)
         bp = Blueprint(prefix, suffix, parent, True,
                        ScopedMetaMasked, kwargs=kwargs)
 

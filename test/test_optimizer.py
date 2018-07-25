@@ -1,6 +1,9 @@
 import unittest
 from stacked.modules.scoped_nn import ScopedFeatureSimilarityLoss, \
     ScopedParameterSimilarityLoss
+from stacked.models.blueprinted.densesumgroup import ScopedDenseSumGroup
+from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
+from stacked.models.blueprinted.densenet import ScopedDenseNet
 from stacked.modules.loss import collect_features
 from stacked.models.blueprinted.optimizer import ScopedEpochEngine
 from stacked.meta.blueprint import make_module
@@ -20,7 +23,7 @@ class TestTrainer(unittest.TestCase):
 
         engine = make_module(blueprint)
         engine.start_epoch()
-        engine.train_n_samples(48)
+        engine.train_n_samples(16)
         engine.end_epoch()
 
     def test_parameter_similarity_loss(self):
@@ -33,5 +36,33 @@ class TestTrainer(unittest.TestCase):
                                                        weight_decay=0.0005)
         engine = make_module(blueprint)
         engine.start_epoch()
-        engine.train_n_samples(48)
+        engine.train_n_samples(16)
+        engine.end_epoch()
+
+    def test_densenet(self):
+        common.BLUEPRINT_GUI = False
+        print("ScopedParamSimilarity")
+        net = ScopedDenseNet.describe_default(prefix='Net', num_classes=10,
+                                              depth=22, width=1,
+                                              block_depth=2, drop_p=0.5,
+                                              group_module=ScopedDenseSumGroup,
+                                              residual=False,
+                                              block_module=ScopedBottleneckBlock,
+                                              dense_unit_module=ScopedBottleneckBlock,
+                                              input_shape=(16, 3, 32, 32), fractal_depth=3,
+                                              head_kernel=3, head_stride=1, head_padding=1,
+                                              head_modules=('conv', 'bn'))
+
+        engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
+                                                              net_blueprint=net,
+                                                              max_epoch=1,
+                                                              batch_size=16,
+                                                              learning_rate=0.2,
+                                                              lr_decay_ratio=0.2,
+                                                              use_tqdm=True,
+                                                              weight_decay=0.0005)
+
+        engine = make_module(engine_blueprint)
+        engine.start_epoch()
+        engine.train_n_samples(16)
         engine.end_epoch()
