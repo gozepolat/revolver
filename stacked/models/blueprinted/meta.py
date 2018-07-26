@@ -209,7 +209,7 @@ class ScopedMetaMasked(Module):
                                                  groups, bias)
 
         # skip transition layers
-        if stride == 1:
+        if kernel_size == 1:
             return conv_module.describe_default(prefix, suffix, parent,
                                                 shape, in_channels, out_channels,
                                                 kernel_size=kernel_size,

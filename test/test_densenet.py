@@ -1,5 +1,6 @@
 import unittest
 from stacked.models.blueprinted.meta import ScopedMetaMasked
+from stacked.models.blueprinted.separable import ScopedDepthwiseSeparable
 from stacked.models.blueprinted.densenet import ScopedDenseNet
 from stacked.models.blueprinted.densesumgroup import ScopedDenseSumGroup
 from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
@@ -97,6 +98,32 @@ class TestScopedDenseNet(unittest.TestCase):
                                                  residual=False)
 
             model = ScopedDenseNet('DenseNet_concat_bottleneck%d' % dense_depth, bp).cuda()
+            self.model_run(model)
+            if common.BLUEPRINT_GUI:
+                visualize(bp)
+
+        if common.BLUEPRINT_GUI:
+            common.BLUEPRINT_GUI = False
+            common.GUI = None
+
+    def test_dense_sum_bottleneck_depthwise_separable(self):
+        common.BLUEPRINT_GUI = False
+        if common.BLUEPRINT_GUI and common.GUI is None:
+            from tkinter import Tk
+            common.GUI = Tk()
+
+        for dense_depth in range(1, 4):
+            bp = ScopedDenseNet.describe_default('DenseNet_separable%d' % dense_depth,
+                                                 depth=28,
+                                                 conv_module=ScopedDepthwiseSeparable,
+                                                 input_shape=(1, 3, 32, 32),
+                                                 num_classes=10,
+                                                 group_module=ScopedDenseSumGroup,
+                                                 dense_unit_module=ScopedBottleneckBlock,
+                                                 block_module=ScopedBottleneckBlock,
+                                                 residual=False)
+            print("%s" % bp)
+            model = ScopedDenseNet('DenseNet_separable%d' % dense_depth, bp).cuda()
             self.model_run(model)
             if common.BLUEPRINT_GUI:
                 visualize(bp)
