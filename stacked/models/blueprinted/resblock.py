@@ -6,6 +6,7 @@ from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.utils.transformer import all_to_none
 from stacked.models.blueprinted.conv_unit import ScopedConvUnit
+from stacked.models.blueprinted.unit import set_convdim
 from six import add_metaclass
 from torch.nn.functional import dropout
 
@@ -96,7 +97,7 @@ class ScopedResBlock(Sequential):
                             stride, padding, conv_module, act_module, bn_module,
                             dilation=1, groups=1, bias=True,
                             callback=all_to_none, dropout_p=0.0, conv_kwargs=None,
-                            bn_kwargs=None, act_kwargs=None):
+                            bn_kwargs=None, act_kwargs=None, residual=False):
         default['input_shape'] = input_shape
         default['callback'] = callback
         default['dropout_p'] = dropout_p
@@ -108,16 +109,9 @@ class ScopedResBlock(Sequential):
                                             dilation, groups, bias,
                                             callback, conv_kwargs,
                                             bn_kwargs, act_kwargs, dropout_p)
-        # convdim
-        suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, 1, stride,
-                                              0, dilation, groups, bias)
 
-        default['convdim'] = conv_module.describe_default('%s/convdim' % prefix,
-                                                          suffix, default,
-                                                          input_shape, ni, no, 1,
-                                                          stride, 0, dilation,
-                                                          groups, bias)
-        default['convdim']['type'] = conv_module if ni != no or stride > 1 else all_to_none
+        set_convdim(default, prefix, input_shape, ni, no, stride, dilation, groups,
+                    bias, conv_module, residual)
 
         return default['conv']['output_shape']
 
@@ -190,7 +184,7 @@ class ScopedResBlock(Sequential):
                                                          padding, conv_module, act_module,
                                                          bn_module, dilation, groups, bias,
                                                          callback, dropout_p, conv_kwargs,
-                                                         bn_kwargs, act_kwargs)
+                                                         bn_kwargs, act_kwargs, residual)
 
         input_shape = ScopedResBlock.__set_children(prefix, default, input_shape,
                                                     out_channels, out_channels,

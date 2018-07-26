@@ -59,7 +59,6 @@ class TestTrainer(unittest.TestCase):
                                                               batch_size=16,
                                                               learning_rate=0.2,
                                                               lr_decay_ratio=0.2,
-                                                              use_tqdm=True,
                                                               weight_decay=0.0005)
 
         engine = make_module(engine_blueprint)

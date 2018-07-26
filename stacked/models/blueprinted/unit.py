@@ -52,6 +52,23 @@ def set_dropout(default, prefix, dropout_p=0.0,
                                 module, kwargs=kwargs)
 
 
+def set_convdim(default, prefix, input_shape, ni, no,
+                stride, dilation, groups, bias,
+                conv_module=ScopedConv2d, residual=True):
+    """Add a conv module blueprint for channel or resolution adjustment"""
+    suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, 1, stride,
+                                          0, dilation, groups, bias)
+
+    default['convdim'] = conv_module.describe_default('%s/convdim' % prefix,
+                                                      suffix, default,
+                                                      input_shape, ni, no, 1,
+                                                      stride, 0, dilation,
+                                                      groups, bias)
+
+    if ni == no and stride == 1 or not residual:
+        default['convdim']['type'] = all_to_none
+
+
 def set_batchnorm(default, prefix, suffix, num_features,
                   module=ScopedBatchNorm2d, kwargs=None):
     """Add a batch normalization module to the blueprint description"""

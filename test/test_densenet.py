@@ -10,9 +10,9 @@ from PIL import Image
 import glob
 
 
-class TestScopedFractalGroup(unittest.TestCase):
+class TestScopedDenseNet(unittest.TestCase):
     def __init__(self, *args, **kwargs):
-        super(TestScopedFractalGroup, self).__init__(*args, **kwargs)
+        super(TestScopedDenseNet, self).__init__(*args, **kwargs)
 
     @classmethod
     def setUpClass(cls):
@@ -42,6 +42,8 @@ class TestScopedFractalGroup(unittest.TestCase):
                                                  head_kernel=3, head_stride=1, head_padding=1,
                                                  head_pool_kernel=3, head_pool_stride=2,
                                                  head_pool_padding=1,
+                                                 dense_unit_module=ScopedBottleneckBlock,
+                                                 block_module=ScopedBottleneckBlock,
                                                  head_modules=('conv', 'bn', 'act', 'pool'))
 
             model = ScopedDenseNet('DenseNet_sum%d' % dense_depth, bp).cuda()
@@ -65,6 +67,7 @@ class TestScopedFractalGroup(unittest.TestCase):
                                                  conv_module=ScopedMetaMasked,
                                                  input_shape=(1, 3, 32, 32),
                                                  num_classes=10,
+                                                 residual=False,
                                                  group_module=ScopedDenseConcatGroup)
 
             model = ScopedDenseNet('DenseNet_concat%d' % dense_depth, bp).cuda()

@@ -6,7 +6,7 @@ from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.utils.transformer import all_to_none
 from stacked.models.blueprinted.conv_unit import ScopedConvUnit
-from stacked.models.blueprinted.unit import set_pooling
+from stacked.models.blueprinted.unit import set_pooling, set_convdim
 from six import add_metaclass
 from torch.nn.functional import dropout
 
@@ -107,17 +107,6 @@ class ScopedBottleneckBlock(Sequential):
         set_pooling(default, prefix, default['conv']['output_shape'],
                     kernel_size=pool_kernel, stride=stride, module=pool_module)
 
-        # convdim
-        suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, 1, stride,
-                                              0, dilation, groups, bias)
-
-        default['convdim'] = conv_module.describe_default('%s/convdim' % prefix,
-                                                          suffix, default,
-                                                          input_shape, ni, no, 1,
-                                                          stride, 0, dilation,
-                                                          groups, bias)
-        default['convdim']['type'] = conv_module if ni != no or stride > 1 else all_to_none
-
         return default['pool']['output_shape']
 
     @staticmethod
@@ -127,12 +116,12 @@ class ScopedBottleneckBlock(Sequential):
                        callback=all_to_none, conv_kwargs=None,
                        bn_kwargs=None, act_kwargs=None):
         children = []
-        for i in range(depth-1):
+        for i in range(depth - 1):
             out, kernel, pad = (no, kernel_size, padding) if i == depth - 2 else (ni, 1, 0)
             unit_prefix = '%s/unit' % prefix
             suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, out, kernel, stride,
                                                   pad, dilation, groups, bias)
-            assert(shape[1] == ni)
+            assert (shape[1] == ni)
             unit = unit_module.describe_default(unit_prefix, suffix, default, shape,
                                                 ni, out, kernel, stride, pad,
                                                 dilation, groups, bias, act_module,
@@ -191,20 +180,25 @@ class ScopedBottleneckBlock(Sequential):
         if hidden_channels == 0:
             hidden_channels = out_channels * hidden_scale
 
-        input_shape = ScopedBottleneckBlock.__set_default_items(prefix, default, input_shape,
-                                                                in_channels, hidden_channels,
-                                                                stride, conv_module, act_module,
-                                                                bn_module, dilation, groups, bias,
-                                                                callback, dropout_p, conv_kwargs,
-                                                                bn_kwargs, act_kwargs)
+        shape = ScopedBottleneckBlock.__set_default_items(prefix, default, input_shape,
+                                                          in_channels, hidden_channels,
+                                                          stride, conv_module, act_module,
+                                                          bn_module, dilation, groups, bias,
+                                                          callback, dropout_p, conv_kwargs,
+                                                          bn_kwargs, act_kwargs)
 
-        output_shape = ScopedBottleneckBlock.__set_children(prefix, default, input_shape,
+        output_shape = ScopedBottleneckBlock.__set_children(prefix, default, shape,
                                                             hidden_channels, out_channels,
                                                             kernel_size, 1, padding,
                                                             unit_module, conv_module, act_module,
                                                             bn_module, block_depth, dilation,
                                                             groups, bias, callback, conv_kwargs,
                                                             bn_kwargs, act_kwargs)
+        ni = in_channels
+        no = output_shape[1]
+        set_convdim(default, prefix, input_shape, ni, no, stride, dilation, groups, bias,
+                    conv_module, residual)
+
         default['output_shape'] = output_shape
         default['residual'] = residual
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,

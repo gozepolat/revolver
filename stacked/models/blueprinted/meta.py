@@ -78,7 +78,7 @@ class ScopedMetaMaskGenerator(Module):
                         mask.data * (1.0 - self.mask_momentum)
 
             if self.mask_noise > 0:
-                self.mask += self.mask.data.\
+                self.mask += self.mask.data. \
                     new(self.mask.size()).normal_(0, self.mask_noise)
 
         mask = mask.expand_as(x)
@@ -210,12 +210,12 @@ class ScopedMetaMasked(Module):
 
         # skip transition layers
         if stride == 1:
-            return ScopedConv2d.describe_default(prefix, suffix, parent,
-                                                 shape, in_channels, out_channels,
-                                                 kernel_size=kernel_size,
-                                                 stride=stride, padding=padding,
-                                                 dilation=dilation, groups=groups,
-                                                 bias=bias)
+            return conv_module.describe_default(prefix, suffix, parent,
+                                                shape, in_channels, out_channels,
+                                                kernel_size=kernel_size,
+                                                stride=stride, padding=padding,
+                                                dilation=dilation, groups=groups,
+                                                bias=bias)
         bp = Blueprint(prefix, suffix, parent, True,
                        ScopedMetaMasked, kwargs=kwargs)
 
@@ -327,4 +327,3 @@ class ScopedMetaMasked(Module):
                                                gen_groups, gen_bias,
                                                gen_pre_conv)
         return bp
-
