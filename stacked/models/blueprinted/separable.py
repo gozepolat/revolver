@@ -58,6 +58,7 @@ class ScopedDepthwiseSeparable(Module):
 
         bp = Blueprint(prefix, suffix, parent, True,
                        ScopedDepthwiseSeparable, kwargs=kwargs)
+
         # depthwise kxk conv
         bp['conv'] = conv_module.describe_default('%s/conv' % prefix, suffix,
                                                   bp, input_shape, in_channels,
@@ -74,5 +75,6 @@ class ScopedDepthwiseSeparable(Module):
                                                      1, bias, conv_kwargs=conv_kwargs)
         bp['input_shape'] = input_shape
         bp['output_shape'] = bp['convdim']['output_shape']
+        bp['kwargs']['blueprint'] = bp
 
         return bp
