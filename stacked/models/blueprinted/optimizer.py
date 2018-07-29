@@ -198,7 +198,7 @@ class ScopedEpochEngine(EpochEngine):
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, group_module=ScopedResGroup,
                          fractal_depth=1, shortcut_index=-1,
-                         dense_unit_module=ScopedConvUnit,
+                         dense_unit_module=ScopedConvUnit, no_weights=False,
                          head_kernel=7, head_stride=2, head_padding=3,
                          head_pool_kernel=3, head_pool_stride=2,
                          head_pool_padding=1, head_modules=('conv', 'bn', 'act', 'pool'),
@@ -248,6 +248,7 @@ class ScopedEpochEngine(EpochEngine):
             fractal_depth (int): recursion depth for fractal group module
             shortcut_index (int): Starting index for groups shortcuts to the linear layer
             dense_unit_module: Children modules that will be used in dense connections
+            no_weights (bool): Weight sum and softmax the reused blocks or not
             head_kernel (int or tuple): Size of the kernel for head conv
             head_stride (int or tuple): Size of the stride for head conv
             head_padding (int or tuple): Size of the padding for head conv
@@ -327,7 +328,8 @@ class ScopedEpochEngine(EpochEngine):
                                                          bn_kwargs=bn_kwargs, act_kwargs=act_kwargs,
                                                          unit_module=unit_module, group_module=group_module,
                                                          fractal_depth=fractal_depth, shortcut_index=shortcut_index,
-                                                         dense_unit_module=dense_unit_module, head_kernel=head_kernel,
+                                                         dense_unit_module=dense_unit_module,
+                                                         no_weights=no_weights, head_kernel=head_kernel,
                                                          head_stride=head_stride, head_padding=head_padding,
                                                          head_pool_kernel=head_pool_kernel,
                                                          head_pool_stride=head_pool_stride,

@@ -161,7 +161,8 @@ class ScopedResNet(Sequential):
                        residual=True, conv_kwargs=None,
                        bn_kwargs=None, act_kwargs=None,
                        unit_module=ScopedConvUnit, group_module=ScopedResGroup,
-                       fractal_depth=1, dense_unit_module=ScopedConvUnit):
+                       fractal_depth=1, dense_unit_module=ScopedConvUnit,
+                       no_weights=False):
         """Sequentially set children and bn blueprints"""
         children = []
         default['bns'] = []
@@ -182,7 +183,8 @@ class ScopedResNet(Sequential):
                                                   block_module=block_module,
                                                   group_depth=group_depth, drop_p=drop_p,
                                                   fractal_depth=fractal_depth,
-                                                  dense_unit_module=dense_unit_module)
+                                                  dense_unit_module=dense_unit_module,
+                                                  no_weights=no_weights)
             shape = block['output_shape']
             children.append(block)
             stride = 2
@@ -201,7 +203,8 @@ class ScopedResNet(Sequential):
                       dropout_p=0.0, residual=True, conv_kwargs=None,
                       bn_kwargs=None, act_kwargs=None,
                       unit_module=ScopedConvUnit, group_module=ScopedResGroup,
-                      fractal_depth=1, dense_unit_module=ScopedConvUnit):
+                      fractal_depth=1, dense_unit_module=ScopedConvUnit,
+                      no_weights=False):
         """Set the items and the children of the default blueprint object"""
         default = Blueprint(prefix, suffix, parent, False, ScopedResNet)
 
@@ -219,7 +222,8 @@ class ScopedResNet(Sequential):
                                             drop_p, dropout_p, residual,
                                             conv_kwargs, bn_kwargs, act_kwargs,
                                             unit_module, group_module,
-                                            fractal_depth, dense_unit_module)
+                                            fractal_depth, dense_unit_module,
+                                            no_weights)
 
         default['output_shape'] = (shape[0], num_classes)
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
@@ -241,7 +245,7 @@ class ScopedResNet(Sequential):
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, group_module=ScopedResGroup,
                          fractal_depth=1, shortcut_index=-1,
-                         dense_unit_module=ScopedConvUnit, *_, **__):
+                         dense_unit_module=ScopedConvUnit, no_weights=False, *_, **__):
         """Create a default ResNet blueprint
 
         Args:
@@ -277,6 +281,7 @@ class ScopedResNet(Sequential):
             fractal_depth (int): Recursion depth for fractal group module
             shortcut_index (int): Starting index for groups shortcuts to the linear layer
             dense_unit_module: Children modules that will be used in dense connections
+            no_weights (bool): Weight sum and softmax the reused blocks or not
         """
         if input_shape is None:
             # assume batch_size = 1, in_channels: 3, h: 32, and w : 32
@@ -307,7 +312,7 @@ class ScopedResNet(Sequential):
                                              callback, drop_p, dropout_p, residual,
                                              conv_kwargs, bn_kwargs, act_kwargs,
                                              unit_module, group_module,
-                                             fractal_depth, dense_unit_module)
+                                             fractal_depth, dense_unit_module, no_weights)
 
         ScopedResNet.__readjust_tail(prefix, default,
                                      shortcut_index=shortcut_index,

@@ -110,7 +110,7 @@ class ScopedDenseNet(Sequential):
                        conv_kwargs=None, bn_kwargs=None, act_kwargs=None, unit_module=ScopedConvUnit,
                        block_depth=2, dropout_p=0.0, residual=False, block_module=ScopedBottleneckBlock,
                        drop_p=0.0, dense_unit_module=ScopedBottleneckBlock, fractal_depth=1,
-                       group_module=ScopedDenseSumGroup):
+                       group_module=ScopedDenseSumGroup, no_weights=False):
         """Set dense groups for the default DenseNet blueprint"""
         num_groups = len(widths)
         if group_depths is None:
@@ -147,7 +147,8 @@ class ScopedDenseNet(Sequential):
                                                   block_module=block_module,
                                                   group_depth=d, drop_p=drop_p,
                                                   dense_unit_module=dense_unit_module,
-                                                  fractal_depth=fractal_depth)
+                                                  fractal_depth=fractal_depth,
+                                                  no_weights=no_weights)
             children.append(block)
 
             # transition
@@ -211,7 +212,7 @@ class ScopedDenseNet(Sequential):
                          residual=True, conv_kwargs=None, bn_kwargs=None,
                          act_kwargs=None, unit_module=ScopedConvUnit,
                          group_module=ScopedResGroup, fractal_depth=1,
-                         dense_unit_module=ScopedConvUnit,
+                         dense_unit_module=ScopedConvUnit, no_weights=False,
                          head_kernel=7, head_stride=2, head_padding=3,
                          head_pool_kernel=3, head_pool_stride=2,
                          head_pool_padding=1, head_modules=('conv', 'bn', 'act', 'pool'),
@@ -250,6 +251,7 @@ class ScopedDenseNet(Sequential):
             group_module: Basic building group of resnet
             fractal_depth (int): Recursion depth for fractal group module
             dense_unit_module: Children modules that will be used in dense connections
+            no_weights (bool): Weight sum and softmax the reused blocks or not
             head_kernel (int or tuple): Size of the kernel for head conv
             head_stride (int or tuple): Size of the stride for head conv
             head_padding (int or tuple): Size of the padding for head conv
@@ -287,7 +289,8 @@ class ScopedDenseNet(Sequential):
                                       block_depth=block_depth, dropout_p=dropout_p,
                                       residual=residual, block_module=block_module,
                                       drop_p=drop_p, dense_unit_module=dense_unit_module,
-                                      fractal_depth=fractal_depth, group_module=group_module)
+                                      fractal_depth=fractal_depth, group_module=group_module,
+                                      no_weights=no_weights)
 
         ScopedDenseNet.__set_tail(prefix, default, bn_module, act_module,
                                   act_kwargs, num_classes, linear_module, batch_size)

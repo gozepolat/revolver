@@ -43,40 +43,17 @@ def get_average_dict(shape_dict):
     return average_dict
 
 
-def get_named_parameter(module, key):
-    """Get the container parameter for the last key
-
-    Args:
-        module: Main container
-        key: String in the form of k1.k2...kn
-
-    :return immediate container (e.g. module.k1.k2..kn-1), last key (e.g. kn)
-    """
-    elements = key.split('.')
-    last = elements.pop()
-    for e in elements:
-        module = getattr(module, e)
-    return module, last
-
-
-def set_named_parameter(module, key, value):
-    """Set the parameter for the given key with the given value"""
-    ref, last = get_named_parameter(module, key)
-    setattr(ref, key, value)
-
-
-def average_model(model, target=None):
+def average_model(model, target):
     """Average the parameters of the same shape"""
-    if target is None:  # in place avg
-        target = model
-
+    target_dict = target.state_dict()
     shape_dict = get_shape_dict(model)
     average_dict = get_average_dict(shape_dict)
     for shape, (avg, exclude_keys) in average_dict.items():
         for k, _ in shape_dict[shape]:
             if k not in exclude_keys:
-                log(warning, "setting %s with avg" % k)
-                set_named_parameter(target, k, avg)
+                if k in target_dict:
+                    log(warning, "setting %s with avg" % k)
+                    target_dict[k].copy_(avg.data)
 
 
 
