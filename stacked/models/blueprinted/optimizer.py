@@ -180,7 +180,7 @@ class ScopedEpochEngine(EpochEngine):
         self.hooks['on_start'] = hooks.on_start
 
         self.set_state(net_runner, train_loader,
-                       blueprint['max_epoch'], optimizer_maker(net, lr),
+                       blueprint['max_epoch'], optimizer_maker(self.net, lr),
                        epoch=0, t=0, train=True)
 
         self.hook('on_start', self.state)

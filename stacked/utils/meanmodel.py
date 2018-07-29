@@ -1,4 +1,11 @@
 # -*- coding: utf-8 -*-
+from stacked.utils import common
+from logging import warning
+
+
+def log(log_func, msg):
+    if common.DEBUG_MEANMODEL:
+        log_func("stacked.utils.meanmodel: %s" % msg)
 
 
 def get_shape_dict(model):
@@ -58,14 +65,18 @@ def set_named_parameter(module, key, value):
     setattr(ref, key, value)
 
 
-def average_model(model):
+def average_model(model, target=None):
     """Average the parameters of the same shape"""
+    if target is None:  # in place avg
+        target = model
+
     shape_dict = get_shape_dict(model)
     average_dict = get_average_dict(shape_dict)
     for shape, (avg, exclude_keys) in average_dict.items():
-        for k, w in shape_dict[shape]:
+        for k, _ in shape_dict[shape]:
             if k not in exclude_keys:
-                set_named_parameter(model, k, avg)
+                log(warning, "setting %s with avg" % k)
+                set_named_parameter(target, k, avg)
 
 
 

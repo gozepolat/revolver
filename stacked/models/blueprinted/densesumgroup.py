@@ -25,6 +25,7 @@ class ScopedDenseSumGroup(Sequential):
         super(ScopedDenseSumGroup, self).__init__(blueprint)
         self.callback = None
         self.drop_p = None
+        self.no_weights = None
         self.depth = None
         self.transition = None
         self.scalar_weights = None
@@ -38,6 +39,7 @@ class ScopedDenseSumGroup(Sequential):
 
         self.callback = blueprint['callback']
         self.drop_p = blueprint['drop_p']
+        self.no_weights = blueprint['no_weights']
         self.depth = len(self.container)
         self.scalar_weights = make_module(blueprint["scalars"])
         self.transition = blueprint['input_shape'][2] != blueprint['output_shape'][2]
@@ -53,12 +55,13 @@ class ScopedDenseSumGroup(Sequential):
                              self.transition,
                              self.scalar_weights,
                              self.drop_p,
+                             self.no_weights,
                              self.training,
                              self.scope,
                              id(self), x)
 
     @staticmethod
-    def weighted_sum(outputs, scalars, drop_p, training):
+    def weighted_sum(outputs, scalars, drop_p, no_weights, training):
         index = len(outputs) - 2
 
         if index == -1:
@@ -66,13 +69,17 @@ class ScopedDenseSumGroup(Sequential):
 
         assert(index >= 0)
 
+        summed = 0.0
+        if no_weights:
+            for i, o in enumerate(outputs):
+                summed = o + summed
+            return summed
+
         weights = scalars[index]
         if drop_p > 0:
             weights = dropout(weights, training=training, p=drop_p)
 
-        weights = softmax(weights)
-
-        summed = 0.0
+        weights = softmax(weights, dim=0)
         for i, o in enumerate(outputs):
             summed = o * weights[i] + summed
 
@@ -80,7 +87,7 @@ class ScopedDenseSumGroup(Sequential):
 
     @staticmethod
     def function(container, callback, depth,
-                 transition, scalars, drop_p,
+                 transition, scalars, drop_p, no_weights,
                  training, scope, module_id, x):
         assert(depth > 1)
         i = 0
@@ -94,8 +101,8 @@ class ScopedDenseSumGroup(Sequential):
         for j in range(i, depth):
             x = container[j](x)
             outputs.append(x)
-            x = ScopedDenseSumGroup.weighted_sum(outputs, scalars,
-                                                 drop_p, training)
+            x = ScopedDenseSumGroup.weighted_sum(outputs, scalars, drop_p,
+                                                 no_weights, training)
 
         # preserve previous input
         if transition:
@@ -115,7 +122,8 @@ class ScopedDenseSumGroup(Sequential):
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True, block_module=ScopedResBlock,
                          group_depth=2, drop_p=0.0, dense_unit_module=ScopedConvUnit,
-                         scalar_container=ScopedParameterList, *_, **__):
+                         scalar_container=ScopedParameterList, no_weights=False,
+                         *_, **__):
         """Create a default DenseGroup blueprint
 
         Args:
@@ -148,6 +156,7 @@ class ScopedDenseSumGroup(Sequential):
             drop_p (float): Probability of vertical drop
             dense_unit_module: Children modules that will be used in dense connections
             scalar_container: Sequential container of scalars for dense layers
+            no_weights (bool): Weight sum and softmax the reused blocks or not
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedDenseSumGroup)
         children = []
@@ -211,6 +220,7 @@ class ScopedDenseSumGroup(Sequential):
         default['scalars'] = Blueprint("%s/scalars" % prefix, "", default,
                                        False, scalar_container)
         default['drop_p'] = drop_p
+        default['no_weights'] = no_weights
         default['callback'] = callback
         default['children'] = children
         default['depth'] = len(children)
