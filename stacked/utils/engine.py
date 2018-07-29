@@ -30,7 +30,7 @@ class EpochEngine(object):
                 loss, output = self.state['network'](self.state['sample'])
                 self.state['output'] = output
                 self.state['loss'] = loss
-                loss.backward(retain_graph=True)
+                loss.backward()
                 self.hook('on_forward', self.state)
 
                 # to free memory in save_for_backward

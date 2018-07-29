@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-from stacked.meta.blueprint import Blueprint, make_module
-from stacked.models.blueprinted.optimizer import ScopedEpochEngine
 
 
 def get_shape_dict(model):
@@ -39,19 +37,29 @@ def get_average_dict(shape_dict):
 
 
 def get_named_parameter(module, key):
+    """Get the container parameter for the last key
+
+    Args:
+        module: Main container
+        key: String in the form of k1.k2...kn
+
+    :return immediate container (e.g. module.k1.k2..kn-1), last key (e.g. kn)
+    """
     elements = key.split('.')
     last = elements.pop()
-    for e in range(elements):
+    for e in elements:
         module = getattr(module, e)
     return module, last
 
 
 def set_named_parameter(module, key, value):
+    """Set the parameter for the given key with the given value"""
     ref, last = get_named_parameter(module, key)
     setattr(ref, key, value)
 
 
 def average_model(model):
+    """Average the parameters of the same shape"""
     shape_dict = get_shape_dict(model)
     average_dict = get_average_dict(shape_dict)
     for shape, (avg, exclude_keys) in average_dict.items():
