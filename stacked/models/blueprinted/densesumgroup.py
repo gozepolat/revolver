@@ -25,7 +25,7 @@ class ScopedDenseSumGroup(Sequential):
         super(ScopedDenseSumGroup, self).__init__(blueprint)
         self.callback = None
         self.drop_p = None
-        self.no_weights = None
+        self.weight_sum = None
         self.depth = None
         self.transition = None
         self.scalar_weights = None
@@ -39,14 +39,15 @@ class ScopedDenseSumGroup(Sequential):
 
         self.callback = blueprint['callback']
         self.drop_p = blueprint['drop_p']
-        self.no_weights = blueprint['no_weights']
+        self.weight_sum = blueprint['weight_sum']
         self.depth = len(self.container)
         self.scalar_weights = make_module(blueprint["scalars"])
         self.transition = blueprint['input_shape'][2] != blueprint['output_shape'][2]
 
-        for i in range(len(self.scalar_weights) + 2, self.depth + 1):
-            self.scalar_weights.append(Parameter(normal(torch.ones(i)),
-                                                 requires_grad=True))
+        if self.weight_sum:
+            for i in range(len(self.scalar_weights) + 2, self.depth + 1):
+                self.scalar_weights.append(Parameter(normal(torch.ones(i)),
+                                                     requires_grad=True))
 
     def forward(self, x):
         return self.function(self.container,
@@ -55,13 +56,13 @@ class ScopedDenseSumGroup(Sequential):
                              self.transition,
                              self.scalar_weights,
                              self.drop_p,
-                             self.no_weights,
+                             self.weight_sum,
                              self.training,
                              self.scope,
                              id(self), x)
 
     @staticmethod
-    def weighted_sum(outputs, scalars, drop_p, no_weights, training):
+    def weighted_sum(outputs, scalars, drop_p, weight_sum, training):
         index = len(outputs) - 2
 
         if index == -1:
@@ -70,7 +71,7 @@ class ScopedDenseSumGroup(Sequential):
         assert(index >= 0)
 
         summed = 0.0
-        if no_weights:
+        if not weight_sum:
             for i, o in enumerate(outputs):
                 summed = o + summed
             return summed
@@ -87,11 +88,12 @@ class ScopedDenseSumGroup(Sequential):
 
     @staticmethod
     def function(container, callback, depth,
-                 transition, scalars, drop_p, no_weights,
+                 transition, scalars, drop_p, weight_sum,
                  training, scope, module_id, x):
         assert(depth > 1)
         i = 0
 
+        t = x
         # adjust input resolution
         if transition:
             t = x = container[0](x)
@@ -102,11 +104,10 @@ class ScopedDenseSumGroup(Sequential):
             x = container[j](x)
             outputs.append(x)
             x = ScopedDenseSumGroup.weighted_sum(outputs, scalars, drop_p,
-                                                 no_weights, training)
+                                                 weight_sum, training)
 
         # preserve previous input
-        if transition:
-            outputs.append(t)
+        outputs.append(t)
 
         x = torch.cat(outputs, dim=1)
         callback(scope, module_id, x)
@@ -122,7 +123,7 @@ class ScopedDenseSumGroup(Sequential):
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True, block_module=ScopedResBlock,
                          group_depth=2, drop_p=0.0, dense_unit_module=ScopedConvUnit,
-                         scalar_container=ScopedParameterList, no_weights=False,
+                         scalar_container=ScopedParameterList, weight_sum=False,
                          *_, **__):
         """Create a default DenseGroup blueprint
 
@@ -156,7 +157,7 @@ class ScopedDenseSumGroup(Sequential):
             drop_p (float): Probability of vertical drop
             dense_unit_module: Children modules that will be used in dense connections
             scalar_container: Sequential container of scalars for dense layers
-            no_weights (bool): Weight sum and softmax the reused blocks or not
+            weight_sum (bool): Weight sum and then softmax the reused blocks or not
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedDenseSumGroup)
         children = []
@@ -169,7 +170,7 @@ class ScopedDenseSumGroup(Sequential):
                              'groups': groups,
                              'bias': bias}
 
-        concat_out_channels = 0
+        concat_out_channels = in_channels
         if stride > 1:
             block_prefix = '%s/block' % prefix
             suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, in_channels // 2,
@@ -220,7 +221,7 @@ class ScopedDenseSumGroup(Sequential):
         default['scalars'] = Blueprint("%s/scalars" % prefix, "", default,
                                        False, scalar_container)
         default['drop_p'] = drop_p
-        default['no_weights'] = no_weights
+        default['weight_sum'] = weight_sum
         default['callback'] = callback
         default['children'] = children
         default['depth'] = len(children)

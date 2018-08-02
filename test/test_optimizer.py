@@ -26,6 +26,7 @@ class TestTrainer(unittest.TestCase):
         engine.train_n_samples(16)
         engine.end_epoch()
 
+    @unittest.skip("Requires retain_graph option enabled")
     def test_parameter_similarity_loss(self):
         common.BLUEPRINT_GUI = False
         print("ScopedParamSimilarity")
