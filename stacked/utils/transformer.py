@@ -131,6 +131,7 @@ def scalar_to_cuda_parameter(value, size, requires_grad=False,
 
 
 def list_to_pairs(iterable, condition=lambda x, y: x != y):
+    """"""
     pairs = []
     length = len(iterable)
     for i, p1 in enumerate(iterable):

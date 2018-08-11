@@ -9,14 +9,14 @@ from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.modules.scoped_nn import ScopedConv2d, ScopedBatchNorm2d, \
     ScopedFeatureSimilarityLoss, ScopedFeatureConvergenceLoss
 from stacked.modules.loss import collect_features, collect_depthwise_features
-from stacked.meta.blueprint import make_module, visit_modules
+from stacked.meta.blueprint import make_module, visit_modules, make_blueprint
 from stacked.utils import common
 import argparse
 import json
 import os
+import torch
 
 import torch.backends.cudnn as cudnn
-
 
 cudnn.benchmark = True
 
@@ -48,8 +48,9 @@ def parse_args():
     return parsed_args
 
 
-def create_engine_pair(net_blueprint, options, epochs, crop_size):
-    """engines to train different portions of the given model"""
+def create_engine_pair(net_blueprint, options, epochs, crop):
+    """Engines to train different portions of the given model"""
+
     def common_picker(model):
         for k, v in model.named_parameters():
             if 'generator' not in k:
@@ -67,7 +68,7 @@ def create_engine_pair(net_blueprint, options, epochs, crop_size):
                                                                  learning_rate=options.lr,
                                                                  lr_decay_ratio=options.lr_decay_ratio,
                                                                  lr_drop_epochs=epochs,
-                                                                 crop_size=crop_size,
+                                                                 crop_size=crop,
                                                                  dataset=options.dataset,
                                                                  num_thread=options.num_thread,
                                                                  criterion=ScopedFeatureSimilarityLoss,
@@ -83,7 +84,7 @@ def create_engine_pair(net_blueprint, options, epochs, crop_size):
                                                                     learning_rate=options.lr * 0.2,
                                                                     lr_decay_ratio=options.lr_decay_ratio,
                                                                     lr_drop_epochs=epochs,
-                                                                    crop_size=crop_size,
+                                                                    crop_size=crop,
                                                                     dataset=options.dataset,
                                                                     num_thread=options.num_thread,
                                                                     optimizer_parameter_picker=generator_picker,
@@ -93,7 +94,7 @@ def create_engine_pair(net_blueprint, options, epochs, crop_size):
     return c, g
 
 
-def create_single_engine(net_blueprint, options, epochs, crop_size):
+def create_single_engine(net_blueprint, options, epochs, crop):
     engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
                                                           net_blueprint=net_blueprint,
                                                           max_epoch=options.epochs,
@@ -105,7 +106,7 @@ def create_single_engine(net_blueprint, options, epochs, crop_size):
                                                           callback=collect_depthwise_features,
                                                           dataset=options.dataset,
                                                           num_thread=options.num_thread,
-                                                          use_tqdm=True, crop_size=crop_size,
+                                                          use_tqdm=True, crop_size=crop,
                                                           weight_decay=options.weight_decay)
 
     single_engine = make_module(engine_blueprint)
@@ -115,6 +116,15 @@ def create_single_engine(net_blueprint, options, epochs, crop_size):
 def train_with_single_engine(model, options, epochs, crop,
                              n_samples=50000, test_every_nth=0):
     engine = create_single_engine(model, options, epochs, crop)
+
+    # pickle the engine blueprint
+    name = '{}_model_{}_bs_{}_decay_{}_lr_{}.pth.tar'.format(
+        engine.net.blueprint['name'],
+        options.dataset,
+        options.batch_size,
+        options.weight_decay,
+        options.lr)
+    engine.blueprint.pickle_dump('%s_engine.pkl' % name)
 
     print("Network architecture:")
     print("=====================")
@@ -134,6 +144,9 @@ def train_with_single_engine(model, options, epochs, crop,
             engine.train_one_epoch()
 
     engine.hook('on_end', engine.state)
+
+    # save the final model parameters
+    torch.save({'model': engine.net.state_dict()}, name)
 
 
 def train_with_double_engine(model, options, epochs, crop, n_samples=50000):
@@ -221,6 +234,7 @@ if __name__ == '__main__':
                                            block_module=ScopedBottleneckBlock,
                                            dense_unit_module=ScopedBottleneckBlock,
                                            input_shape=input_shape, fractal_depth=3)
+
 
     def make_conv2d_unique(bp, _, __):
         if issubclass(bp['type'], ScopedBatchNorm2d):

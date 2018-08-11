@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
-    ScopedReLU, ScopedConv2d
+    ScopedReLU, ScopedConv2d, ScopedAvgPool2d
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
@@ -101,6 +101,7 @@ class ScopedBottleneckBlock(Sequential):
                                             callback, conv_kwargs,
                                             bn_kwargs, act_kwargs)
         pool_kernel = 2
+        pool_module = ScopedAvgPool2d
         if stride == 1:
             pool_module = all_to_none
             pool_kernel = 1

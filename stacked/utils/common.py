@@ -66,6 +66,7 @@ def make_weights(num_input_filters,
 
 
 def replace_key(container, key, value):
+    """Return a shallow copy of the dictionary with the key changed"""
     if not isinstance(container, dict) or key not in container:
         return container
 

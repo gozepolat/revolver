@@ -147,6 +147,7 @@ class ScopedEpochEngine(EpochEngine):
     def __init__(self, scope, blueprint, *_, **__):
         super(ScopedEpochEngine, self).__init__()
         self.scope = scope
+        self.blueprint = blueprint
 
         engine = self
 

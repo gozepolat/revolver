@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
+import six
 from six import string_types
+from six.moves import cPickle as pickle
 from stacked.meta.scope import generate_random_scope
 from stacked.utils.transformer import all_to_none
 from torch.nn import Module
@@ -127,6 +129,22 @@ class Blueprint(dict):
         if p is not None:
             parents = [p] + p.get_parents(id_set | set([id(self)]))
         return parents
+
+    def pickle_dump(self, filename=None):
+        """Save the original blueprint to a pickle file"""
+        if filename is None:
+            filename = "%s.pkl" % self['name']
+
+        with open(filename, 'w') as f:
+            pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def json_dump(self, filename=None):
+        """Save the blueprint as acyclic dictionary to a json file"""
+        if filename is None:
+            filename = "%s.json" % self['name']
+
+        with open(filename, 'w') as f:
+            json.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     def get_acyclic_dict(self, id_set=None):
         """Dictionary representation without cycles"""
@@ -341,6 +359,24 @@ class Blueprint(dict):
 
         self.button.bind("<Enter>", enter)
         return self.button
+
+
+def make_blueprint(json_dict):
+    """From acyclic dictionary make a blueprint"""
+    bp = Blueprint(description=json_dict)
+    for k, v in json_dict.items():
+        if k == 'parent':
+            bp[k] = bp
+        elif isinstance(v, Blueprint):
+            bp[k] = make_blueprint(v)
+        elif k == 'children' or k == 'bns':
+            bp[k] = []
+            for c in v:
+                bp[k].append(make_blueprint(c))
+        else:
+            common.replace_key(v, 'blueprint', v)
+
+    return bp
 
 
 def get_duplicates(io_indices, one_out=1):
