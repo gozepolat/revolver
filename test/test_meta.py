@@ -10,6 +10,7 @@ from stacked.meta.blueprint import visit_modules
 from PIL import Image
 import glob
 import torch
+from six.moves import cPickle as pickle
 
 
 class TestScopedMetaMasked(unittest.TestCase):
@@ -66,10 +67,11 @@ class TestScopedMetaMasked(unittest.TestCase):
     def _get_engine_blueprint(self, net_blueprint=None):
         return ScopedEpochEngine.describe_default(prefix='EpochEngine_blueprint',
                                                   net_blueprint=net_blueprint,
-                                                  max_epoch=10,
+                                                  max_epoch=4,
                                                   batch_size=32,
                                                   learning_rate=0.1,
                                                   lr_decay_ratio=0.1,
+                                                  lr_drop_epochs=(2, 3),
                                                   dataset='CIFAR10',
                                                   num_thread=4,
                                                   use_tqdm=False, crop_size=32,
@@ -98,7 +100,6 @@ class TestScopedMetaMasked(unittest.TestCase):
         common.BLUEPRINT_GUI = False
         resnet = self._get_model_blueprint()
 
-        from six.moves import cPickle as pickle
         fname = '/tmp/%s' % resnet['name']
         with open(fname, 'w') as f:
             pickle.dump(resnet, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -108,24 +109,54 @@ class TestScopedMetaMasked(unittest.TestCase):
 
         self._recursive_assertEqual(bp, resnet)
 
-    def test_model_dump(self):
+    def _run_and_save_engine(self, engine_blueprint, filename):
+        engine = make_module(engine_blueprint)
+        engine.start_epoch()
+        engine.train_n_samples(64)
+        engine.end_epoch()
+        engine.start_epoch()
+        engine.train_n_samples(64)
+        engine.end_epoch()
+        d = engine.state.copy()
+        d['network'] = engine.net.state_dict()
+        d['optimizer'] = engine.state['optimizer'].state_dict()
+        torch.save(d, filename)
+
+    def _load_engine_state(self, engine, state):
+        net = engine.state['network'].net
+        net.load_state_dict(state['network'])
+        engine.state['optimizer'].load_state_dict(state['optimizer'])
+        for k,v in state.items():
+            if k not in ['network', 'optimizer']:
+                engine.state[k] = v
+
+    @unittest.skip("Slow test, skipped")
+    def test_state_dump_and_load(self):
         common.BLUEPRINT_GUI = False
         resnet = self._get_model_blueprint()
 
         engine_blueprint = self._get_engine_blueprint(resnet)
-        engine = make_module(engine_blueprint)
-        fname = '/tmp/{}_model_{}_bs_{}_decay_{}_lr_{}.pth.tar'.format(
-                       engine.net.blueprint['name'],
-                       'CIFAR10', 32, 0.0002, 0.1)
-        torch.save({'model': engine.net.state_dict()},
-                   fname)
-        d = torch.load(fname)
 
         def make_unique(bp, _, __):
             bp.make_unique()
 
-        visit_modules(resnet, None, None, make_unique)
+        visit_modules(engine_blueprint, None, None, make_unique)
 
-        m = make_module(resnet)
-        m.load_state_dict(d['model'])
-        self.assertEqual(m, engine.net)
+        name = '/tmp/{}_model_{}_bs_{}_decay_{}_lr_{}.pth.tar'.format(
+            resnet['name'],
+            'CIFAR10', 32, 0.0002, 0.1)
+
+        self._run_and_save_engine(engine_blueprint, name)
+
+        state = torch.load(name)
+        engine = make_module(engine_blueprint)
+        self._load_engine_state(engine, state)
+        engine.start_epoch()
+        engine.train_n_samples(64)
+        engine.end_epoch()
+        engine.start_epoch()
+        engine.train_n_samples(64)
+        engine.end_epoch()
+
+
+

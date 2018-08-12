@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import six
 from six import string_types
 from six.moves import cPickle as pickle
 from stacked.meta.scope import generate_random_scope
