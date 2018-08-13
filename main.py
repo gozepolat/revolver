@@ -117,14 +117,14 @@ def train_with_single_engine(model, options, epochs, crop,
                              n_samples=50000, test_every_nth=0):
     engine = create_single_engine(model, options, epochs, crop)
 
-    # pickle the engine blueprint
+    # pickle dump the engine blueprint
     name = '{}_model_{}_bs_{}_decay_{}_lr_{}.pth.tar'.format(
         engine.net.blueprint['name'],
         options.dataset,
         options.batch_size,
         options.weight_decay,
         options.lr)
-    engine.blueprint.pickle_dump('%s_engine.pkl' % name)
+    engine.blueprint.dump_pickle('%s_engine.pkl' % name[:-8])
 
     print("Network architecture:")
     print("=====================")
@@ -143,10 +143,10 @@ def train_with_single_engine(model, options, epochs, crop,
         for j in range(options.epochs):
             engine.train_one_epoch()
 
-    engine.hook('on_end', engine.state)
+    # dump the state for allowing more training later
+    engine.dump_state(name)
 
-    # save the final model parameters
-    torch.save({'model': engine.net.state_dict()}, name)
+    engine.hook('on_end', engine.state)
 
 
 def train_with_double_engine(model, options, epochs, crop, n_samples=50000):

@@ -15,7 +15,7 @@ from stacked.utils.dataset import create_dataset
 from stacked.utils.transformer import all_to_none
 from stacked.utils import common
 from logging import warning
-from six import add_metaclass
+from six import add_metaclass, string_types
 from torch.optim import SGD
 
 
@@ -185,6 +185,31 @@ class ScopedEpochEngine(EpochEngine):
                        epoch=0, t=0, train=True)
 
         self.hook('on_start', self.state)
+
+    def load_state_dict(self, state):
+        """Load the state of the engine, optimizer, as well as the network"""
+        if isinstance(state, string_types):
+            log(Warning, "State is not a dictionary, attempting to load as a file")
+            state = torch.load(state)
+
+        net = self.state['network'].net
+        net.load_state_dict(state['network'])
+        self.state['optimizer'].load_state_dict(state['optimizer'])
+        for k, v in state.items():
+            if k not in ['network', 'optimizer']:
+                self.state[k] = v
+
+    def dump_state(self, filename=None):
+        """Save the state of the engine, optimizer, as well as the network"""
+        if filename is None:
+            filename = '{}_epoch_{}.pth.tar'.format(self.blueprint['net']['name'],
+                                                    self.state['epoch'])
+
+        log(Warning, "dump_state: to %s" % filename)
+        d = self.state.copy()
+        d['network'] = self.net.state_dict()
+        d['optimizer'] = self.state['optimizer'].state_dict()
+        torch.save(d, filename)
 
     @staticmethod
     def describe_default(prefix='EpochEngine', suffix='', parent=None,

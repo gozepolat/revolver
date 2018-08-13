@@ -129,7 +129,14 @@ class Blueprint(dict):
             parents = [p] + p.get_parents(id_set | set([id(self)]))
         return parents
 
-    def pickle_dump(self, filename=None):
+    @staticmethod
+    def load_pickle(filename):
+        """Return a blueprint loaded from a pickle file"""
+        with open(filename, 'r') as f:
+            blueprint = pickle.load(f)
+        return blueprint
+
+    def dump_pickle(self, filename=None):
         """Save the original blueprint to a pickle file"""
         if filename is None:
             filename = "%s.pkl" % self['name']
@@ -137,7 +144,7 @@ class Blueprint(dict):
         with open(filename, 'w') as f:
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-    def json_dump(self, filename=None):
+    def dump_json(self, filename=None):
         """Save the blueprint as acyclic dictionary to a json file"""
         if filename is None:
             filename = "%s.json" % self['name']
