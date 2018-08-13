@@ -116,6 +116,7 @@ class TestScopedMetaMasked(unittest.TestCase):
         engine.start_epoch()
         engine.train_n_samples(64)
         engine.end_epoch()
+        print([k for k in engine.state])
         engine.dump_state(filename)
 
     @unittest.skip("Slow test, skipped")

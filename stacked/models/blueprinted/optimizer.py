@@ -17,6 +17,7 @@ from stacked.utils import common
 from logging import warning
 from six import add_metaclass, string_types
 from torch.optim import SGD
+from tqdm import tqdm
 
 
 def log(log_func, msg):
@@ -151,7 +152,7 @@ class ScopedEpochEngine(EpochEngine):
 
         engine = self
 
-        train_loader = make_module(blueprint['train_loader'])
+        train_loader = self.train_loader = make_module(blueprint['train_loader'])
         test_loader = make_module(blueprint['test_loader'])
 
         net = make_module(blueprint['net']).cuda()
@@ -195,9 +196,13 @@ class ScopedEpochEngine(EpochEngine):
         net = self.state['network'].net
         net.load_state_dict(state['network'])
         self.state['optimizer'].load_state_dict(state['optimizer'])
+
         for k, v in state.items():
             if k not in ['network', 'optimizer']:
                 self.state[k] = v
+
+        if self.blueprint['use_tqdm']:
+            self.state['iterator'] = tqdm(self.state['iterator'])
 
     def dump_state(self, filename=None):
         """Save the state of the engine, optimizer, as well as the network"""
@@ -209,6 +214,7 @@ class ScopedEpochEngine(EpochEngine):
         d = self.state.copy()
         d['network'] = self.net.state_dict()
         d['optimizer'] = self.state['optimizer'].state_dict()
+        d['iterator'] = self.train_loader
         torch.save(d, filename)
 
     @staticmethod

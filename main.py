@@ -43,6 +43,8 @@ def parse_args():
     parser.add_argument('--single_engine', default=True, type=bool)
     parser.add_argument('--gpu_id', default='0', type=str,
                         help='id(s) for CUDA_VISIBLE_DEVICES')
+    parser.add_argument('--save_path', default='.', type=str,
+                        help="path to save the blueprint and engine state")
 
     parsed_args = parser.parse_args()
     return parsed_args
@@ -117,14 +119,16 @@ def train_with_single_engine(model, options, epochs, crop,
                              n_samples=50000, test_every_nth=0):
     engine = create_single_engine(model, options, epochs, crop)
 
-    # pickle dump the engine blueprint
-    name = '{}_model_{}_bs_{}_decay_{}_lr_{}.pth.tar'.format(
+    name = '{}_model_dw_{}_{}_bs_{}_decay_{}_lr_{}_{}.pth.tar'.format(
         engine.net.blueprint['name'],
-        options.dataset,
+        options.depth,
+        options.width,
         options.batch_size,
         options.weight_decay,
-        options.lr)
-    engine.blueprint.dump_pickle('%s_engine.pkl' % name[:-8])
+        options.lr,
+        options.dataset,)
+
+    name = os.path.join(options.save_path, name)
 
     print("Network architecture:")
     print("=====================")
