@@ -14,7 +14,7 @@ from stacked.utils import common
 import argparse
 import json
 import os
-import torch
+from vtest import plot_model
 
 import torch.backends.cudnn as cudnn
 
@@ -45,6 +45,10 @@ def parse_args():
                         help='id(s) for CUDA_VISIBLE_DEVICES')
     parser.add_argument('--save_path', default='.', type=str,
                         help="path to save the blueprint and engine state")
+    parser.add_argument('--load_path', default='', type=str,
+                        help="path to load the blueprint and engine state")
+    parser.add_argument('--save_jpg_path', default='', type=str,
+                        help="path to save weight visualization output")
 
     parsed_args = parser.parse_args()
     return parsed_args
@@ -112,6 +116,11 @@ def create_single_engine(net_blueprint, options, epochs, crop):
                                                           weight_decay=options.weight_decay)
 
     single_engine = make_module(engine_blueprint)
+
+    if len(options.load_path) > 0:
+        print("Loading the engine state dictionary from: %s" % options.load_path)
+        single_engine.load_state_dict(options.load_path)
+
     return single_engine
 
 
@@ -128,15 +137,19 @@ def train_with_single_engine(model, options, epochs, crop,
         options.lr,
         options.dataset,)
 
-    name = os.path.join(options.save_path, name)
+    filename = os.path.join(options.save_path, name)
 
     print("Network architecture:")
     print("=====================")
     print(engine.net)
     print("=====================")
 
+    if len(options.save_jpg_path) > 0:
+        folder_name = os.path.join(options.save_jpg_folder, name)
+        plot_model(engine.state['network'].net.cpu(), folder_name)
+
     if test_every_nth > 0:
-        for j in range(options.epochs):
+        for j in range(engine.state['epoch'], options.epochs, 1):
             engine.start_epoch()
             engine.train_n_samples(n_samples)
             if j % test_every_nth == test_every_nth - 1:
@@ -144,11 +157,11 @@ def train_with_single_engine(model, options, epochs, crop,
             else:
                 engine.state['epoch'] += 1
     else:
-        for j in range(options.epochs):
+        for j in range(engine.state['epoch'], options.epochs, 1):
             engine.train_one_epoch()
 
     # dump the state for allowing more training later
-    engine.dump_state(name)
+    engine.dump_state(filename)
 
     engine.hook('on_end', engine.state)
 
@@ -164,7 +177,7 @@ def train_with_double_engine(model, options, epochs, crop, n_samples=50000):
 
     batch = options.batch_size * 17
     repeat = n_samples // batch + 1
-    for j in range(options.epochs):
+    for j in range(common_engine.state['epoch'], options.epochs, 1):
         common_engine.start_epoch()
         generator_engine.start_epoch()
 
