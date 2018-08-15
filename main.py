@@ -14,7 +14,7 @@ from stacked.utils import common
 import argparse
 import json
 import os
-from vtest import plot_model
+from stacked.utils.visualize import plot_model
 
 import torch.backends.cudnn as cudnn
 
@@ -47,7 +47,7 @@ def parse_args():
                         help="path to save the blueprint and engine state")
     parser.add_argument('--load_path', default='', type=str,
                         help="path to load the blueprint and engine state")
-    parser.add_argument('--save_jpg_path', default='', type=str,
+    parser.add_argument('--save_png_folder', default='', type=str,
                         help="path to save weight visualization output")
 
     parsed_args = parser.parse_args()
@@ -144,10 +144,6 @@ def train_with_single_engine(model, options, epochs, crop,
     print(engine.net)
     print("=====================")
 
-    if len(options.save_jpg_path) > 0:
-        folder_name = os.path.join(options.save_jpg_folder, name)
-        plot_model(engine.state['network'].net.cpu(), folder_name)
-
     if test_every_nth > 0:
         for j in range(engine.state['epoch'], options.epochs, 1):
             engine.start_epoch()
@@ -162,6 +158,11 @@ def train_with_single_engine(model, options, epochs, crop,
 
     # dump the state for allowing more training later
     engine.dump_state(filename)
+
+    # dump the conv weights to a png file for visualization
+    if len(options.save_png_folder) > 0:
+        folder_name = os.path.join(options.save_png_folder, name)
+        plot_model(engine.state['network'].net.cpu(), folder_name)
 
     engine.hook('on_end', engine.state)
 
