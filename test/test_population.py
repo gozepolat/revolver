@@ -5,6 +5,7 @@ from PIL import Image
 import glob
 
 
+# TODO create phenotypes explicitly
 class TestPopulation(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(TestPopulation, self).__init__(*args, **kwargs)
@@ -30,7 +31,7 @@ class TestPopulation(unittest.TestCase):
 
     def test_estimate_cost(self):
         common.BLUEPRINT_GUI = False
-        blueprints = population.generate(5)
+        blueprints = population.generate_resnets(5)
         for bp in blueprints:
             cost = population.estimate_cost(bp)
             self.assertTrue(cost > 0)

@@ -25,7 +25,7 @@ def plot_kernels(kernel_dict, max_rows, max_cols, save_path):
     plt.show()
 
 
-def plot_model(model, save_folder):
+def plot_model(model, save_path):
     # also possible to get the average
     # shape_dict = get_shape_dict(model)
     # average_dict = get_average_dict(shape_dict)
@@ -48,5 +48,4 @@ def plot_model(model, save_folder):
             if max_rows < num_kernels:
                 max_rows = num_kernels
 
-    os.path.join(save_folder, '%s.jpg' % k)
-    plot_kernels(kernels, max_rows, max_cols, save_folder)
+    plot_kernels(kernels, max_rows, max_cols, save_path)

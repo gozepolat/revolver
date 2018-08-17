@@ -1,17 +1,21 @@
 from stacked.meta.blueprint import visit_modules, \
-    collect_keys, collect_modules
+    collect_keys, collect_modules, make_module
 from stacked.models.blueprinted.resnet import ScopedResNet
+from stacked.models.blueprinted.densenet import ScopedDenseNet
 from stacked.modules.conv import Conv3d2d
+from stacked.meta.scope import unregister
 from torch.nn import Conv2d, Linear
 from stacked.meta.heuristics.operators import mutate, \
     crossover, copyover
 from stacked.meta.heuristics import extensions
 from stacked.utils.domain import ClosedList
+from stacked.utils.engine import get_num_parameters
 from stacked.utils import common
+from stacked.utils.usage_helpers import make_net_blueprint
 from logging import warning
 import numpy as np
-import math
 import copy
+import math
 
 
 def log(log_func, msg):
@@ -58,15 +62,49 @@ def get_share_ratio(blueprint):
     return float(unique_size) / all_size
 
 
-def get_score(genotype, *_, **__):
+def get_genotype_score(genotype, *_, **__):
     """Estimate a score only by looking at the genotype"""
     unique_ratio = get_share_ratio(genotype)
     cost = estimate_cost(genotype)
     return unique_ratio * cost
 
 
+def get_phenotype_score(genotype, engine_maker,
+                        n_samples=60000, epoch=1):
+    """Estimate score by testing the model"""
+    engine = engine_maker(genotype)
+
+    print("Getting score for the phenotype %s:" % genotype['name'])
+    print("=====================")
+    print(engine.net)
+    print("=====================")
+
+    for j in range(epoch):
+        engine.start_epoch()
+        engine.train_n_samples(n_samples)
+        if j == epoch - 1:
+            engine.end_epoch()
+        else:
+            engine.state['epoch'] += 1
+
+    engine.hook('on_end', engine.state)
+
+    # favor lower number of parameters
+    num_parameters = get_num_parameters(engine.state['network'].net)
+    num_parameters = math.log(num_parameters, 100)
+    score = engine.state['score'] + num_parameters
+
+    # create a new engine each time, to save memory
+    unregister(engine.blueprint['name'])
+
+    return score
+
+
 def update_score(blueprint, new_score, weight=0.2):
+    """Update the score of blueprint components, and get the avg"""
     modules = collect_modules(blueprint)
+    average_score = 0.0
+
     for bp in modules:
         if 'score' not in bp['meta']:
             bp['meta']['score'] = np.inf
@@ -76,9 +114,16 @@ def update_score(blueprint, new_score, weight=0.2):
         else:
             score = new_score
         bp['meta']['score'] = score
+        average_score += score
+
+    if average_score > 0:
+        average_score /= len(modules)
+        blueprint['meta']['score'] = average_score
+
+    return average_score
 
 
-def make_mutable_and_randomly_unique(bp, p_unique, _):
+def make_mutable_and_randomly_unique(bp, p_unique, *_, **__):
     extensions.extend_conv_mutables(bp, ensemble_size=3,
                                     block_depth=2)
     extensions.extend_depth_mutables(bp)
@@ -87,22 +132,21 @@ def make_mutable_and_randomly_unique(bp, p_unique, _):
         bp.make_unique()
 
 
-def generate(population_size):
+def generate_resnets(population_size, options):
     """Randomly generate genotypes"""
-    max_width = 4
-    max_depth = 28
+    max_width = options.width
+    max_depth = options.depth
 
     depths = ClosedList(list(range(16, max_depth + 1, 6)))
     widths = ClosedList(list(range(1, max_width + 1)))
+    nets = ClosedList([ScopedResNet, ScopedDenseNet])
     blueprints = []
 
     for i in range(population_size):
-        depth = depths.pick_random()[1]
-        width = widths.pick_random()[1]
-        blueprint = ScopedResNet.describe_default('ResNet', str(i),
-                                                  depth=depth,
-                                                  width=width,
-                                                  num_classes=10)
+        options.depth = depths.pick_random()[1]
+        options.width = widths.pick_random()[1]
+        net = nets.pick_random()[1]
+        blueprint = make_net_blueprint(options, str(i))
 
         visit_modules(blueprint, 0.01, [],
                       make_mutable_and_randomly_unique)
@@ -112,51 +156,41 @@ def generate(population_size):
 
 
 class Population(object):
-    def __init__(self, population_size):
-        assert(population_size > 3)
+    def __init__(self, population_size, generator=generate_resnets):
+        assert (population_size > 3)
         self.genotypes = []
         self.ids = []
-        self.phenotypes = []
         self.population_size = population_size
         self.iteration = 1
-        self.generate_new(population_size)
+        self.generate_new(generator, population_size)
 
-    def replace_individual(self, index, genotype, phenotype=None):
+    def replace_individual(self, index, genotype):
         """Replace the individual at the given index with a new one"""
-        self.genotypes[index] = genotype
+        self.genotypes[index] = (genotype['meta']['score'], genotype)
         self.ids[index] = id(genotype)
 
-        if phenotype is None:
-            phenotype = ScopedResNet(genotype['name'],
-                                     genotype).cuda()
-        self.phenotypes[index] = phenotype
-
-    def add_individual(self, blueprint, phenotype=None):
+    def add_individual(self, blueprint):
         """Add a single individual to the population"""
         if id(blueprint) in set(self.ids):
             log(warning, "Individual %s is already in population"
                 % blueprint['name'])
             return
 
-        self.genotypes.append(blueprint)
+        self.genotypes.append((get_genotype_score(blueprint), blueprint))
         self.ids.append(id(blueprint))
 
-        if phenotype is None:  # cuda
-            phenotype = ScopedResNet(blueprint['name'], blueprint).cuda()
-
-        self.phenotypes.append(phenotype)
-
-    def generate_new(self, population_size):
+    def generate_new(self, generator, population_size, options):
         """Randomly generate genotypes and then create individuals"""
-        genotypes = generate(population_size)
+        genotypes = generator(population_size, options)
         for blueprint in genotypes:
             self.add_individual(blueprint)
 
-    def update_scores(self, iteration, score_fn=get_score):
-        """Accummulate scores with lower and lower weights"""
-        weight = 0.4 / math.log(iteration)
-        for bp, model in zip(self.genotypes, self.phenotypes):
-            new_score = score_fn(bp, model)
+    def update_scores(self, utility=get_phenotype_score,
+                      engine_maker=None):
+        """Accumulate scores with lower and lower weights"""
+        weight = 0.2
+        for score, bp in self.genotypes:
+            new_score = utility(bp, engine_maker)
             update_score(bp, new_score, weight=weight)
 
     def get_average_score(self):
@@ -181,7 +215,7 @@ class Population(object):
         best_score = np.inf
         index = 0
 
-        assert(len(self.genotypes) > 0)
+        assert (len(self.genotypes) > 0)
         for i, bp in enumerate(self.genotypes):
             if 'score' in bp['meta']:
                 score = bp['meta']['score']
@@ -192,32 +226,30 @@ class Population(object):
 
     def get_max_indices(self):
         """Get the indices of the worst two individuals"""
-        min_score2 = min_score = -np.inf
-        i, r1, r2 = (0, 0, 0)
+        score2 = score1 = -np.inf
+        r1 = r2 = 0
 
-        for bp in self.genotypes:
+        for i, bp in enumerate(self.genotypes):
             score = bp['meta']['score']
 
-            if min_score < score:
-                min_score2 = min_score
+            if score1 < score:
+                score2 = score1
                 r2 = r1
-                min_score = score
+                score1 = score
                 r1 = i
-            elif min_score2 < score:
-                min_score2 = score
+            elif score2 < score:
+                score2 = score
                 r2 = i
-
-            i += 1
 
         return r1, r2
 
-    def evolve_generation(self, score_fn=get_score):
+    def evolve_generation(self, engine_maker, generator, options, utility=get_phenotype_score):
         """A single step of evolution"""
         if len(self.genotypes) == 0:
-            self.generate_new(self.population_size)
+            self.generate_new(generator, self.population_size, options)
 
         self.iteration += 1
-        self.update_scores(self.iteration, score_fn)
+        self.update_scores(utility, engine_maker)
 
         # bad scored indices to be replaced with new individuals
         r1, r2 = self.get_max_indices()
@@ -246,13 +278,3 @@ class Population(object):
             copyover(clone1, clone2)
 
         self.replace_individual(r1, clone2)
-
-
-
-
-
-
-
-
-
-

@@ -83,6 +83,11 @@ def get_instance(scope, *args, **kwargs):
     return _make_element(scope, *args, **kwargs)
 
 
+def unregister(scope):
+    if scope in common.SCOPE_DICTIONARY:
+        del common.SCOPE_DICTIONARY[scope]
+
+
 def get_meta(scope):
     """Get meta information about the scope"""
     validate_scope(scope)

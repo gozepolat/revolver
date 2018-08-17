@@ -12,6 +12,10 @@ def log(log_func, msg):
         log_func("stacked.utils.engine: %s" % msg)
 
 
+def get_num_parameters(net):
+    return sum(p.numel() for p in net.parameters())
+
+
 class EpochEngine(object):
     def __init__(self):
         self.hooks = {}
@@ -61,7 +65,8 @@ class EpochEngine(object):
         self.train_n_samples(n)
         return self.end_epoch()
 
-    def set_state(self, network, iterator, maxepoch, optimizer, epoch=0, t=0, train=True):
+    def set_state(self, network, iterator, maxepoch, optimizer,
+                  epoch=0, t=0, train=True, score=np.inf):
         self.state = {
                 'network': network,
                 'iterator': iterator,
@@ -70,6 +75,7 @@ class EpochEngine(object):
                 'epoch': epoch,
                 't': t,
                 'train': train,
+                'score': score
                 }
 
     def train(self, network, iterator, maxepoch, optimizer):
@@ -126,7 +132,7 @@ class EngineEventHooks(object):
         assert (net_runner is not None)
         assert (make_optimizer is not None)
 
-        num_parameters = sum(p.numel() for p in net.parameters())
+        num_parameters = get_num_parameters(net)
 
         log(warning, '\nTotal number of parameters in model with id: {} is: {}'
             .format(train_id, num_parameters))
@@ -199,10 +205,12 @@ class EngineEventHooks(object):
             net.train()
 
             test_acc = accuracy_meter.value()[0]
+            test_loss = average_loss_meter.value()[0]
+            state['score'] = test_loss
             logger(state, {
                 "train_loss": train_loss[0],
                 "train_acc": train_acc[0],
-                "test_loss": average_loss_meter.value()[0],
+                "test_loss": test_loss,
                 "test_acc": test_acc,
                 "epoch": state['epoch'],
                 "train_time": train_time,

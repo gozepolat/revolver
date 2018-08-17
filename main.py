@@ -1,20 +1,14 @@
 # -*- coding: utf-8 -*-
-from stacked.models.blueprinted.optimizer import ScopedEpochEngine
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
-from stacked.models.blueprinted.densefractalgroup import ScopedDenseFractalGroup
 from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
-from stacked.models.blueprinted.densesumgroup import ScopedDenseSumGroup
+from stacked.modules.scoped_nn import ScopedCrossEntropyLoss
 from stacked.models.blueprinted.meta import ScopedMetaMasked
-from stacked.modules.scoped_nn import ScopedConv2d, ScopedBatchNorm2d, \
-    ScopedFeatureSimilarityLoss, ScopedFeatureConvergenceLoss
-from stacked.modules.loss import collect_features, collect_depthwise_features
-from stacked.meta.blueprint import make_module, visit_modules, make_blueprint
+from stacked.utils.transformer import all_to_none
 from stacked.utils import common
+from stacked.utils.usage_helpers import train_single_network, adjust_options
 import argparse
-import json
 import os
-from stacked.utils.visualize import plot_model
 
 import torch.backends.cudnn as cudnn
 
@@ -43,7 +37,7 @@ def parse_args():
     parser.add_argument('--single_engine', default=True, type=bool)
     parser.add_argument('--gpu_id', default='0', type=str,
                         help='id(s) for CUDA_VISIBLE_DEVICES')
-    parser.add_argument('--save_path', default='.', type=str,
+    parser.add_argument('--save_folder', default='.', type=str,
                         help="path to save the blueprint and engine state")
     parser.add_argument('--load_path', default='', type=str,
                         help="path to load the blueprint and engine state")
@@ -54,220 +48,44 @@ def parse_args():
     return parsed_args
 
 
-def create_engine_pair(net_blueprint, options, epochs, crop):
-    """Engines to train different portions of the given model"""
-
-    def common_picker(model):
-        for k, v in model.named_parameters():
-            if 'generator' not in k:
-                yield v
-
-    def generator_picker(model):
-        for k, v in model.named_parameters():
-            if 'generator' in k:
-                yield v
-
-    common_engine_blueprint = ScopedEpochEngine.describe_default(prefix='CommonEpochEngine',
-                                                                 net_blueprint=net_blueprint,
-                                                                 max_epoch=options.epochs,
-                                                                 batch_size=options.batch_size,
-                                                                 learning_rate=options.lr,
-                                                                 lr_decay_ratio=options.lr_decay_ratio,
-                                                                 lr_drop_epochs=epochs,
-                                                                 crop_size=crop,
-                                                                 dataset=options.dataset,
-                                                                 num_thread=options.num_thread,
-                                                                 criterion=ScopedFeatureSimilarityLoss,
-                                                                 callback=collect_features,
-                                                                 optimizer_parameter_picker=common_picker,
-                                                                 weight_decay=options.weight_decay)
-
-    # accesses the same resnet model instance
-    generator_engine_blueprint = ScopedEpochEngine.describe_default(prefix='GeneratorEpochEngine',
-                                                                    net_blueprint=net_blueprint,
-                                                                    max_epoch=options.epochs,
-                                                                    batch_size=options.batch_size,
-                                                                    learning_rate=options.lr * 0.2,
-                                                                    lr_decay_ratio=options.lr_decay_ratio,
-                                                                    lr_drop_epochs=epochs,
-                                                                    crop_size=crop,
-                                                                    dataset=options.dataset,
-                                                                    num_thread=options.num_thread,
-                                                                    optimizer_parameter_picker=generator_picker,
-                                                                    weight_decay=options.weight_decay)
-    c = make_module(common_engine_blueprint)
-    g = make_module(generator_engine_blueprint)
-    return c, g
-
-
-def create_single_engine(net_blueprint, options, epochs, crop):
-    engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
-                                                          net_blueprint=net_blueprint,
-                                                          max_epoch=options.epochs,
-                                                          batch_size=options.batch_size,
-                                                          learning_rate=options.lr,
-                                                          lr_decay_ratio=options.lr_decay_ratio,
-                                                          lr_drop_epochs=epochs,
-                                                          criterion=ScopedFeatureConvergenceLoss,
-                                                          callback=collect_depthwise_features,
-                                                          dataset=options.dataset,
-                                                          num_thread=options.num_thread,
-                                                          use_tqdm=True, crop_size=crop,
-                                                          weight_decay=options.weight_decay)
-
-    single_engine = make_module(engine_blueprint)
-
-    if len(options.load_path) > 0:
-        print("Loading the engine state dictionary from: %s" % options.load_path)
-        single_engine.load_state_dict(options.load_path)
-
-    return single_engine
-
-
-def train_with_single_engine(model, options, epochs, crop,
-                             n_samples=50000, test_every_nth=0):
-    engine = create_single_engine(model, options, epochs, crop)
-
-    name = '{}_model_dw_{}_{}_bs_{}_decay_{}_lr_{}_{}.pth.tar'.format(
-        engine.net.blueprint['name'],
-        options.depth,
-        options.width,
-        options.batch_size,
-        options.weight_decay,
-        options.lr,
-        options.dataset,)
-
-    filename = os.path.join(options.save_path, name)
-
-    print("Network architecture:")
-    print("=====================")
-    print(engine.net)
-    print("=====================")
-
-    if test_every_nth > 0:
-        for j in range(engine.state['epoch'], options.epochs, 1):
-            engine.start_epoch()
-            engine.train_n_samples(n_samples)
-            if j % test_every_nth == test_every_nth - 1:
-                engine.end_epoch()
-            else:
-                engine.state['epoch'] += 1
-    else:
-        for j in range(engine.state['epoch'], options.epochs, 1):
-            engine.train_one_epoch()
-
-    # dump the state for allowing more training later
-    engine.dump_state(filename)
-
-    # dump the conv weights to a png file for visualization
-    if len(options.save_png_folder) > 0:
-        folder_name = os.path.join(options.save_png_folder, name)
-        plot_model(engine.state['network'].net.cpu(), folder_name)
-
-    engine.hook('on_end', engine.state)
-
-
-def train_with_double_engine(model, options, epochs, crop, n_samples=50000):
-    common_engine, generator_engine = create_engine_pair(model, options,
-                                                         epochs, crop)
-
-    print("Network architecture:")
-    print("=====================")
-    print(common_engine.net)
-    print("=====================")
-
-    batch = options.batch_size * 17
-    repeat = n_samples // batch + 1
-    for j in range(common_engine.state['epoch'], options.epochs, 1):
-        common_engine.start_epoch()
-        generator_engine.start_epoch()
-
-        # train back and forth
-        for i in range(repeat):
-            common_engine.train_n_samples(batch)
-            generator_engine.train_n_samples(batch)
-
-        # test every fourth epoch
-        if j % 4 == 3:
-            common_engine.end_epoch()
-        else:
-            common_engine.state['epoch'] += 1
-        generator_engine.state['epoch'] += 1
-
-    common_engine.hook('on_end', common_engine.state)
-    generator_engine.hook('on_end', generator_engine.state)
+def set_default_options_for_single_network(options):
+    """Default options for the single network training"""
+    options.conv_module = ScopedMetaMasked
+    options.dropout_p = 0.0
+    options.drop_p = 0.5
+    options.fractal_depth = 4
+    options.net = ScopedResNet
+    options.callback = all_to_none
+    options.criterion = ScopedCrossEntropyLoss
+    options.residual = False
+    options.group_module = ScopedDenseConcatGroup
+    options.block_module = ScopedBottleneckBlock
+    options.dense_unit_module = ScopedBottleneckBlock
+    options.head_kernel = 3
+    options.head_stride = 1
+    options.head_padding = 1
+    options.head_pool_kernel = 3
+    options.head_pool_stride = 2
+    options.head_pool_padding = 1
+    options.head_modules = ('conv', 'bn')
+    options.unique = ('bn',)
 
 
 if __name__ == '__main__':
+    common.BLUEPRINT_GUI = False
     parsed = parse_args()
 
     os.environ['CUDA_VISIBLE_DEVICES'] = parsed.gpu_id
+    adjust_options(parsed)
 
-    num_channels = 3
-    width = height = 32
-    group_depths = None
-    skeleton = json.loads(parsed.skeleton)
-    if parsed.dataset == 'ILSVRC2012':
-        num_classes = 1000
-        width = height = 224
-        num_samples = 1200000
-        group_depths = (1, 1, 1, 2, 4, 2)
-        skeleton = [4, 8, 16, 48, 64, 72]
-    elif parsed.dataset == 'tiny-imagenet-200':
-        num_classes = 200
-        width = height = 56
-        num_samples = 100000
-        group_depths = (1, 4, 8, 1)
-        skeleton = [8, 24, 48, 64]
-        parsed.block_depth = 3
-    elif parsed.dataset == 'CIFAR100':
-        num_classes = 100
-        num_samples = 50000
-    else:  # CIFAR10 or MNIST
-        num_classes = 10
-        num_samples = 50000
-        if parsed.dataset == 'MNIST':
-            num_channels = 1
-            width = height = 28
-            num_samples = 60000
-        elif parsed.dataset == 'SVHN':
-            num_samples = 73257
+    if parsed.mode == 'single_train':
+        set_default_options_for_single_network(parsed)
+        train_single_network(parsed)
 
-    lr_drop_epochs = json.loads(parsed.lr_drop_epochs)
-    parsed.skeleton = skeleton
-    parsed.num_classes = num_classes
+    # TODO next
+    #elif parsed.mode == 'population_train':
+    #    set_default_options_for_population(parsed)
+    #    train_population(parsed)
+
+    # dump all options
     print(parsed)
-
-    common.BLUEPRINT_GUI = False
-
-    input_shape = (parsed.batch_size, num_channels, width, height)
-    resnet = ScopedResNet.describe_default(prefix='ResNet', num_classes=num_classes,
-                                           depth=parsed.depth, width=parsed.width,
-                                           block_depth=parsed.block_depth, drop_p=0.5,
-                                           conv_module=ScopedMetaMasked,
-                                           dropout_p=0.2,
-                                           callback=collect_depthwise_features,
-                                           group_module=ScopedDenseConcatGroup, residual=False,
-                                           skeleton=skeleton, group_depths=group_depths,
-                                           block_module=ScopedBottleneckBlock,
-                                           dense_unit_module=ScopedBottleneckBlock,
-                                           input_shape=input_shape, fractal_depth=3)
-
-
-    def make_conv2d_unique(bp, _, __):
-        if issubclass(bp['type'], ScopedBatchNorm2d):
-            bp.make_unique()
-        if issubclass(bp['type'], ScopedConv2d):
-            if 'kernel_size' in bp['kwargs'] and bp['kwargs']['kernel_size'] == 1:
-                bp.make_unique()
-
-
-    visit_modules(resnet, None, None, make_conv2d_unique)
-
-    crop_size = width
-    if parsed.single_engine:
-        train_with_single_engine(resnet, parsed, lr_drop_epochs,
-                                 crop_size, n_samples=num_samples, test_every_nth=2)
-    else:
-        train_with_double_engine(resnet, parsed, lr_drop_epochs,
-                                 crop_size, n_samples=num_samples)
