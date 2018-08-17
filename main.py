@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
 from stacked.models.blueprinted.resnet import ScopedResNet
+from stacked.models.blueprinted.densenet import ScopedDenseNet
 from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
 from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
 from stacked.modules.scoped_nn import ScopedCrossEntropyLoss
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.utils.transformer import all_to_none
 from stacked.utils import common
-from stacked.utils.usage_helpers import train_single_network, adjust_options
+from stacked.utils.usage_helpers import train_single_network, \
+    adjust_options, create_single_engine, train_with_single_engine
+from stacked.meta.heuristics.population import generate_net_blueprints, \
+    get_phenotype_score, Population
 import argparse
 import os
 
@@ -69,6 +73,51 @@ def set_default_options_for_single_network(options):
     options.head_pool_padding = 1
     options.head_modules = ('conv', 'bn')
     options.unique = ('bn',)
+    options.use_tqdm = True
+
+
+def set_default_options_for_population(options):
+    """Default options for the single network training"""
+    set_default_options_for_single_network(options)
+
+    options.net = ScopedDenseNet
+
+    # log base for the number of parameters
+    options.params_favor_rate = 100
+
+    options.population_size = 100
+    options.epoch_per_generation = 1
+
+    # number of updated individuals per generation
+    options.sample_size = 32
+    options.update_score_weight = 0.2
+    options.max_iteration = 100
+
+    # default heuristics
+    options.generator = generate_net_blueprints
+    options.utility = get_phenotype_score
+    options.engine_maker = create_single_engine
+
+    # disable engine loading, and tqdm
+    options.load_path = ''
+    options.use_tqdm = False
+
+
+def train_population(options):
+    p = Population(options)
+
+    net_blueprint = None
+    for i in range(options.max_iteration):
+        print('Population generation: %d' % i)
+        p.evolve_generation()
+        index = p.get_the_best_index()
+        net_blueprint = p.genotypes[index]
+        best_final = net_blueprint['meta']['score']
+        print("Current top score: {}".format(best_final))
+
+    # train the best model again
+    set_default_options_for_single_network(options)
+    train_with_single_engine(net_blueprint, options)
 
 
 if __name__ == '__main__':
@@ -82,10 +131,9 @@ if __name__ == '__main__':
         set_default_options_for_single_network(parsed)
         train_single_network(parsed)
 
-    # TODO next
-    #elif parsed.mode == 'population_train':
-    #    set_default_options_for_population(parsed)
-    #    train_population(parsed)
+    elif parsed.mode == 'population_train':
+        set_default_options_for_population(parsed)
+        train_population(parsed)
 
     # dump all options
     print(parsed)

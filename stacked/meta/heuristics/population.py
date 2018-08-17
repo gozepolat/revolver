@@ -11,6 +11,7 @@ from stacked.meta.heuristics import extensions
 from stacked.utils.domain import ClosedList
 from stacked.utils.engine import get_num_parameters
 from stacked.utils import common
+from stacked.utils.transformer import softmax
 from stacked.utils.usage_helpers import make_net_blueprint
 from logging import warning
 import numpy as np
@@ -69,10 +70,13 @@ def get_genotype_score(genotype, *_, **__):
     return unique_ratio * cost
 
 
-def get_phenotype_score(genotype, engine_maker,
-                        n_samples=60000, epoch=1):
-    """Estimate score by testing the model"""
-    engine = engine_maker(genotype)
+def get_phenotype_score(genotype, options):
+    """Estimate score by training / testing the model"""
+    engine_maker = options.engine_maker
+    n_samples = options.num_samples
+    epoch = options.epoch_per_generation
+    favor_params = options.params_favor_rate
+    engine = engine_maker(genotype, options)
 
     print("Getting score for the phenotype %s:" % genotype['name'])
     print("=====================")
@@ -91,10 +95,10 @@ def get_phenotype_score(genotype, engine_maker,
 
     # favor lower number of parameters
     num_parameters = get_num_parameters(engine.state['network'].net)
-    num_parameters = math.log(num_parameters, 100)
+    num_parameters = math.log(num_parameters, favor_params)
     score = engine.state['score'] + num_parameters
 
-    # create a new engine each time, to save memory
+    # create / delete the engine each time to save memory
     unregister(engine.blueprint['name'])
 
     return score
@@ -107,7 +111,7 @@ def update_score(blueprint, new_score, weight=0.2):
 
     for bp in modules:
         if 'score' not in bp['meta']:
-            bp['meta']['score'] = np.inf
+            bp['meta']['score'] = get_genotype_score(bp)
         score = bp['meta']['score']
         if score < np.inf:
             score = new_score * weight + score * (1.0 - weight)
@@ -132,7 +136,7 @@ def make_mutable_and_randomly_unique(bp, p_unique, *_, **__):
         bp.make_unique()
 
 
-def generate_resnets(population_size, options):
+def generate_net_blueprints(population_size, options):
     """Randomly generate genotypes"""
     max_width = options.width
     max_depth = options.depth
@@ -145,7 +149,7 @@ def generate_resnets(population_size, options):
     for i in range(population_size):
         options.depth = depths.pick_random()[1]
         options.width = widths.pick_random()[1]
-        net = nets.pick_random()[1]
+        options.net = nets.pick_random()[1]
         blueprint = make_net_blueprint(options, str(i))
 
         visit_modules(blueprint, 0.01, [],
@@ -156,13 +160,14 @@ def generate_resnets(population_size, options):
 
 
 class Population(object):
-    def __init__(self, population_size, generator=generate_resnets):
-        assert (population_size > 3)
+    def __init__(self, options):
+        assert (options.population_size > 3)
+        self.options = options
         self.genotypes = []
         self.ids = []
-        self.population_size = population_size
+        self.population_size = options.population_size
         self.iteration = 1
-        self.generate_new(generator, population_size)
+        self.generate_new()
 
     def replace_individual(self, index, genotype):
         """Replace the individual at the given index with a new one"""
@@ -179,18 +184,29 @@ class Population(object):
         self.genotypes.append((get_genotype_score(blueprint), blueprint))
         self.ids.append(id(blueprint))
 
-    def generate_new(self, generator, population_size, options):
+    def generate_new(self):
         """Randomly generate genotypes and then create individuals"""
-        genotypes = generator(population_size, options)
+        genotypes = self.options.generator(self.population_size, self.options)
+
         for blueprint in genotypes:
             self.add_individual(blueprint)
 
-    def update_scores(self, utility=get_phenotype_score,
-                      engine_maker=None):
-        """Accumulate scores with lower and lower weights"""
-        weight = 0.2
-        for score, bp in self.genotypes:
-            new_score = utility(bp, engine_maker)
+    def pick_indices(self, sample_size=0):
+        """Randomly pick genotype indices, favor lower scores"""
+        if sample_size == 0:
+            sample_size = self.options.sample_size
+
+        distribution = 1.0 - np.array(softmax([p for p, _ in self.genotypes]))
+        return np.random.choice(range(len(distribution)),
+                                sample_size, p=distribution, replace=False)
+
+    def update_scores(self):
+        """Evaluate and improve a portion of the population according to the scores"""
+        weight = self.options.update_score_weight
+        indices = self.pick_indices()
+        for i in indices:
+            _, bp = self.genotypes[i]
+            new_score = self.options.utility(bp, self.options)
             update_score(bp, new_score, weight=weight)
 
     def get_average_score(self):
@@ -243,21 +259,26 @@ class Population(object):
 
         return r1, r2
 
-    def evolve_generation(self, engine_maker, generator, options, utility=get_phenotype_score):
+    def evolve_generation(self):
         """A single step of evolution"""
         if len(self.genotypes) == 0:
-            self.generate_new(generator, self.population_size, options)
+            self.generate_new()
 
         self.iteration += 1
-        self.update_scores(utility, engine_maker)
+        self.update_scores()
 
-        # bad scored indices to be replaced with new individuals
+        # bad scored indices will be replaced with new individuals
         r1, r2 = self.get_max_indices()
 
-        selected_indices = [i for i in range(self.population_size)
-                            if i not in (r1, r2)]
-        index1, index2 = np.random.choice(selected_indices,
-                                          2, replace=False)
+        # favor weighted pick eventually
+        index1, index2 = self.pick_indices(2)
+
+        # favor uniform pick in the beginning
+        p = 1.0 - float(self.iteration) / self.options.max_iteration
+        if np.random.random() < p or index1 in (r1, r2) or index2 in (r1, r2):
+            selected_indices = [i for i in range(self.population_size)
+                                if i not in (r1, r2)]
+            index1, index2 = np.random.choice(selected_indices, 2, replace=False)
 
         clone1 = copy.deepcopy(self.genotypes[index1])
         clone2 = copy.deepcopy(self.genotypes[index2])
@@ -271,7 +292,7 @@ class Population(object):
         mutate(clone1, p=0.5)
         mutate(clone2, p=0.5)
 
-        if np.random.random() < 0.8:
+        if np.random.random() < 0.9:
             crossover(clone1, clone2)
             self.replace_individual(r2, clone1)
         else:

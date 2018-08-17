@@ -31,7 +31,7 @@ class TestPopulation(unittest.TestCase):
 
     def test_estimate_cost(self):
         common.BLUEPRINT_GUI = False
-        blueprints = population.generate_resnets(5)
+        blueprints = population.generate_net_blueprints(5)
         for bp in blueprints:
             cost = population.estimate_cost(bp)
             self.assertTrue(cost > 0)

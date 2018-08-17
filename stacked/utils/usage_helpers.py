@@ -59,7 +59,7 @@ def create_single_engine(net_blueprint, options):
                                                           callback=options.callback,
                                                           dataset=options.dataset,
                                                           num_thread=options.num_thread,
-                                                          use_tqdm=True,
+                                                          use_tqdm=options.use_tqdm,
                                                           crop_size=options.crop_size,
                                                           weight_decay=options.weight_decay)
 
@@ -184,8 +184,7 @@ def adjust_options(options):
         elif options.dataset == 'SVHN':
             num_samples = 73257
 
-    lr_drop_epochs = json.loads(options.lr_drop_epochs)
-    options.lr_drop_epochs = lr_drop_epochs
+    options.lr_drop_epochs = json.loads(options.lr_drop_epochs)
     options.group_depths = group_depths
     options.crop_size = max(width, height)
     options.skeleton = skeleton

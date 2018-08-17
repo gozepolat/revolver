@@ -120,6 +120,11 @@ def normalize(image, mean=None, std=None):
     return T.Normalize(mean, std)(image)
 
 
+def softmax(x):
+    x = np.exp(x - np.max(x))
+    return x / x.sum(axis=0)
+
+
 def scalar_to_tensor(value, size):
     return torch.FloatTensor([float(value)]).expand(size)
 
