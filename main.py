@@ -3,7 +3,7 @@ from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.densenet import ScopedDenseNet
 from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
 from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
-from stacked.modules.scoped_nn import ScopedCrossEntropyLoss
+from stacked.modules.scoped_nn import ScopedCrossEntropyLoss, ScopedConv2d
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.utils.transformer import all_to_none
 from stacked.utils import common
@@ -22,6 +22,8 @@ cudnn.benchmark = True
 def parse_args():
     parser = argparse.ArgumentParser(description='In construction..')
 
+    parser.add_argument('--mode', default='single_train', type=str,
+                        help="single, or population train mode")
     parser.add_argument('--depth', default=22, type=int)
     parser.add_argument('--skeleton', default='[12,24,48]', type=str,
                         help='json list with epochs to drop lr on')
@@ -30,11 +32,11 @@ def parse_args():
     parser.add_argument('--dataset', default='CIFAR10', type=str)
     parser.add_argument('--num_thread', default=4, type=int)
 
-    parser.add_argument('--batch_size', default=128, type=int)
+    parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--lr', default=0.1, type=float)
     parser.add_argument('--epochs', default=300, type=int, metavar='N',
                         help='number of total epochs to run')
-    parser.add_argument('--weight_decay', default=0.00005, type=float)
+    parser.add_argument('--weight_decay', default=0.0001, type=float)
     parser.add_argument('--lr_drop_epochs', default='[150,225]', type=str,
                         help='json list with epochs to drop lr on')
     parser.add_argument('--lr_decay_ratio', default=0.1, type=float)
@@ -81,7 +83,7 @@ def set_default_options_for_population(options):
     set_default_options_for_single_network(options)
 
     options.net = ScopedDenseNet
-
+    options.conv_module = ScopedConv2d
     # log base for the number of parameters
     options.params_favor_rate = 100
 
@@ -91,7 +93,7 @@ def set_default_options_for_population(options):
     # number of updated individuals per generation
     options.sample_size = 32
     options.update_score_weight = 0.2
-    options.max_iteration = 100
+    options.max_iteration = options.epochs
 
     # default heuristics
     options.generator = generate_net_blueprints
@@ -109,6 +111,8 @@ def train_population(options):
     net_blueprint = None
     for i in range(options.max_iteration):
         print('Population generation: %d' % i)
+        if i in options.lr_drop_epochs:
+            options.lr *= options.lr_decay_ratio
         p.evolve_generation()
         index = p.get_the_best_index()
         net_blueprint = p.genotypes[index]

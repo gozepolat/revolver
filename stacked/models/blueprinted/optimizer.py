@@ -9,7 +9,7 @@ from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
     ScopedReLU, ScopedConv2d, ScopedLinear, ScopedCrossEntropyLoss
 from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.models.blueprinted.resgroup import ScopedResGroup
-from stacked.models.blueprinted.conv_unit import ScopedConvUnit
+from stacked.models.blueprinted.convunit import ScopedConvUnit
 from stacked.utils.engine import EpochEngine, EngineEventHooks
 from stacked.utils.dataset import create_dataset
 from stacked.utils.transformer import all_to_none

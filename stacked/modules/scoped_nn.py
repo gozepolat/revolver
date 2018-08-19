@@ -60,6 +60,20 @@ class ScopedConv2d(Conv2d):
         assert(in_channels == bp['input_shape'][1])
         return bp
 
+    @staticmethod
+    def adjust_args(conv_kwargs, kernel_size, stride, padding, dilation, groups, bias):
+
+        def override_default(key, default):
+            return conv_kwargs[key] if default is None else default
+
+        _kernel = override_default('kernel_size', kernel_size)
+        _stride = override_default('stride', stride)
+        _padding = override_default('padding', padding)
+        _dilation = override_default('dilation', dilation)
+        _groups = override_default('groups', groups)
+        _bias = override_default('bias', bias)
+        return _kernel, _stride, _padding, _dilation, _groups, _bias
+
 
 @add_metaclass(ScopedMeta)
 class ScopedConv3d2d(Conv3d2d):

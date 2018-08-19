@@ -1,6 +1,7 @@
 from stacked.models.blueprinted.ensemble import ScopedEnsemble
 from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.models.blueprinted.meta import ScopedMetaMasked
+from stacked.models.blueprinted.separable import ScopedDepthwiseSeparable
 from stacked.utils.domain import ClosedList, ClosedInterval
 
 
@@ -32,9 +33,12 @@ def extend_conv_mutables(blueprint, ensemble_size=5, block_depth=2):
                                                        conv, parent,
                                                        block_depth)
 
+    separable = ScopedDepthwiseSeparable.describe_from_blueprint(prefix,
+                                                                 '_separable',
+                                                                 conv, parent)
     meta = ScopedMetaMasked.describe_from_blueprint(prefix, '_meta',
                                                     conv, parent)
-    mutables = [conv, res_block, ensemble, meta]
+    mutables = [conv, res_block, ensemble, meta, separable]
 
     if 'conv' in blueprint['mutables']:
         elements = blueprint['mutables']['conv'].elements

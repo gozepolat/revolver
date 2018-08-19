@@ -2,7 +2,7 @@
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
-from stacked.models.blueprinted.conv_unit import ScopedConvUnit
+from stacked.models.blueprinted.convunit import ScopedConvUnit
 from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.modules.scoped_nn import ScopedBatchNorm2d, \
     ScopedReLU, ScopedConv2d

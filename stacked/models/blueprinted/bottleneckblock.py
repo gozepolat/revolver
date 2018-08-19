@@ -5,7 +5,7 @@ from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.utils.transformer import all_to_none
-from stacked.models.blueprinted.conv_unit import ScopedConvUnit
+from stacked.models.blueprinted.convunit import ScopedConvUnit
 from stacked.models.blueprinted.unit import set_pooling, set_convdim
 from six import add_metaclass
 from torch.nn.functional import dropout

@@ -10,7 +10,7 @@ from stacked.models.blueprinted.resgroup import ScopedResGroup
 from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
 from stacked.models.blueprinted.densesumgroup import ScopedDenseSumGroup
-from stacked.models.blueprinted.conv_unit import ScopedConvUnit
+from stacked.models.blueprinted.convunit import ScopedConvUnit
 from stacked.utils.transformer import all_to_none
 from six import add_metaclass
 

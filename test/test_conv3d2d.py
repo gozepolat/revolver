@@ -4,7 +4,7 @@ from PIL import Image
 from stacked.utils import transformer
 from stacked.modules.conv import Conv3d2d
 from stacked.modules.scoped_nn import ScopedConv3d2d, ScopedConv2d
-from stacked.models.blueprinted.conv_unit import ScopedConvUnit
+from stacked.models.blueprinted.convunit import ScopedConvUnit
 from torch.nn import Conv2d
 import glob
 

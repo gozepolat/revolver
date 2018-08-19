@@ -1,7 +1,7 @@
 import unittest
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.models.blueprinted.resnet import ScopedResNet
-from stacked.models.blueprinted.conv_unit import ScopedConvUnit
+from stacked.models.blueprinted.convunit import ScopedConvUnit
 from stacked.models.blueprinted.densefractalgroup import ScopedDenseFractalGroup
 from stacked.utils import transformer, common
 from stacked.meta.blueprint import visualize

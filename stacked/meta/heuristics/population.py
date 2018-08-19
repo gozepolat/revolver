@@ -195,8 +195,8 @@ class Population(object):
         """Randomly pick genotype indices, favor lower scores"""
         if sample_size == 0:
             sample_size = self.options.sample_size
-
-        distribution = 1.0 - np.array(softmax([p for p, _ in self.genotypes]))
+        distribution = np.array([p * 1e-12 for p, _ in self.genotypes])
+        distribution = softmax(np.max(distribution) - distribution)
         return np.random.choice(range(len(distribution)),
                                 sample_size, p=distribution, replace=False)
 
@@ -259,8 +259,11 @@ class Population(object):
 
         return r1, r2
 
-    def evolve_generation(self):
+    def evolve_generation(self, options=None):
         """A single step of evolution"""
+        if options is not None:
+            self.options = options
+        
         if len(self.genotypes) == 0:
             self.generate_new()
 

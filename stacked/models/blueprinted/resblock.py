@@ -5,7 +5,7 @@ from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.utils.transformer import all_to_none
-from stacked.models.blueprinted.conv_unit import ScopedConvUnit
+from stacked.models.blueprinted.convunit import ScopedConvUnit
 from stacked.models.blueprinted.unit import set_convdim
 from six import add_metaclass
 from torch.nn.functional import dropout
@@ -201,30 +201,29 @@ class ScopedResBlock(Sequential):
         return default
 
     @staticmethod
-    def describe_from_blueprint(prefix, suffix, blueprint, parent, depth,
+    def describe_from_blueprint(prefix, suffix, blueprint, parent, block_depth,
                                 kernel_size=None, stride=None, padding=None,
                                 dilation=None, groups=None, bias=None,
-                                callback=all_to_none):
+                                act_module=ScopedReLU,
+                                bn_module=ScopedBatchNorm2d,
+                                callback=all_to_none, conv_kwargs=None,
+                                bn_kwargs=None, act_kwargs=None,
+                                unit_module=ScopedConvUnit,
+                                dropout_p=0.0, residual=True,):
 
         kwargs = blueprint['kwargs']
         input_shape = blueprint['input_shape']
         output_shape = blueprint['output_shape']
 
-        def override_default(key, default):
-            return kwargs[key] if default is None else default
+        args = ScopedConv2d.adjust_args(kwargs, kernel_size, stride,
+                                        padding, dilation, groups, bias)
 
-        _kernel = override_default('kernel_size', kernel_size)
-        _stride = override_default('stride', stride)
-        _padding = override_default('padding', padding)
-        _dilation = override_default('dilation', dilation)
-        _groups = override_default('groups', groups)
-        _bias = override_default('bias', bias)
-
+        _kernel, _stride, _padding, _dilation, _groups, _bias = args
         return ScopedResBlock.describe_default(prefix, suffix, parent,
-                                               block_depth=depth,
+                                               block_depth=block_depth,
                                                conv_module=blueprint['type'],
-                                               bn_module=ScopedBatchNorm2d,
-                                               act_module=ScopedReLU,
+                                               bn_module=bn_module,
+                                               act_module=act_module,
                                                in_channels=input_shape[1],
                                                out_channels=output_shape[1],
                                                kernel_size=_kernel,
@@ -234,4 +233,10 @@ class ScopedResBlock(Sequential):
                                                dilation=_dilation,
                                                groups=_groups,
                                                bias=_bias,
-                                               callback=callback)
+                                               callback=callback,
+                                               conv_kwargs=conv_kwargs,
+                                               bn_kwargs=bn_kwargs,
+                                               act_kwargs=act_kwargs,
+                                               unit_module=unit_module,
+                                               dropout_p=dropout_p,
+                                               residual=residual,)
