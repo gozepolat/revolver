@@ -259,7 +259,7 @@ class ScopedMetaMasked(Module):
             return a
 
         if gen_in_channels < 1:
-            gen_in_channels = gcd(out_shape[1], 27 * 32)
+            gen_in_channels = gcd(out_shape[1], 864)
 
         gen_out_channels = gen_in_channels
 

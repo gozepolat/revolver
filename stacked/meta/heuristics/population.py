@@ -28,7 +28,8 @@ def get_layer_cost(blueprint):
     """Input and output shape dependent cost for convolution"""
     input_shape = blueprint['input_shape']
     output_shape = blueprint['output_shape']
-    return np.prod(input_shape) * np.prod(output_shape)
+    scale = common.POPULATION_LAYER_ESTIMATION_SCALE
+    return scale * np.prod(input_shape) * np.prod(output_shape)
 
 
 def get_ensemble_cost(blueprint):
@@ -36,7 +37,8 @@ def get_ensemble_cost(blueprint):
     input_shape = blueprint['input_shape']
     output_shape = blueprint['output_shape']
     n = len(blueprint['iterable_args'])
-    return np.prod(input_shape) * np.prod(output_shape) * n * 3
+    scale = common.POPULATION_LAYER_ESTIMATION_SCALE
+    return scale * np.prod(input_shape) * np.prod(output_shape) * n * 3
 
 
 def estimate_cost(blueprint):
@@ -169,10 +171,13 @@ class Population(object):
         self.iteration = 1
         self.generate_new()
 
-    def replace_individual(self, index, genotype):
+    def replace_individual(self, index, blueprint):
         """Replace the individual at the given index with a new one"""
-        self.genotypes[index] = (genotype['meta']['score'], genotype)
-        self.ids[index] = id(genotype)
+        if 'score' not in blueprint['meta']:
+            blueprint['meta']['score'] = get_genotype_score(blueprint)
+
+        self.genotypes[index] = blueprint
+        self.ids[index] = id(blueprint)
 
     def add_individual(self, blueprint):
         """Add a single individual to the population"""
@@ -181,7 +186,10 @@ class Population(object):
                 % blueprint['name'])
             return
 
-        self.genotypes.append((get_genotype_score(blueprint), blueprint))
+        if 'score' not in blueprint['meta']:
+            blueprint['meta']['score'] = get_genotype_score(blueprint)
+
+        self.genotypes.append(blueprint)
         self.ids.append(id(blueprint))
 
     def generate_new(self):
@@ -195,7 +203,7 @@ class Population(object):
         """Randomly pick genotype indices, favor lower scores"""
         if sample_size == 0:
             sample_size = self.options.sample_size
-        distribution = np.array([p * 1e-12 for p, _ in self.genotypes])
+        distribution = np.array([bp['meta']['score'] for bp in self.genotypes])
         distribution = softmax(np.max(distribution) - distribution)
         return np.random.choice(range(len(distribution)),
                                 sample_size, p=distribution, replace=False)
@@ -205,7 +213,7 @@ class Population(object):
         weight = self.options.update_score_weight
         indices = self.pick_indices()
         for i in indices:
-            _, bp = self.genotypes[i]
+            bp = self.genotypes[i]
             new_score = self.options.utility(bp, self.options)
             update_score(bp, new_score, weight=weight)
 
@@ -246,16 +254,17 @@ class Population(object):
         r1 = r2 = 0
 
         for i, bp in enumerate(self.genotypes):
-            score = bp['meta']['score']
+            if 'score' in bp['meta']:
+                score = bp['meta']['score']
 
-            if score1 < score:
-                score2 = score1
-                r2 = r1
-                score1 = score
-                r1 = i
-            elif score2 < score:
-                score2 = score
-                r2 = i
+                if score1 < score:
+                    score2 = score1
+                    r2 = r1
+                    score1 = score
+                    r1 = i
+                elif score2 < score:
+                    score2 = score
+                    r2 = i
 
         return r1, r2
 
@@ -263,7 +272,7 @@ class Population(object):
         """A single step of evolution"""
         if options is not None:
             self.options = options
-        
+
         if len(self.genotypes) == 0:
             self.generate_new()
 

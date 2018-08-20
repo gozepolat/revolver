@@ -338,8 +338,8 @@ def op_over_item(blueprint1, blueprint2, key, fn=swap_child):
     if key in blueprint1 and key in blueprint2:
         key1 = blueprint1[key]
         key2 = blueprint2[key]
-
-        if (key1['input_shape'] == key2['input_shape']
+        if (key1 is not None and key2 is not None
+                and key1['input_shape'] == key2['input_shape']
                 and key1['input_shape'] is not None
                 and key1['output_shape'] is not None
                 and key1['output_shape'] == key2['output_shape']):

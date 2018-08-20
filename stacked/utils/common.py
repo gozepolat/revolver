@@ -32,6 +32,8 @@ PREVIOUS_LABEL = None
 CURRENT_LABEL = None
 TRAIN = False
 
+POPULATION_LAYER_ESTIMATION_SCALE = 1e-12
+
 
 def get_cuda(param, _type='float'):
     return getattr(param.cuda(), _type)()

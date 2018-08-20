@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-import common
+from stacked.utils import common
 from logging import warning
 import numpy as np
-from transformer import normalize_index, denormalize_index, normalize_float, denormalize_float
+from stacked.utils.transformer import normalize_index, denormalize_index, normalize_float, denormalize_float
 
 
 def log(log_func, msg):
