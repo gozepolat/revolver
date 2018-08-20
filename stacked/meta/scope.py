@@ -88,6 +88,10 @@ def unregister(scope):
         del common.SCOPE_DICTIONARY[scope]
 
 
+def is_registered(scope):
+    return scope in common.SCOPE_DICTIONARY
+
+
 def get_meta(scope):
     """Get meta information about the scope"""
     validate_scope(scope)

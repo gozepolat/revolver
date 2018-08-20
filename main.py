@@ -8,7 +8,8 @@ from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.utils.transformer import all_to_none
 from stacked.utils import common
 from stacked.utils.usage_helpers import train_single_network, \
-    adjust_options, create_single_engine, train_with_single_engine
+    adjust_options, create_single_engine, train_with_single_engine, \
+    train_population
 from stacked.meta.heuristics.population import generate_net_blueprints, \
     get_phenotype_score, Population
 import argparse
@@ -105,25 +106,6 @@ def set_default_options_for_population(options):
     options.use_tqdm = False
 
 
-def train_population(options):
-    p = Population(options)
-
-    net_blueprint = None
-    for i in range(options.max_iteration):
-        print('Population generation: %d' % i)
-        if i in options.lr_drop_epochs:
-            options.lr *= options.lr_decay_ratio
-        p.evolve_generation()
-        index = p.get_the_best_index()
-        net_blueprint = p.genotypes[index]
-        best_final = net_blueprint['meta']['score']
-        print("Current top score: {}".format(best_final))
-
-    # train the best model again
-    set_default_options_for_single_network(options)
-    train_with_single_engine(net_blueprint, options)
-
-
 if __name__ == '__main__':
     common.BLUEPRINT_GUI = False
     parsed = parse_args()
@@ -137,7 +119,14 @@ if __name__ == '__main__':
 
     elif parsed.mode == 'population_train':
         set_default_options_for_population(parsed)
-        train_population(parsed)
+        p = Population(parsed)
+        net_blueprint = train_population(p, parsed,
+                                         default_resnet_shape=(40, 9),
+                                         default_densenet_shape=(190, 40))
+
+        # train the best model again
+        set_default_options_for_single_network(parsed)
+        train_with_single_engine(net_blueprint, parsed)
 
     # dump all options
     print(parsed)

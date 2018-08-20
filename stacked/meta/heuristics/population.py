@@ -138,10 +138,11 @@ def make_mutable_and_randomly_unique(bp, p_unique, *_, **__):
         bp.make_unique()
 
 
-def generate_net_blueprints(population_size, options):
+def generate_net_blueprints(options):
     """Randomly generate genotypes"""
     max_width = options.width
     max_depth = options.depth
+    population_size = options.population_size
 
     depths = ClosedList(list(range(16, max_depth + 1, 6)))
     widths = ClosedList(list(range(1, max_width + 1)))
@@ -167,7 +168,7 @@ class Population(object):
         self.options = options
         self.genotypes = []
         self.ids = []
-        self.population_size = options.population_size
+        self.population_size = 0
         self.iteration = 1
         self.generate_new()
 
@@ -191,10 +192,11 @@ class Population(object):
 
         self.genotypes.append(blueprint)
         self.ids.append(id(blueprint))
+        self.population_size += 1
 
     def generate_new(self):
         """Randomly generate genotypes and then create individuals"""
-        genotypes = self.options.generator(self.population_size, self.options)
+        genotypes = self.options.generator(self.options)
 
         for blueprint in genotypes:
             self.add_individual(blueprint)

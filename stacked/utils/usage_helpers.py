@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from stacked.models.blueprinted.optimizer import ScopedEpochEngine
 from stacked.models.blueprinted.resnet import ScopedResNet
+from stacked.models.blueprinted.densenet import ScopedDenseNet
 from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
 from stacked.models.blueprinted.densefractalgroup import ScopedDenseFractalGroup
 from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
@@ -115,6 +116,33 @@ def train_with_single_engine(model, options):
     engine.hook('on_end', engine.state)
 
 
+def get_default_resnet(options):
+    prefix = str(ScopedResNet).split('.')[-1]
+    net = ScopedResNet.describe_default(prefix=prefix, num_classes=options.num_classes,
+                                        depth=options.depth, width=options.width,
+                                        block_depth=options.block_depth,
+                                        skeleton=(12, 24, 48), group_depths=options.group_depths,
+                                        input_shape=options.input_shape)
+    adjust_uniqueness(net, options)
+    return net
+
+
+def get_default_densenet(options):
+    prefix = str(ScopedDenseNet).split('.')[-1]
+    net = ScopedDenseNet.describe_default(prefix=prefix, num_classes=options.num_classes,
+                                          depth=options.depth, width=options.width,
+                                          block_depth=options.block_depth,
+                                          group_module=ScopedDenseConcatGroup, residual=False,
+                                          skeleton=(1, 1, 1), group_depths=options.group_depths,
+                                          block_module=ScopedBottleneckBlock,
+                                          dense_unit_module=ScopedBottleneckBlock,
+                                          input_shape=options.input_shape,
+                                          head_kernel=3, head_stride=1, head_padding=1,
+                                          head_modules=('conv', 'bn'))
+    adjust_uniqueness(net, options)
+    return net
+
+
 def adjust_uniqueness(net, options):
     def make_unique(bp, _, __):
         if 'all' in options.unique:
@@ -136,6 +164,62 @@ def adjust_uniqueness(net, options):
                     bp.make_unique()
 
     visit_modules(net, None, None, make_unique)
+
+
+def add_seed_individuals(population, options, resnet_shape, densenet_shape):
+    default_unique = options.unique
+    default_width = options.width
+    default_depth = options.depth
+
+    index = population.get_the_best_index()
+    score = population.genotypes[index]['meta']['score'] * 0.9
+
+    # seed ResNet
+    def add_resnet():
+        net = get_default_resnet(options)
+        net['meta']['score'] = score
+        population.add_individual(net)
+
+    options.height = resnet_shape[0]
+    options.width = resnet_shape[1]
+    options.unique = ('all',)
+    add_resnet()
+    options.unique = ('bn', 'convdim')
+    add_resnet()
+
+    # seed DenseNet,
+    def add_densenet():
+        network = get_default_densenet(options)
+        network['meta']['score'] = score
+        population.add_individual(network)
+
+    options.height = densenet_shape[0]
+    options.width = densenet_shape[1]
+    options.unique = ('all',)
+    add_densenet()
+    options.unique = ('bn', 'convdim')
+    add_densenet()
+
+    options.unique = default_unique
+    options.depth = default_depth
+    options.width = default_width
+
+
+def train_population(population, options, default_resnet_shape, default_densenet_shape):
+    add_seed_individuals(population, options, default_resnet_shape, default_densenet_shape)
+
+    net_blueprint = None
+    for i in range(options.max_iteration):
+        print('Population generation: %d' % i)
+        if i in options.lr_drop_epochs:
+            options.lr *= options.lr_decay_ratio
+        population.evolve_generation()
+        index = population.get_the_best_index()
+        net_blueprint = population.genotypes[index]
+        best_score = net_blueprint['meta']['score']
+        print("Current top score: {}".format(best_score))
+
+    return net_blueprint
 
 
 def train_single_network(options):
