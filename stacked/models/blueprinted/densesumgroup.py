@@ -169,6 +169,8 @@ class ScopedDenseSumGroup(Sequential):
                              'dilation': dilation,
                              'groups': groups,
                              'bias': bias}
+        if group_depth <= 1:
+            group_depth = 2
 
         concat_out_channels = in_channels
         if stride > 1:

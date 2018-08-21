@@ -112,6 +112,9 @@ class ScopedDenseConcatGroup(Sequential):
                              'dilation': dilation,
                              'groups': groups,
                              'bias': bias}
+        if group_depth <= 1:
+            group_depth = 2
+
         if stride > 1:
             block_prefix = '%s/block' % prefix
             suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, in_channels // 2,

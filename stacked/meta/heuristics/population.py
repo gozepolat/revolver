@@ -2,8 +2,14 @@ from stacked.meta.blueprint import visit_modules, \
     collect_keys, collect_modules, make_module
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.densenet import ScopedDenseNet
+from stacked.modules.scoped_nn import ScopedConv2d
 from stacked.modules.conv import Conv3d2d
 from stacked.meta.scope import unregister
+from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
+from stacked.models.blueprinted.resblock import ScopedResBlock
+from stacked.models.blueprinted.resgroup import ScopedResGroup
+from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
+from stacked.models.blueprinted.densesumgroup import ScopedDenseSumGroup
 from torch.nn import Conv2d, Linear
 from stacked.meta.heuristics.operators import mutate, \
     crossover, copyover
@@ -13,6 +19,8 @@ from stacked.utils.engine import get_num_parameters
 from stacked.utils import common
 from stacked.utils.transformer import softmax
 from stacked.utils.usage_helpers import make_net_blueprint
+from stacked.models.blueprinted.meta import ScopedMetaMasked
+from stacked.models.blueprinted.separable import ScopedDepthwiseSeparable
 from logging import warning
 import numpy as np
 import copy
@@ -87,7 +95,7 @@ def get_phenotype_score(genotype, options):
 
     for j in range(epoch):
         engine.start_epoch()
-        engine.train_n_samples(n_samples // 4)
+        engine.train_n_samples(n_samples // 25)
         if j == epoch - 1:
             engine.end_epoch()
         else:
@@ -146,13 +154,29 @@ def generate_net_blueprints(options):
 
     depths = ClosedList(list(range(16, max_depth + 1, 6)))
     widths = ClosedList(list(range(1, max_width + 1)))
+    conv_module = ClosedList([ScopedDepthwiseSeparable, ScopedConv2d])
+    residual = ClosedList([True, False])
+    skeleton = ClosedList([(12,12,12), (12,24,48), (6,8,10), (3,5,7)])
+    block_module = ClosedList([ScopedBottleneckBlock, ScopedResBlock])
+    group_module = ClosedList([ScopedDenseConcatGroup, ScopedDenseSumGroup, ScopedResGroup])
+    drop_p = ClosedList([0, 0.1, 0.25, 0.5])
+    block_depth = ClosedList([2,3])
     nets = ClosedList([ScopedResNet, ScopedDenseNet])
+
     blueprints = []
 
     for i in range(population_size):
         options.depth = depths.pick_random()[1]
         options.width = widths.pick_random()[1]
         options.net = nets.pick_random()[1]
+        options.block_module = block_module.pick_random()[1]
+        options.group_module = group_module.pick_random()[1]
+        options.conv_module = conv_module.pick_random()[1]
+        options.residual = residual.pick_random()[1]
+        options.skeleton = skeleton.pick_random()[1]
+        options.drop_p = drop_p.pick_random()[1]
+        options.block_depth = block_depth.pick_random()[1]
+
         blueprint = make_net_blueprint(options, str(i))
 
         visit_modules(blueprint, 0.01, [],
