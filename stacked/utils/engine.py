@@ -20,6 +20,7 @@ class EpochEngine(object):
     def __init__(self):
         self.hooks = {}
         self.state = {}
+        self.retain_graph = False
 
     def hook(self, name, state):
         if name in self.hooks:
@@ -29,12 +30,13 @@ class EpochEngine(object):
         for i, sample in enumerate(self.state['iterator']):
             self.state['sample'] = sample
             self.hook('on_sample', self.state)
+            retain_graph = self.retain_graph
 
             def closure():
                 loss, output = self.state['network'](self.state['sample'])
                 self.state['output'] = output
                 self.state['loss'] = loss
-                loss.backward()
+                loss.backward(retain_graph=retain_graph)
                 self.hook('on_forward', self.state)
 
                 # to free memory in save_for_backward

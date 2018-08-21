@@ -16,7 +16,8 @@ class TestTrainer(unittest.TestCase):
 
     def test_feature_similarity_loss(self):
         common.BLUEPRINT_GUI = False
-        blueprint = ScopedEpochEngine.describe_default(depth=10,
+        blueprint = ScopedEpochEngine.describe_default(prefix='OptimizerEpochEngineWithLoss',
+                                                       depth=10,
                                                        criterion=ScopedFeatureSimilarityLoss,
                                                        callback=collect_features,
                                                        batch_size=16)
@@ -43,7 +44,7 @@ class TestTrainer(unittest.TestCase):
     def test_densenet(self):
         common.BLUEPRINT_GUI = False
         print("ScopedParamSimilarity")
-        net = ScopedDenseNet.describe_default(prefix='Net', num_classes=10,
+        net = ScopedDenseNet.describe_default(prefix='OptimizerNet', num_classes=10,
                                               depth=22, width=1,
                                               block_depth=2, drop_p=0.5,
                                               group_module=ScopedDenseSumGroup,
@@ -54,7 +55,7 @@ class TestTrainer(unittest.TestCase):
                                               head_kernel=3, head_stride=1, head_padding=1,
                                               head_modules=('conv', 'bn'))
 
-        engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
+        engine_blueprint = ScopedEpochEngine.describe_default(prefix='OptimizerEpochEngine',
                                                               net_blueprint=net,
                                                               max_epoch=1,
                                                               batch_size=16,

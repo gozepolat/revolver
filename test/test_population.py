@@ -45,7 +45,6 @@ def get_options():
     # log base for the number of parameters
     options.params_favor_rate = 100
 
-    options.population_size = 7
     options.epoch_per_generation = 1
     options.dropout_p = 0.0
     options.drop_p = 0.5
@@ -67,7 +66,7 @@ def get_options():
     options.unique = ('bn',)
 
     # number of updated individuals per generation
-    options.sample_size = 3
+    options.sample_size = 2
     options.update_score_weight = 0.2
     options.max_iteration = 3
 
@@ -130,7 +129,7 @@ class TestPopulation(unittest.TestCase):
 
     def test_population_convergence(self):
         common.BLUEPRINT_GUI = False
-        common.POPULATION_LAYER_ESTIMATION_SCALE = 1e-7
+        common.POPULATION_LAYER_ESTIMATION_SCALE = 1e-9
         p = population.Population(self.options)
 
         index = p.get_the_best_index()

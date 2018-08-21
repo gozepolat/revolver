@@ -150,6 +150,7 @@ class ScopedEpochEngine(EpochEngine):
         self.scope = scope
         self.blueprint = blueprint
 
+        self.retain_graph = blueprint['retain_graph']
         engine = self
 
         train_loader = self.train_loader = make_module(blueprint['train_loader'])
@@ -341,6 +342,9 @@ class ScopedEpochEngine(EpochEngine):
                                                                       suffix, default, optimizer_type,
                                                                       optimizer_parameter_picker,
                                                                       momentum, weight_decay)
+        default['retain_graph'] = False
+        if criterion != ScopedCrossEntropyLoss:
+            default['retain_graph'] = True
 
         if net_blueprint is not None:
             default['net'] = net_blueprint

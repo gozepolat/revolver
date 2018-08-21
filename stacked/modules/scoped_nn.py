@@ -9,6 +9,7 @@ from torch.nn import Conv2d, Conv3d, BatchNorm2d, \
 from stacked.modules.conv import Conv3d2d, get_conv_out_shape
 from stacked.modules.loss import FeatureSimilarityLoss, \
     ParameterSimilarityLoss, FeatureConvergenceLoss
+import torch
 
 
 @add_metaclass(ScopedMeta)
@@ -16,7 +17,6 @@ class ScopedConv2d(Conv2d):
     def __init__(self, scope, in_channels, out_channels,
                  kernel_size, stride=1, padding=0,
                  dilation=1, groups=1, bias=True, *_, **__):
-
         super(ScopedConv2d, self).__init__(in_channels, out_channels,
                                            kernel_size, stride, padding,
                                            dilation, groups, bias)
@@ -52,17 +52,16 @@ class ScopedConv2d(Conv2d):
         bp = Blueprint(prefix, suffix, parent, False,
                        ScopedConv2d, kwargs=kwargs)
 
-        assert(input_shape is not None)
+        assert (input_shape is not None)
         bp['input_shape'] = input_shape
         bp['output_shape'] = get_conv_out_shape(input_shape, out_channels,
                                                 kernel_size, stride,
                                                 padding, dilation)
-        assert(in_channels == bp['input_shape'][1])
+        assert (in_channels == bp['input_shape'][1])
         return bp
 
     @staticmethod
     def adjust_args(conv_kwargs, kernel_size, stride, padding, dilation, groups, bias):
-
         def override_default(key, default):
             return conv_kwargs[key] if default is None else default
 
@@ -275,17 +274,6 @@ class ScopedHardTanh(Hardtanh):
 
 
 @add_metaclass(ScopedMeta)
-class ParameterModule(Module):
-    def __init__(self, scope, value, size, *args, **kwargs):
-        super(ParameterModule, self).__init__(*args, **kwargs)
-        self.scope = scope
-        self.parameter = Parameter(scalar_to_tensor(value, size))
-
-    def forward(self, *_):
-        return self.parameter
-
-
-@add_metaclass(ScopedMeta)
 class ScopedCrossEntropyLoss(CrossEntropyLoss):
     def __init__(self, scope, *args, **kwargs):
         super(ScopedCrossEntropyLoss, self).__init__(*args, **kwargs)
@@ -332,4 +320,3 @@ class ScopedMaxPool2d(MaxPool2d):
     def __init__(self, scope, *args, **kwargs):
         super(ScopedMaxPool2d, self).__init__(*args, **kwargs)
         self.scope = scope
-
