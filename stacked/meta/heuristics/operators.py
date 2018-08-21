@@ -20,7 +20,7 @@ def mutate_sub(blueprint, key, diameter, p, p_decay):
 
     if (issubclass(type(element), Blueprint)
             and len(element['mutables']) > 0):
-        random_key = np.random.choice(element['mutables'].keys())
+        random_key = np.random.choice(list(element['mutables'].keys()))
         return mutate(element, random_key, diameter, p, p_decay)
 
     return False
@@ -76,7 +76,7 @@ def mutate_current(blueprint, key, diameter, p):
 
 
 def mutate(blueprint, key=None, diameter=1.0, p=0.05, p_decay=1.0,
-           choice_fn=lambda bp: np.random.choice(bp['mutables'].keys())):
+           choice_fn=lambda bp: np.random.choice(list(bp['mutables'].keys()))):
     """Mutate the blueprint element given the key
 
     Args:
@@ -220,7 +220,7 @@ def pick_key_dict(iterable1, iterable2,
 def pick_random_cross_indices(shapes1, shapes2, keys):
     """Randomly pick indices, and matching key (shape) in shapes"""
     if len(keys) > 0:
-        key = np.random.choice(keys)
+        key = np.random.choice(list(keys))
         assert(len(shapes1[key]) > 0 and len(shapes2[key]) > 0)
         index1 = np.random.choice(shapes1[key])
         index2 = np.random.choice(shapes2[key])

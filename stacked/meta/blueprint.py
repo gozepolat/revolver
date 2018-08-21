@@ -413,16 +413,17 @@ def get_io_shape_indices(children):
     return indices
 
 
-def toggle_uniqueness(blueprint, key):
+def toggle_uniqueness(blueprint, key, favor_common=0.5):
     if isinstance(blueprint[key], Blueprint):
         if blueprint[key]['unique']:
             blueprint[key].make_common()
-        else:
+        elif np.random.random() > favor_common:
             blueprint[key].make_unique()
 
 
 def make_module(blueprint):
     """Construct named (or scoped) object given the blueprint"""
+    assert(blueprint is not None)
     try:
         module = blueprint['type'](blueprint['name'], *blueprint['args'],
                                    **blueprint['kwargs'])

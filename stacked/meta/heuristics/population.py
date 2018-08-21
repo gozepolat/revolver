@@ -87,7 +87,7 @@ def get_phenotype_score(genotype, options):
 
     for j in range(epoch):
         engine.start_epoch()
-        engine.train_n_samples(n_samples)
+        engine.train_n_samples(n_samples // 4)
         if j == epoch - 1:
             engine.end_epoch()
         else:

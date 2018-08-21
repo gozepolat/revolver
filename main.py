@@ -77,6 +77,7 @@ def set_default_options_for_single_network(options):
     options.head_modules = ('conv', 'bn')
     options.unique = ('bn',)
     options.use_tqdm = True
+    options.test_every_nth = 2
 
 
 def set_default_options_for_population(options):
@@ -92,7 +93,7 @@ def set_default_options_for_population(options):
     options.epoch_per_generation = 1
 
     # number of updated individuals per generation
-    options.sample_size = 32
+    options.sample_size = 80
     options.update_score_weight = 0.2
     options.max_iteration = options.epochs
 
