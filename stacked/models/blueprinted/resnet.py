@@ -3,7 +3,7 @@ import torch
 from torch.nn import ModuleList
 import torch.nn.functional as F
 from stacked.modules.scoped_nn import ScopedConv2d, \
-    ScopedBatchNorm2d, ScopedLinear, ScopedReLU
+    ScopedBatchNorm2d, ScopedLinear, ScopedReLU, ScopedMaxPool2d
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
@@ -22,6 +22,7 @@ class ScopedResNet(Sequential):
         scope (string): Scope for the self (ScopedResBlock instance)
         blueprint: Description of the scopes and member module types
     """
+
     def __init__(self, scope, blueprint, *_, **__):
         super(ScopedResNet, self).__init__(blueprint)
         self.scope = scope
@@ -38,7 +39,7 @@ class ScopedResNet(Sequential):
         for bp in blueprint['bns']:
             self.bns.append(make_module(bp))
 
-        assert(len(self.bns) + self.shortcut_index == len(self.container))
+        assert (len(self.bns) + self.shortcut_index == len(self.container))
 
         self.linear = make_module(blueprint['linear'])
         self.callback = blueprint['callback']
@@ -78,10 +79,14 @@ class ScopedResNet(Sequential):
         return (depth - 4) // (num_groups * block_depth)
 
     @staticmethod
-    def __set_default_items(prefix, default, shape, ni, no, kernel_size,
-                            act_module, conv_module, dilation=1,
-                            groups=1, bias=False, callback=all_to_none,
-                            conv_kwargs=None, act_kwargs=None):
+    def __set_default_items(prefix, default, shape, ni, no,
+                            kernel_size=7, stride=2, padding=3, dilation=1,
+                            pool_kernel_size=3, pool_stride=2, pool_padding=1,
+                            groups=1, bias=False, unit_module=ScopedConvUnit,
+                            act_module=ScopedReLU, act_kwargs=None,
+                            conv_module=ScopedConv2d, conv_kwargs=None,
+                            bn_module=ScopedBatchNorm2d,
+                            callback=all_to_none, module_order=None):
         """Set blueprint items that are not Sequential type"""
 
         default['input_shape'] = shape
@@ -96,16 +101,27 @@ class ScopedResNet(Sequential):
         suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (shape[1], ni, kernel_size, 1,
                                               1, dilation, groups, bias)
 
-        default['conv'] = conv_module.describe_default('%s/conv' % prefix, suffix,
-                                                       default, shape,
-                                                       in_channels=shape[1],
-                                                       out_channels=ni,
+        default['conv'] = unit_module.describe_default("%s/conv" % prefix,
+                                                       suffix, default, shape,
+                                                       shape[1], ni,
                                                        kernel_size=kernel_size,
-                                                       stride=1, padding=1,
-                                                       dilation=dilation,
+                                                       stride=stride,
+                                                       padding=padding, dilation=1,
                                                        groups=groups, bias=bias,
+                                                       act_module=act_module,
+                                                       bn_module=bn_module,
+                                                       conv_module=conv_module,
                                                        callback=callback,
-                                                       conv_kwargs=conv_kwargs)
+                                                       conv_kwargs=conv_kwargs,
+                                                       bn_kwargs=None,
+                                                       act_kwargs=None,
+                                                       dropout_p=0.0,
+                                                       drop_kwargs=None,
+                                                       module_order=module_order,
+                                                       pool_module=ScopedMaxPool2d,
+                                                       pool_kernel_size=pool_kernel_size,
+                                                       pool_stride=pool_stride,
+                                                       pool_padding=pool_padding)
 
         # return input shape for __set_children
         return default['conv']['output_shape']
@@ -162,7 +178,7 @@ class ScopedResNet(Sequential):
                        bn_kwargs=None, act_kwargs=None,
                        unit_module=ScopedConvUnit, group_module=ScopedResGroup,
                        fractal_depth=1, dense_unit_module=ScopedConvUnit,
-                       no_weights=False):
+                       weight_sum=False):
         """Sequentially set children and bn blueprints"""
         children = []
         default['bns'] = []
@@ -184,7 +200,7 @@ class ScopedResNet(Sequential):
                                                   group_depth=group_depth, drop_p=drop_p,
                                                   fractal_depth=fractal_depth,
                                                   dense_unit_module=dense_unit_module,
-                                                  no_weights=no_weights)
+                                                  weight_sum=weight_sum)
             shape = block['output_shape']
             children.append(block)
             stride = 2
@@ -204,14 +220,21 @@ class ScopedResNet(Sequential):
                       bn_kwargs=None, act_kwargs=None,
                       unit_module=ScopedConvUnit, group_module=ScopedResGroup,
                       fractal_depth=1, dense_unit_module=ScopedConvUnit,
-                      no_weights=False):
+                      weight_sum=False, head_kernel=7, head_stride=2,
+                      head_padding=3, head_pool_kernel=3, head_pool_stride=2,
+                      head_pool_padding=1, head_modules=('conv', 'bn', 'act', 'pool')):
         """Set the items and the children of the default blueprint object"""
         default = Blueprint(prefix, suffix, parent, False, ScopedResNet)
 
         shape = ScopedResNet.__set_default_items(prefix, default, shape, ni, no,
-                                                 kernel_size, act_module, conv_module,
-                                                 dilation, groups, bias, callback,
-                                                 conv_kwargs, act_kwargs)
+                                                 kernel_size=head_kernel, stride=head_stride,
+                                                 padding=head_padding, pool_kernel_size=head_pool_kernel,
+                                                 pool_stride=head_pool_stride, pool_padding=head_pool_padding,
+                                                 groups=1, bias=False, unit_module=unit_module,
+                                                 act_module=act_module, act_kwargs=act_kwargs,
+                                                 conv_module=conv_module,
+                                                 conv_kwargs=conv_kwargs, bn_module=bn_module,
+                                                 callback=callback, module_order=head_modules)
 
         shape = ScopedResNet.__set_children(prefix, default, ni, widths,
                                             group_depths, block_depth,
@@ -223,7 +246,7 @@ class ScopedResNet(Sequential):
                                             conv_kwargs, bn_kwargs, act_kwargs,
                                             unit_module, group_module,
                                             fractal_depth, dense_unit_module,
-                                            no_weights)
+                                            weight_sum)
 
         default['output_shape'] = (shape[0], num_classes)
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
@@ -245,7 +268,11 @@ class ScopedResNet(Sequential):
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, group_module=ScopedResGroup,
                          fractal_depth=1, shortcut_index=-1,
-                         dense_unit_module=ScopedConvUnit, no_weights=False, *_, **__):
+                         dense_unit_module=ScopedConvUnit, weight_sum=False,
+                         head_kernel=7, head_stride=2, head_padding=3,
+                         head_pool_kernel=3, head_pool_stride=2,
+                         head_pool_padding=1, head_modules=('conv', 'bn', 'act', 'pool'),
+                         *_, **__):
         """Create a default ResNet blueprint
 
         Args:
@@ -281,7 +308,14 @@ class ScopedResNet(Sequential):
             fractal_depth (int): Recursion depth for fractal group module
             shortcut_index (int): Starting index for groups shortcuts to the linear layer
             dense_unit_module: Children modules that will be used in dense connections
-            no_weights (bool): Weight sum and softmax the reused blocks or not
+            weight_sum (bool): Weight sum and softmax the reused blocks or not
+            head_kernel (int or tuple): Size of the kernel for head conv
+            head_stride (int or tuple): Size of the stride for head conv
+            head_padding (int or tuple): Size of the padding for head conv
+            head_pool_kernel (int or tuple): Size of the first pool kernel
+            head_pool_stride (int or tuple): Size of the first pool stride
+            head_pool_padding (int or tuple): Size of the first pool padding
+            head_modules (iterable): Key list of head modules
         """
         if input_shape is None:
             # assume batch_size = 1, in_channels: 3, h: 32, and w : 32
@@ -312,7 +346,14 @@ class ScopedResNet(Sequential):
                                              callback, drop_p, dropout_p, residual,
                                              conv_kwargs, bn_kwargs, act_kwargs,
                                              unit_module, group_module,
-                                             fractal_depth, dense_unit_module, no_weights)
+                                             fractal_depth, dense_unit_module,
+                                             weight_sum, head_kernel=head_kernel,
+                                             head_stride=head_stride,
+                                             head_padding=head_padding,
+                                             head_pool_kernel=head_pool_kernel,
+                                             head_pool_stride=head_pool_stride,
+                                             head_pool_padding=head_pool_padding,
+                                             head_modules=head_modules)
 
         ScopedResNet.__readjust_tail(prefix, default,
                                      shortcut_index=shortcut_index,

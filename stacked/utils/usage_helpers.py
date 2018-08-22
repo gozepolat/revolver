@@ -86,6 +86,10 @@ def train_with_single_engine(model, options):
         options.dataset, )
 
     filename = os.path.join(options.save_folder, name)
+    print("Engine blueprint:")
+    print("=====================")
+    print("%s" % engine.blueprint)
+    print("=====================")
 
     print("Network architecture:")
     print("=====================")
@@ -237,17 +241,24 @@ def train_single_network(options):
 
 def adjust_options(options):
     num_channels = 3
-    num_classes = 10
     width = height = 32
     group_depths = None
     skeleton = json.loads(options.skeleton)
 
     if options.dataset == 'ILSVRC2012':
-        options.num_classes = 1000
-        options.width = options.height = 224
+        num_classes = 1000
+        width = height = 224
         num_samples = 1200000
-        group_depths = (1, 1, 1, 2, 4, 2)
-        skeleton = [4, 8, 16, 48, 64, 72]
+
+        # DenseNet 161 architecture
+        group_depths = (6, 12, 35, 24)
+        skeleton = [48, 48, 48, 48]
+
+        # ResNet 152 architecture
+        if options.net == ScopedResNet:
+            group_depths = (3, 8, 36, 3)
+            skeleton = [64, 128, 256, 512]
+            options.width = 4
     elif options.dataset == 'tiny-imagenet-200':
         num_classes = 200
         width = height = 56
