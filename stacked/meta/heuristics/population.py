@@ -83,19 +83,20 @@ def get_genotype_score(genotype, *_, **__):
 def get_phenotype_score(genotype, options):
     """Estimate score by training / testing the model"""
     engine_maker = options.engine_maker
-    n_samples = options.num_samples
+    n_samples = options.num_samples // 100
     epoch = options.epoch_per_generation
     favor_params = options.params_favor_rate
     engine = engine_maker(genotype, options)
 
-    print("Getting score for the phenotype %s:" % genotype['name'])
+    print("Getting score for the phenotype {} with id: {}".format(genotype['name'],
+                                                                  id(engine.net.blueprint)))
     print("=====================")
     print(engine.net)
     print("=====================")
 
     for j in range(epoch):
         engine.start_epoch()
-        engine.train_n_samples(n_samples // 25)
+        engine.train_n_samples(n_samples)
         if j == epoch - 1:
             engine.end_epoch()
         else:
@@ -226,11 +227,16 @@ class Population(object):
             self.add_individual(blueprint)
 
     def pick_indices(self, sample_size=0):
-        """Randomly pick genotype indices, favor lower scores"""
+        """Randomly pick genotype indices, sometimes favor lower scores"""
         if sample_size == 0:
             sample_size = self.options.sample_size
+
+        if np.random.random() < 0.5:
+            return np.random.choice(range(len(self.genotypes)),
+                                    sample_size, replace=False)
+
         distribution = np.array([bp['meta']['score'] for bp in self.genotypes])
-        distribution = softmax(np.max(distribution) - distribution)
+        distribution = softmax(np.max(distribution) - distribution * 0.5)
         return np.random.choice(range(len(distribution)),
                                 sample_size, p=distribution, replace=False)
 

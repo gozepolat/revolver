@@ -13,7 +13,7 @@ from torch.nn.functional import dropout
 
 @add_metaclass(ScopedMeta)
 class ScopedBottleneckBlock(Sequential):
-    """Pre-ResNet BottleNeck block
+    """DenseNet BottleNeck block
 
     Args:
         scope: Scope for the self (ScopedBottleneckBlock instance)

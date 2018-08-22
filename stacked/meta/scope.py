@@ -16,11 +16,9 @@ def log(log_func, msg):
 def validate_scope(scope):
     if isinstance(scope, string_types):
         if len(scope) < 1:
-            traceback = sys.exc_info()[2]
-            raise_(ValueError, "Scope string can not be empty", traceback)
+            raise ValueError("Scope string can not be empty")
     else:
-        traceback = sys.exc_info()[2]
-        raise_(TypeError, "Scope must be a string", traceback)
+        raise TypeError("Scope must be a string")
 
 
 class ScopedMeta(type):
@@ -55,7 +53,7 @@ class ScopedMeta(type):
             traceback = sys.exc_info()[2]
             error = "Same scope, different types: {}! \
             Current: {}, registered type: {}".format(scope, cls, scoped_type)
-            raise_(TypeError, error, traceback)
+            raise TypeError(error)
 
         return scoped_instance
 
@@ -98,7 +96,7 @@ def get_meta(scope):
     if scope in common.SCOPE_DICTIONARY:
         return common.SCOPE_DICTIONARY[scope]['instance']
     else:
-        raise_(KeyError, "scope {} not recorded".format(scope))
+        raise KeyError("scope {} not recorded".format(scope))
 
 
 def get_elements():
@@ -107,4 +105,3 @@ def get_elements():
 
 def generate_random_scope(prefix=""):
     return '~'.join([prefix, uuid.uuid4().hex])
-

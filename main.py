@@ -128,6 +128,7 @@ if __name__ == '__main__':
         # train the best model again
         set_default_options_for_single_network(parsed)
         parsed.lr = 0.1
+        print("Best model blueprint: %s" % net_blueprint)
         train_with_single_engine(net_blueprint, parsed)
 
     # dump all options

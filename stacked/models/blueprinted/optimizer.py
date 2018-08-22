@@ -169,7 +169,7 @@ class ScopedEpochEngine(EpochEngine):
         lr_decay_ratio = blueprint['lr_decay_ratio']
         lr_drop_epochs = blueprint['lr_drop_epochs']
 
-        train_id = id(blueprint)
+        train_id = id(net.blueprint)
         hooks = EngineEventHooks(engine, train_loader, test_loader, net,
                                  net_runner, optimizer_maker, lr,
                                  lr_decay_ratio, lr_drop_epochs,

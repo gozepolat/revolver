@@ -135,7 +135,7 @@ class TestPopulation(unittest.TestCase):
         index = p.get_the_best_index()
         best_init = p.genotypes[index]['meta']['score']
 
-        for i in range(3):
+        for i in range(2):
             p.evolve_generation()
             print('Population generation: %d' % i)
 
