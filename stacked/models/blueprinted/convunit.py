@@ -82,6 +82,8 @@ class ScopedConvUnit(Module):
         for key in module_order:
             if key == 'bn':
                 ni = input_shape[1]
+                suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
+                                                      padding, dilation, groups, bias)
                 set_batchnorm(default, prefix, suffix, ni, bn_module, bn_kwargs)
                 default['bn']['output_shape'] = input_shape
 
@@ -91,6 +93,8 @@ class ScopedConvUnit(Module):
 
             elif key == 'conv':
                 ni = input_shape[1]
+                suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
+                                                      padding, dilation, groups, bias)
                 set_conv(default, prefix, suffix, input_shape, ni, no, kernel_size,
                          stride, padding, dilation, groups, bias, conv_module,
                          conv_kwargs)

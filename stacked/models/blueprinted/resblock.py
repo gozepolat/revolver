@@ -101,6 +101,7 @@ class ScopedResBlock(Sequential):
         default['input_shape'] = input_shape
         default['callback'] = callback
         default['dropout_p'] = dropout_p
+        assert(ni == input_shape[1])
 
         # bn, act, conv
         ScopedConvUnit.set_unit_description(default, prefix, input_shape, ni, no,

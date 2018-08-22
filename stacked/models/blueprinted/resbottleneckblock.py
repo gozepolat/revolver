@@ -104,7 +104,7 @@ class ScopedResBottleneckBlock(Sequential):
         children = []
 
         if hidden == 0:
-            hidden = no // 4
+            hidden = max(3, no // 4)
 
         unit_prefix = '%s/unit' % prefix
         suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, hidden, 1, 1,
@@ -243,4 +243,4 @@ class ScopedResBottleneckBlock(Sequential):
                                                          groups=_groups,
                                                          bias=_bias,
                                                          callback=callback,
-                                                         hidden_channels=output_shape[1] * 4)
+                                                         hidden_channels=max(3, output_shape[1] // 4))

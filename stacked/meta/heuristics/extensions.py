@@ -1,5 +1,6 @@
 from stacked.models.blueprinted.ensemble import ScopedEnsemble
 from stacked.models.blueprinted.resblock import ScopedResBlock
+from stacked.models.blueprinted.resbottleneckblock import ScopedResBottleneckBlock
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.models.blueprinted.separable import ScopedDepthwiseSeparable
 from stacked.utils.domain import ClosedList, ClosedInterval
@@ -27,18 +28,20 @@ def extend_conv_mutables(blueprint, ensemble_size=5, block_depth=2):
     conv = blueprint['conv']
     parent = conv['parent']
     ensemble = ScopedEnsemble.describe_from_blueprint(prefix, '_ensemble',
-                                                      conv, parent,
-                                                      ensemble_size)
-    res_block = ScopedResBlock.describe_from_blueprint(prefix, "_block",
-                                                       conv, parent,
-                                                       block_depth)
+                                                      conv, parent, ensemble_size)
 
-    separable = ScopedDepthwiseSeparable.describe_from_blueprint(prefix,
-                                                                 '_separable',
+    res_block = ScopedResBlock.describe_from_blueprint(prefix, "_block",
+                                                       conv, parent, block_depth)
+
+    separable = ScopedDepthwiseSeparable.describe_from_blueprint(prefix, '_separable',
                                                                  conv, parent)
-    meta = ScopedMetaMasked.describe_from_blueprint(prefix, '_meta',
-                                                    conv, parent)
-    mutables = [conv, res_block, ensemble, meta, separable]
+
+    res_bottleneck = ScopedResBottleneckBlock.describe_from_blueprint(prefix, "_block", conv,
+                                                                      parent, block_depth)
+
+    meta = ScopedMetaMasked.describe_from_blueprint(prefix, '_meta', conv, parent)
+
+    mutables = [conv, res_block, ensemble, meta, separable, res_bottleneck]
 
     if 'conv' in blueprint['mutables']:
         elements = blueprint['mutables']['conv'].elements

@@ -6,6 +6,7 @@ from stacked.modules.scoped_nn import ScopedConv2d
 from stacked.modules.conv import Conv3d2d
 from stacked.meta.scope import unregister
 from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
+from stacked.models.blueprinted.resbottleneckblock import ScopedResBottleneckBlock
 from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.models.blueprinted.resgroup import ScopedResGroup
 from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
@@ -158,7 +159,7 @@ def generate_net_blueprints(options):
     conv_module = ClosedList([ScopedDepthwiseSeparable, ScopedConv2d])
     residual = ClosedList([True, False])
     skeleton = ClosedList([(12,12,12), (12,24,48), (6,8,10), (3,5,7)])
-    block_module = ClosedList([ScopedBottleneckBlock, ScopedResBlock])
+    block_module = ClosedList([ScopedBottleneckBlock, ScopedResBlock, ScopedResBottleneckBlock])
     group_module = ClosedList([ScopedDenseConcatGroup, ScopedDenseSumGroup, ScopedResGroup])
     drop_p = ClosedList([0, 0.1, 0.25, 0.5])
     block_depth = ClosedList([2,3])
@@ -179,7 +180,6 @@ def generate_net_blueprints(options):
         options.block_depth = block_depth.pick_random()[1]
 
         blueprint = make_net_blueprint(options, str(i))
-
         visit_modules(blueprint, 0.01, [],
                       make_mutable_and_randomly_unique)
         blueprints.append(blueprint)
