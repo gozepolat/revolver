@@ -80,13 +80,12 @@ class ScopedResBottleneckBlock(Sequential):
         default['callback'] = callback
         default['dropout_p'] = dropout_p
 
-        suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, 1, stride,
-                                              0, dilation, groups, bias)
-
         set_convdim(default, prefix, input_shape, ni, no, stride, dilation, groups,
                     bias, conv_module, True)
         out_shape = default['convdim']['output_shape']
 
+        suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (out_shape[1], no, 1, stride,
+                                              0, dilation, groups, bias)
         set_batchnorm(default, prefix, suffix, out_shape[1], bn_module, bn_kwargs)
         default['bn']['output_shape'] = out_shape
 

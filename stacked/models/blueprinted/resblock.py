@@ -123,7 +123,7 @@ class ScopedResBlock(Sequential):
                        callback=all_to_none, conv_kwargs=None,
                        bn_kwargs=None, act_kwargs=None, dropout_p=0.0):
         children = []
-        for i in range(depth-1):
+        for i in range(depth - 1):
             unit_prefix = '%s/unit' % prefix
             suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
                                                   padding, dilation, groups, bias)

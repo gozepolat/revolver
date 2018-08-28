@@ -22,7 +22,7 @@ from stacked.utils.transformer import softmax
 from stacked.utils.usage_helpers import make_net_blueprint
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.models.blueprinted.separable import ScopedDepthwiseSeparable
-from logging import warning
+from logging import warning, exception
 import numpy as np
 import copy
 import math
@@ -37,8 +37,7 @@ def get_layer_cost(blueprint):
     """Input and output shape dependent cost for convolution"""
     input_shape = blueprint['input_shape']
     output_shape = blueprint['output_shape']
-    scale = common.POPULATION_LAYER_ESTIMATION_SCALE
-    return scale * np.prod(input_shape) * np.prod(output_shape)
+    return math.log(np.prod(input_shape) * np.prod(output_shape))
 
 
 def get_ensemble_cost(blueprint):
@@ -46,8 +45,7 @@ def get_ensemble_cost(blueprint):
     input_shape = blueprint['input_shape']
     output_shape = blueprint['output_shape']
     n = len(blueprint['iterable_args'])
-    scale = common.POPULATION_LAYER_ESTIMATION_SCALE
-    return scale * np.prod(input_shape) * np.prod(output_shape) * n * 3
+    return math.log(np.prod(input_shape) * np.prod(output_shape) * n * 3)
 
 
 def estimate_cost(blueprint):
@@ -63,7 +61,7 @@ def estimate_cost(blueprint):
             cost += get_layer_cost(module)
         # ignore other layer types, e.g. locally_connected
 
-    return cost
+    return cost * common.POPULATION_COST_ESTIMATION_SCALE
 
 
 def get_share_ratio(blueprint):
@@ -108,7 +106,8 @@ def get_phenotype_score(genotype, options):
     # favor lower number of parameters
     num_parameters = get_num_parameters(engine.state['network'].net)
     num_parameters = math.log(num_parameters, favor_params)
-    score = engine.state['score'] + num_parameters
+    score = engine.state['score'] * (1.0 + num_parameters
+                                     * common.POPULATION_COST_NUM_PARAMETER_SCALE)
 
     # create / delete the engine each time to save memory
     unregister(engine.blueprint['name'])
@@ -231,12 +230,18 @@ class Population(object):
         if sample_size == 0:
             sample_size = self.options.sample_size
 
-        if np.random.random() < 0.5:
+        if np.random.random() < 0.8:
             return np.random.choice(range(len(self.genotypes)),
                                     sample_size, replace=False)
 
         distribution = np.array([bp['meta']['score'] for bp in self.genotypes])
         distribution = softmax(np.max(distribution) - distribution * 0.5)
+
+        if np.count_nonzero(distribution) < sample_size:
+            log(warning, "Population.pick_indices: Scores are not diverse enough")
+            return np.random.choice(range(len(self.genotypes)),
+                                    sample_size, replace=False)
+
         return np.random.choice(range(len(distribution)),
                                 sample_size, p=distribution, replace=False)
 
@@ -246,7 +251,15 @@ class Population(object):
         indices = self.pick_indices()
         for i in indices:
             bp = self.genotypes[i]
-            new_score = self.options.utility(bp, self.options)
+
+            # penalize any individual that caused an exception
+            new_score = 1e20
+            try:
+                new_score = self.options.utility(bp, self.options)
+            except (RuntimeError, ValueError):
+                exception("Population.update_scores: Caught exception when scoring the model")
+                log(warning, "This individual caused exception: %s" % bp)
+
             update_score(bp, new_score, weight=weight)
 
     def get_average_score(self):

@@ -85,6 +85,7 @@ class ScopedConvUnit(Module):
                 suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
                                                       padding, dilation, groups, bias)
                 set_batchnorm(default, prefix, suffix, ni, bn_module, bn_kwargs)
+                default['bn']['input_shape'] = input_shape
                 default['bn']['output_shape'] = input_shape
 
             elif key == 'act':

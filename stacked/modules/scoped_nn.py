@@ -6,10 +6,11 @@ from torch.nn import Conv2d, Conv3d, BatchNorm2d, \
     BatchNorm3d, Linear, Module, ModuleList, Parameter, \
     ParameterList, ReLU, ReLU6, Tanh, Hardtanh, Sigmoid, \
     CrossEntropyLoss, AvgPool2d, Dropout2d, MaxPool2d
-from stacked.modules.conv import Conv3d2d, get_conv_out_shape
+from stacked.modules.conv import Conv3d2d, get_conv_out_shape, Conv2dDeconv2dConcat
 from stacked.modules.loss import FeatureSimilarityLoss, \
     ParameterSimilarityLoss, FeatureConvergenceLoss
 import torch
+import copy
 
 
 @add_metaclass(ScopedMeta)
@@ -72,6 +73,42 @@ class ScopedConv2d(Conv2d):
         _groups = override_default('groups', groups)
         _bias = override_default('bias', bias)
         return _kernel, _stride, _padding, _dilation, _groups, _bias
+
+
+@add_metaclass(ScopedMeta)
+class ScopedConv2dDeconv2dConcat(Conv2dDeconv2dConcat):
+    def __init__(self, scope, *args, **kwargs):
+        super(ScopedConv2dDeconv2dConcat, self).__init__(*args, **kwargs)
+        self.scope = scope
+
+    @staticmethod
+    def describe_default(*args, **kwargs):
+        bp = ScopedConv2d.describe_default(*args, **kwargs)
+        bp['type'] = ScopedConv2dDeconv2dConcat
+        return bp
+
+    @staticmethod
+    def describe_from_blueprint(prefix, suffix, blueprint, parent, *_, **__):
+        input_shape = blueprint['input_shape']
+        output_shape = blueprint['output_shape']
+        kwargs = blueprint['kwargs']
+        suffix = "%s_%d_%d_%d_%d_%d_%d_%d_%d" % (suffix, input_shape[1],
+                                                 output_shape[1],
+                                                 kwargs['kernel_size'],
+                                                 kwargs['stride'],
+                                                 kwargs['padding'],
+                                                 kwargs['dilation'],
+                                                 kwargs['groups'],
+                                                 kwargs['bias'],)
+        if parent is None:
+            parent = blueprint['parent']
+        bp = copy.deepcopy(blueprint)
+        bp['type'] = ScopedConv2dDeconv2dConcat
+        bp['prefix'] = '%s/conv' % prefix
+        bp['suffix'] = suffix
+        bp['parent'] = parent
+        bp.refresh_name()
+        return bp
 
 
 @add_metaclass(ScopedMeta)

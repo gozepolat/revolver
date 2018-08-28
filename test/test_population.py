@@ -127,11 +127,16 @@ class TestPopulation(unittest.TestCase):
         for bp in p.genotypes:
             self.model_run(make_module(bp))
 
+    def test_pick_indices(self):
+        common.BLUEPRINT_GUI = False
+        self.options.population_size = 500
+        p = population.Population(self.options)
+        p.pick_indices(100)
+
+    @unittest.skip("Slow")
     def test_population_convergence(self):
         common.BLUEPRINT_GUI = False
-        common.POPULATION_LAYER_ESTIMATION_SCALE = 1e-9
         p = population.Population(self.options)
-
         index = p.get_the_best_index()
         best_init = p.genotypes[index]['meta']['score']
 

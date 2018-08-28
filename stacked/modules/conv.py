@@ -1,5 +1,14 @@
 # -*- coding: utf-8 -*-
-from torch.nn import Module, Conv3d
+from torch.nn import Module, Conv3d, Conv2d, ConvTranspose2d
+import torch.nn.functional as F
+import torch
+from stacked.utils import common
+from logging import warning
+
+
+def log(log_func, msg):
+    if common.DEBUG_CONV:
+        log_func("stacked.modules.conv: %s" % msg)
 
 
 def _repeat_in_array(value, length):
@@ -18,7 +27,7 @@ def get_conv_out_res(x, kernel_size, stride, padding, dilation):
     dilation = _repeat_in_array(dilation, length)
 
     return tuple(int((x_in + 2 * padding[i] - dilation[i] *
-                     (kernel_size[i] - 1) - 1) / stride[i] + 1)
+                      (kernel_size[i] - 1) - 1) / stride[i] + 1)
                  for i, x_in in enumerate(x))
 
 
@@ -39,6 +48,7 @@ class Conv3d2d(Module):
 
     When the input dimension == 4, converts the input into 5d and outputs 4d
     """
+
     def __init__(self, in_channels, out_channels, kernel_size=3,
                  stride=1, padding=0, dilation=1, groups=1, bias=True):
         super(Conv3d2d, self).__init__()
@@ -54,7 +64,7 @@ class Conv3d2d(Module):
 
             if self.ni > 1:
                 # divide the original in_channels to increase the depth
-                assert(x.size(2) % self.ni == 0)
+                assert (x.size(2) % self.ni == 0)
                 x = x.view(x.size(0),
                            x.size(1) * self.ni,
                            x.size(2) // self.ni,
@@ -64,7 +74,7 @@ class Conv3d2d(Module):
 
             if self.no > 1:
                 # merge the 3d channels
-                assert(x.size(1) % self.no == 0)
+                assert (x.size(1) % self.no == 0)
                 x = x.view(x.size(0),
                            x.size(1) // self.no,
                            x.size(2) * self.no,
@@ -74,3 +84,62 @@ class Conv3d2d(Module):
 
         # default conv3d
         return self.conv(x)
+
+
+class Conv2dDeconv2dConcat(Module):
+    """Regular conv2d concatenated with transposed conv2d (deconv) output"""
+
+    def __init__(self, in_channels, out_channels, kernel_size=3,
+                 stride=1, padding=0, dilation=1, groups=1, bias=False, *_, **__):
+        super(Conv2dDeconv2dConcat, self).__init__()
+
+        self.downsample = None
+        self.convdim = None
+        self.deconv = None
+        self.vanilla_conv = None
+
+        self.bias = bias
+        self.dilation = dilation
+        self.groups = groups
+        conv_padding = kernel_size // 2  # input_size[2,3] == output_size[2,3]
+        self.conv_padding = conv_padding
+
+        if kernel_size == 1:
+            self.vanilla_conv = Conv2d(in_channels, out_channels, kernel_size,
+                                       stride=stride, padding=padding, dilation=dilation,
+                                       groups=groups, bias=bias)
+            return
+
+        if stride > 1 or padding != kernel_size // 2:
+            log(warning, "Conv2dDeconv2dConcat.__init__: downsampling k: %d, s: %d, p: %d" %
+                (kernel_size, stride, padding))
+            self.downsample = Conv2d(in_channels, in_channels, kernel_size,
+                                     stride=stride, padding=padding, dilation=dilation,
+                                     groups=in_channels, bias=bias)
+        if out_channels % 2 != 0:
+            log(warning, "Conv2dDeconv2dConcat.__init__: odd out_channels: %d" % out_channels)
+            self.convdim = Conv2d(out_channels + 1, out_channels, 1, stride=1,
+                                  padding=0, dilation=1, groups=groups, bias=False)
+            out_channels += 1
+
+        self.deconv = ConvTranspose2d(in_channels, out_channels // 2, kernel_size,
+                                      stride=1, padding=conv_padding, dilation=dilation,
+                                      groups=groups, bias=bias)
+
+    def forward(self, x):
+        if self.vanilla_conv is not None:
+            o = self.vanilla_conv(x)
+            return o
+
+        if self.downsample is not None:
+            x = self.downsample(x)
+        o1 = F.conv2d(x, self.deconv.weight.transpose(0, 1), self.deconv.bias, 1,
+                      self.conv_padding, self.dilation, self.groups)
+        o2 = self.deconv(x, output_size=o1.size())
+        o = torch.cat((o1, o2), dim=1)
+
+        if self.convdim is None:
+            return o
+
+        o = self.convdim(o)
+        return o

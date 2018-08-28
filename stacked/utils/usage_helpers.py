@@ -176,7 +176,7 @@ def add_seed_individuals(population, options, resnet_shape, densenet_shape):
     default_depth = options.depth
 
     index = population.get_the_best_index()
-    score = population.genotypes[index]['meta']['score'] * 0.9
+    score = population.genotypes[index]['meta']['score'] * common.POPULATION_COST_SEED_INDIVIDUAL_SCALE
 
     # seed ResNet
     def add_resnet():
@@ -221,7 +221,7 @@ def train_population(population, options, default_resnet_shape, default_densenet
         index = population.get_the_best_index()
         net_blueprint = population.genotypes[index]
         best_score = net_blueprint['meta']['score']
-        print("Current top score: {}".format(best_score))
+        print("Current top score: {}, id: {}".format(best_score, id(net_blueprint)))
 
     return net_blueprint
 

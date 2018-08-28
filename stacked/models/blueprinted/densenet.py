@@ -185,7 +185,7 @@ class ScopedDenseNet(Sequential):
             block = default['children'][-1]
 
         w = block['output_shape'][1]
-        default['bn'] = Blueprint('%s/bn' % prefix, '%d' % w, default, True,
+        default['bn'] = Blueprint('%s/bn' % prefix, 'tail_%d' % w, default, True,
                                   bn_module, kwargs={'num_features': w})
 
         if act_kwargs is None:

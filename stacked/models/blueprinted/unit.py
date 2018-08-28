@@ -70,13 +70,13 @@ def set_convdim(default, prefix, input_shape, ni, no,
 
 
 def set_batchnorm(default, prefix, suffix, num_features,
-                  module=ScopedBatchNorm2d, kwargs=None):
+                  module=ScopedBatchNorm2d, kwargs=None, unique=True):
     """Add a batch normalization module to the blueprint description"""
     if kwargs is None:
         kwargs = {'num_features': num_features}
 
     default['bn'] = Blueprint('%s/bn' % prefix, suffix, default,
-                              False, module, kwargs=kwargs)
+                              unique, module, kwargs=kwargs)
 
 
 def set_conv(default, prefix, suffix, input_shape, ni, no,

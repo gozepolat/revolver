@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.densenet import ScopedDenseNet
+from stacked.models.blueprinted.resgroup import ScopedResGroup
+from stacked.models.blueprinted.resblock import ScopedResBlock
+from stacked.models.blueprinted.resbottleneckblock import ScopedResBottleneckBlock
 from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
 from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
-from stacked.modules.scoped_nn import ScopedCrossEntropyLoss, ScopedConv2d
+from stacked.modules.scoped_nn import ScopedCrossEntropyLoss, ScopedConv2d, ScopedConv2dDeconv2dConcat
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.utils.transformer import all_to_none
 from stacked.utils import common
@@ -31,7 +34,7 @@ def parse_args():
     parser.add_argument('--block_depth', default=2, type=int)
     parser.add_argument('--width', default=1, type=int)
     parser.add_argument('--dataset', default='CIFAR10', type=str)
-    parser.add_argument('--num_thread', default=4, type=int)
+    parser.add_argument('--num_thread', default=0, type=int)
 
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--lr', default=0.1, type=float)
@@ -57,16 +60,16 @@ def parse_args():
 
 def set_default_options_for_single_network(options):
     """Default options for the single network training"""
-    options.conv_module = ScopedMetaMasked
+    options.conv_module = ScopedConv2dDeconv2dConcat  # ScopedMetaMasked
     options.dropout_p = 0.0
     options.drop_p = 0.5
     options.fractal_depth = 4
     options.net = ScopedResNet
     options.callback = all_to_none
     options.criterion = ScopedCrossEntropyLoss
-    options.residual = False
-    options.group_module = ScopedDenseConcatGroup
-    options.block_module = ScopedBottleneckBlock
+    options.residual = True
+    options.group_module = ScopedResGroup
+    options.block_module = ScopedResBottleneckBlock
     options.dense_unit_module = ScopedBottleneckBlock
     options.head_kernel = 3
     options.head_stride = 1
@@ -77,7 +80,7 @@ def set_default_options_for_single_network(options):
     options.head_modules = ('conv', 'bn')
     options.unique = ('bn',)
     options.use_tqdm = True
-    options.test_every_nth = 2
+    options.test_every_nth = 5
 
 
 def set_default_options_for_population(options):
@@ -93,7 +96,7 @@ def set_default_options_for_population(options):
     options.epoch_per_generation = 1
 
     # number of updated individuals per generation
-    options.sample_size = 80
+    options.sample_size = 20
     options.update_score_weight = 0.2
     options.max_iteration = options.epochs
 
@@ -125,9 +128,12 @@ if __name__ == '__main__':
                                          default_resnet_shape=(40, 9),
                                          default_densenet_shape=(190, 40))
 
-        # train the best model again
+        # fine tune
         set_default_options_for_single_network(parsed)
-        parsed.lr = 0.1
+        parsed.lr = 0.005
+        parsed.lr_decay_ratio = 0.5
+        parsed.epochs = 10
+        parsed.lr_drop_epochs = (5, 8)
         print("Best model blueprint: %s" % net_blueprint)
         train_with_single_engine(net_blueprint, parsed)
 
