@@ -150,7 +150,6 @@ class ScopedMetaMasked(Module):
         self.blueprint = blueprint
 
         self.generator = make_module(blueprint['generator'])
-        print(blueprint['conv']['input_shape'], blueprint['conv']['kwargs'])
         self.conv = make_module(blueprint['conv'])
         self.convdim = make_module(blueprint['convdim'])
         self.mask_fn = make_module(blueprint['mask_fn'])

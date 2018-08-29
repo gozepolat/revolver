@@ -17,6 +17,12 @@ import argparse
 import json
 import os
 from stacked.utils.visualize import plot_model
+from logging import warning
+
+
+def log(log_func, msg):
+    if common.DEBUG_POPULATION:
+        log_func("stacked.utils.usage_helpers: %s" % msg)
 
 
 def make_net_blueprint(options, suffix=''):
@@ -67,7 +73,7 @@ def create_single_engine(net_blueprint, options):
     single_engine = make_module(engine_blueprint)
 
     if len(options.load_path) > 0:
-        print("Loading the engine state dictionary from: %s" % options.load_path)
+        log(warning, "Loading the engine state dictionary from: %s" % options.load_path)
         single_engine.load_state_dict(options.load_path)
 
     return single_engine
@@ -86,15 +92,15 @@ def train_with_single_engine(model, options):
         options.dataset, )
 
     filename = os.path.join(options.save_folder, name)
-    print("Engine blueprint:")
-    print("=====================")
-    print("%s" % engine.blueprint)
-    print("=====================")
+    log(warning, "Engine blueprint:")
+    log(warning, "=====================")
+    log(warning, "%s" % engine.blueprint)
+    log(warning, "=====================")
 
-    print("Network architecture:")
-    print("=====================")
-    print(engine.net)
-    print("=====================")
+    log(warning, "Network architecture:")
+    log(warning, "=====================")
+    log(warning, engine.net)
+    log(warning, "=====================")
 
     test_every_nth = options.test_every_nth
     if test_every_nth > 0:
@@ -214,14 +220,14 @@ def train_population(population, options, default_resnet_shape, default_densenet
 
     net_blueprint = None
     for i in range(options.max_iteration):
-        print('Population generation: %d' % i)
+        log(warning, 'Population generation: %d' % i)
         if i in options.lr_drop_epochs:
             options.lr *= options.lr_decay_ratio
         population.evolve_generation()
         index = population.get_the_best_index()
         net_blueprint = population.genotypes[index]
         best_score = net_blueprint['meta']['score']
-        print("Current top score: {}, id: {}".format(best_score, id(net_blueprint)))
+        log(warning, "Current top score: {}, id: {}".format(best_score, id(net_blueprint)))
 
     return net_blueprint
 
@@ -343,10 +349,10 @@ def train_with_double_engine(model, options, epochs, crop, n_samples=50000):
     common_engine, generator_engine = create_engine_pair(model, options,
                                                          epochs, crop)
 
-    print("Network architecture:")
-    print("=====================")
-    print(common_engine.net)
-    print("=====================")
+    log(warning, "Network architecture:")
+    log(warning, "=====================")
+    log(warning, common_engine.net)
+    log(warning, "=====================")
 
     batch = options.batch_size * 17
     repeat = n_samples // batch + 1

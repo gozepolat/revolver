@@ -87,11 +87,11 @@ def get_phenotype_score(genotype, options):
     favor_params = options.params_favor_rate
     engine = engine_maker(genotype, options)
 
-    print("Getting score for the phenotype {} with id: {}".format(genotype['name'],
+    log(warning, "Getting score for the phenotype {} with id: {}".format(genotype['name'],
                                                                   id(engine.net.blueprint)))
-    print("=====================")
-    print(engine.net)
-    print("=====================")
+    log(warning, "=====================")
+    log(warning, engine.net)
+    log(warning, "=====================")
 
     for j in range(epoch):
         engine.start_epoch()
