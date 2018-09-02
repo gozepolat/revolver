@@ -5,6 +5,7 @@ from stacked.models.blueprinted.resgroup import ScopedResGroup
 from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.models.blueprinted.resbottleneckblock import ScopedResBottleneckBlock
 from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
+from stacked.models.blueprinted.convdeconv import ScopedConv2dDeconv2dSum
 from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
 from stacked.modules.scoped_nn import ScopedCrossEntropyLoss, ScopedConv2d, ScopedConv2dDeconv2dConcat
 from stacked.models.blueprinted.meta import ScopedMetaMasked
@@ -60,7 +61,7 @@ def parse_args():
 
 def set_default_options_for_single_network(options):
     """Default options for the single network training"""
-    options.conv_module = ScopedConv2dDeconv2dConcat  # ScopedMetaMasked
+    options.conv_module = ScopedConv2dDeconv2dSum  # ScopedMetaMasked
     options.dropout_p = 0.0
     options.drop_p = 0.5
     options.fractal_depth = 4
@@ -78,7 +79,7 @@ def set_default_options_for_single_network(options):
     options.head_pool_stride = 2
     options.head_pool_padding = 1
     options.head_modules = ('conv', 'bn')
-    options.unique = ('bn',)
+    options.unique = ('bn', 'convdim')
     options.use_tqdm = True
     options.test_every_nth = 5
 
@@ -96,7 +97,7 @@ def set_default_options_for_population(options):
     options.epoch_per_generation = 1
 
     # number of updated individuals per generation
-    options.sample_size = 20
+    options.sample_size = 10
     options.update_score_weight = 0.2
     options.max_iteration = options.epochs
 

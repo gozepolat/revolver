@@ -5,7 +5,7 @@ from stacked.utils import transformer
 from stacked.models.simple_resnet import ResNet
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.meta.blueprint import visualize, collect_keys
-from stacked.models.blueprinted.ensemble import ScopedEnsemble
+from stacked.models.blueprinted.ensemble import ScopedEnsembleMean
 from stacked.utils import common
 import glob
 
@@ -71,15 +71,15 @@ class TestResNet(unittest.TestCase):
     def test_ensemble_instead_of_conv(self):
         common.BLUEPRINT_GUI = False
         # replace conv0 of ResNet with Ensemble
-        conv0 = ScopedEnsemble.describe_from_blueprint('ensemble', '',
-                                                       self.blueprint['conv'])
+        conv0 = ScopedEnsembleMean.describe_from_blueprint('ensemble', '',
+                                                           self.blueprint['conv'])
         conv0.make_unique()
         self.blueprint['conv'] = conv0
 
         # replace the 1st conv of the 2nd block of the 3rd group with Ensemble
         index = (2, 1, 0, 'conv')
         conv2 = self.blueprint.get_element(index)
-        conv2 = ScopedEnsemble.describe_from_blueprint('ensemble', '2', conv2)
+        conv2 = ScopedEnsembleMean.describe_from_blueprint('ensemble', '2', conv2)
         conv2.make_unique()
         self.blueprint.set_element(index, conv2)
 

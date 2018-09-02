@@ -2,7 +2,7 @@ import unittest
 from PIL import Image
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.utils import transformer
-from stacked.models.blueprinted.ensemble import ScopedEnsemble
+from stacked.models.blueprinted.ensemble import ScopedEnsembleMean
 from stacked.utils.domain import ClosedList
 from stacked.meta.heuristics.operators import mutate, crossover, copyover
 from stacked.meta.blueprint import visit_modules, visualize
@@ -41,8 +41,8 @@ class TestMetaOperators(unittest.TestCase):
     def test_mutate(self):
         common.BLUEPRINT_GUI = False
         old_conv = copy.deepcopy(self.blueprint['conv'])
-        conv0 = ScopedEnsemble.describe_from_blueprint('ensemble', '',
-                                                       self.blueprint['conv'])
+        conv0 = ScopedEnsembleMean.describe_from_blueprint('ensemble', '',
+                                                           self.blueprint['conv'])
 
         conv0_alternatives = [self.blueprint['conv'], conv0]
         self.blueprint['mutables'] = {

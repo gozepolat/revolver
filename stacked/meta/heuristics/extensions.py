@@ -1,4 +1,4 @@
-from stacked.models.blueprinted.ensemble import ScopedEnsemble
+from stacked.models.blueprinted.ensemble import ScopedEnsembleMean
 from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.models.blueprinted.resbottleneckblock import ScopedResBottleneckBlock
 from stacked.models.blueprinted.meta import ScopedMetaMasked
@@ -29,8 +29,8 @@ def extend_conv_mutables(blueprint, ensemble_size=5, block_depth=2):
     prefix = blueprint['conv']['prefix']
     conv = blueprint['conv']
     parent = conv['parent']
-    ensemble = ScopedEnsemble.describe_from_blueprint(prefix, '_ensemble',
-                                                      conv, parent, ensemble_size)
+    ensemble = ScopedEnsembleMean.describe_from_blueprint(prefix, '_ensemble',
+                                                          conv, parent, ensemble_size)
 
     res_block = ScopedResBlock.describe_from_blueprint(prefix, "_block",
                                                        conv, parent, block_depth)

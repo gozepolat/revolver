@@ -88,7 +88,7 @@ def get_phenotype_score(genotype, options):
     engine = engine_maker(genotype, options)
 
     log(warning, "Getting score for the phenotype {} with id: {}".format(genotype['name'],
-                                                                  id(engine.net.blueprint)))
+                                                                         id(engine.net.blueprint)))
     log(warning, "=====================")
     log(warning, engine.net)
     log(warning, "=====================")
@@ -157,11 +157,11 @@ def generate_net_blueprints(options):
     widths = ClosedList(list(range(1, max_width + 1)))
     conv_module = ClosedList([ScopedDepthwiseSeparable, ScopedConv2d])
     residual = ClosedList([True, False])
-    skeleton = ClosedList([(12,12,12), (12,24,48), (6,8,10), (3,5,7)])
+    skeleton = ClosedList([(12, 12, 12), (12, 24, 48), (6, 8, 10), (3, 5, 7)])
     block_module = ClosedList([ScopedBottleneckBlock, ScopedResBlock, ScopedResBottleneckBlock])
     group_module = ClosedList([ScopedDenseConcatGroup, ScopedDenseSumGroup, ScopedResGroup])
     drop_p = ClosedList([0, 0.1, 0.25, 0.5])
-    block_depth = ClosedList([2,3])
+    block_depth = ClosedList([2, 3])
     nets = ClosedList([ScopedResNet, ScopedDenseNet])
 
     blueprints = []
@@ -230,19 +230,20 @@ class Population(object):
         if sample_size == 0:
             sample_size = self.options.sample_size
 
-        if np.random.random() < 0.8:
+        p = 0.8 - 0.6 * float(self.iteration) / self.options.max_iteration
+        if np.random.random() < p:
             return np.random.choice(range(len(self.genotypes)),
                                     sample_size, replace=False)
 
         distribution = np.array([bp['meta']['score'] for bp in self.genotypes])
         distribution = softmax(np.max(distribution) - distribution * 0.5)
 
-        if np.count_nonzero(distribution) < sample_size:
+        if np.count_nonzero(distribution) <= sample_size:
             log(warning, "Population.pick_indices: Scores are not diverse enough")
-            return np.random.choice(range(len(self.genotypes)),
+            return np.random.choice(len(self.genotypes),
                                     sample_size, replace=False)
 
-        return np.random.choice(range(len(distribution)),
+        return np.random.choice(distribution,
                                 sample_size, p=distribution, replace=False)
 
     def update_scores(self):

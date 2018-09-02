@@ -133,6 +133,7 @@ class Conv2dDeconv2dConcat(Module):
 
         if self.downsample is not None:
             x = self.downsample(x)
+
         o1 = F.conv2d(x, self.deconv.weight.transpose(0, 1), self.deconv.bias, 1,
                       self.conv_padding, self.dilation, self.groups)
         o2 = self.deconv(x, output_size=o1.size())

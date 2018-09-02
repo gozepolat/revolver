@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
-from torch.nn import ModuleList
 from stacked.modules.scoped_nn import ScopedConv2d
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
-from stacked.meta.blueprint import Blueprint, make_module
+from stacked.meta.blueprint import Blueprint
 from six import add_metaclass
 import copy
+import torch
 
 
 @add_metaclass(ScopedMeta)
-class ScopedEnsemble(Sequential):
+class ScopedEnsembleMean(Sequential):
     """Average ensemble of modules with the same input / output shape"""
 
     def __init__(self, scope, blueprint, *_, **__):
         self.scope = scope
-        super(ScopedEnsemble, self).__init__(blueprint)
+        super(ScopedEnsembleMean, self).__init__(blueprint)
 
     def forward(self, x):
         return self.function(x, self.container)
@@ -49,7 +49,7 @@ class ScopedEnsemble(Sequential):
         blueprint['prefix'] = '%s/conv' % prefix
         blueprint.refresh_name()
 
-        ensemble = Blueprint(prefix, suffix, parent, False, ScopedEnsemble)
+        ensemble = Blueprint(prefix, suffix, parent, False, ScopedEnsembleMean)
         blueprint['parent'] = ensemble
 
         ensemble['children'] = [copy.deepcopy(blueprint) for _ in range(ensemble_size)]
@@ -85,5 +85,47 @@ class ScopedEnsemble(Sequential):
                                           dilation,
                                           groups,
                                           bias)
-        return ScopedEnsemble.describe_from_blueprint(prefix, suffix,
-                                                      bp, parent, 3)
+        return ScopedEnsembleMean.describe_from_blueprint(prefix, suffix,
+                                                          bp, parent, 3)
+
+
+@add_metaclass(ScopedMeta)
+class ScopedEnsembleConcat(Sequential):
+    """Concat ensemble of modules with the same input / output shape"""
+    def __init__(self, scope, blueprint, *_, **__):
+        super(ScopedEnsembleConcat, self).__init__(blueprint)
+        self.scope = scope
+
+    def forward(self, x):
+        return self.function(x, self.container)
+
+    @staticmethod
+    def function(x, container):
+        head = container[0]
+        out = head(x)
+        for module in container[1:]:
+            o = module(x)
+            out = torch.cat((out, o), dim=1)
+        return out
+
+    @staticmethod
+    def describe_default(prefix='conv', suffix='', parent=None, children=None):
+        assert(children is not None and len(children) > 0)
+        size = len(children)
+        block = children[0]
+        input_shape = block['input_shape']
+        output_shape = [j if i != 1 else j * size for i, j in enumerate(input_shape)]
+
+        ensemble = Blueprint(prefix, suffix, parent, False, ScopedEnsembleConcat)
+        ensemble['kwargs'] = block['kwargs'].copy()
+        ensemble['kwargs']['blueprint'] = ensemble
+        ensemble['kwargs']['out_channels'] = output_shape[1]
+        ensemble['input_shape'] = input_shape
+        ensemble['output_shape'] = output_shape
+        ensemble['depth'] = len(children)
+
+        for c in children:
+            c['parent'] = ensemble
+
+        ensemble['children'] = children
+        return ensemble

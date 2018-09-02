@@ -5,7 +5,7 @@ from stacked.meta.blueprint import Blueprint
 from torch.nn import Conv2d, Conv3d, BatchNorm2d, \
     BatchNorm3d, Linear, Module, ModuleList, Parameter, \
     ParameterList, ReLU, ReLU6, Tanh, Hardtanh, Sigmoid, \
-    CrossEntropyLoss, AvgPool2d, Dropout2d, MaxPool2d
+    CrossEntropyLoss, AvgPool2d, Dropout2d, MaxPool2d, ConvTranspose2d
 from stacked.modules.conv import Conv3d2d, get_conv_out_shape, Conv2dDeconv2dConcat
 from stacked.modules.loss import FeatureSimilarityLoss, \
     ParameterSimilarityLoss, FeatureConvergenceLoss
@@ -40,9 +40,9 @@ class ScopedConv2d(Conv2d):
             stride (int or tuple, optional): Stride for the first convolution
             padding (int or tuple, optional): Padding for the first convolution
             input_shape (tuple): (N, C_{in}, H_{in}, W_{in})
-            dilation: Spacing between kernel elements.
-            groups: Number of blocked connections from input to output channels.
-            bias: Add a learnable bias if True
+            dilation (int): Spacing between kernel elements.
+            groups (int): Number of blocked connections from input to output channels.
+            bias (bool): Add a learnable bias if True
         """
         kwargs = {'in_channels': in_channels,
                   'out_channels': out_channels,
@@ -73,6 +73,20 @@ class ScopedConv2d(Conv2d):
         _groups = override_default('groups', groups)
         _bias = override_default('bias', bias)
         return _kernel, _stride, _padding, _dilation, _groups, _bias
+
+
+@add_metaclass(ScopedMeta)
+class ScopedConvTranspose2d(ConvTranspose2d):
+    def __init__(self, scope, *args, **kwargs):
+        super(ScopedConvTranspose2d, self).__init__(*args, **kwargs)
+        self.scope = scope
+
+    @staticmethod
+    def describe_default(*args, **kwargs):
+        bp = ScopedConv2d.describe_default(*args, **kwargs)
+        assert(bp['input_shape'] == bp['output_shape'])
+        bp['type'] = ScopedConvTranspose2d
+        return bp
 
 
 @add_metaclass(ScopedMeta)

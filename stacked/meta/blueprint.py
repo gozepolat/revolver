@@ -428,7 +428,7 @@ def make_module(blueprint):
         module = blueprint['type'](blueprint['name'], *blueprint['args'],
                                    **blueprint['kwargs'])
     except TypeError:
-        # There is another object with the same scope, but different type
+        log(warning, "make_module: Different typed objects, same scope!")
         blueprint.make_common()
         blueprint.make_unique()
         blueprint.refresh_name()
