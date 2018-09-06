@@ -153,15 +153,15 @@ def generate_net_blueprints(options):
     max_depth = options.depth
     population_size = options.population_size
 
-    depths = ClosedList(list(range(16, max_depth + 1, 6)))
+    depths = ClosedList(list(range(22, max_depth + 1, 6)))
     widths = ClosedList(list(range(1, max_width + 1)))
     conv_module = ClosedList([ScopedDepthwiseSeparable, ScopedConv2d])
     residual = ClosedList([True, False])
-    skeleton = ClosedList([(12, 12, 12), (12, 24, 48), (6, 8, 10), (3, 5, 7)])
+    skeleton = ClosedList([(3, 6, 12), (6, 6, 6), (6, 12, 12)])
     block_module = ClosedList([ScopedBottleneckBlock, ScopedResBlock, ScopedResBottleneckBlock])
     group_module = ClosedList([ScopedDenseConcatGroup, ScopedDenseSumGroup, ScopedResGroup])
     drop_p = ClosedList([0, 0.1, 0.25, 0.5])
-    block_depth = ClosedList([2, 3])
+    block_depth = ClosedList([1, 2])
     nets = ClosedList([ScopedResNet, ScopedDenseNet])
 
     blueprints = []
@@ -230,7 +230,7 @@ class Population(object):
         if sample_size == 0:
             sample_size = self.options.sample_size
 
-        p = 0.8 - 0.6 * float(self.iteration) / self.options.max_iteration
+        p = 0.7 - 0.4 * float(self.iteration) / self.options.max_iteration
         if np.random.random() < p:
             return np.random.choice(range(len(self.genotypes)),
                                     sample_size, replace=False)
@@ -333,7 +333,7 @@ class Population(object):
 
         # favor uniform pick in the beginning
         p = 1.0 - float(self.iteration) / self.options.max_iteration
-        if np.random.random() < p or index1 in (r1, r2) or index2 in (r1, r2):
+        if index1 in (r1, r2) or index2 in (r1, r2):
             selected_indices = [i for i in range(self.population_size)
                                 if i not in (r1, r2)]
             index1, index2 = np.random.choice(selected_indices, 2, replace=False)
@@ -341,14 +341,23 @@ class Population(object):
         clone1 = copy.deepcopy(self.genotypes[index1])
         clone2 = copy.deepcopy(self.genotypes[index2])
 
-        visit_modules(clone1, 0.1, [],
+        # restrict gpu memory usage
+        gpu_usage_dict = common.get_gpu_memory_info()
+        (used, total) = gpu_usage_dict[options.gpu_id]
+
+        log(warning, "Overall gpu info: {}".format(gpu_usage_dict))
+
+        # adjust mutation settings and uniqueness
+        p_unique = 0.15 - 0.15 * used / total
+        visit_modules(clone1, p_unique, [],
                       make_mutable_and_randomly_unique)
 
-        visit_modules(clone2, 0.1, [],
+        visit_modules(clone2, p_unique, [],
                       make_mutable_and_randomly_unique)
 
-        mutate(clone1, p=0.5)
-        mutate(clone2, p=0.5)
+        if used < total * 0.8:
+            mutate(clone1, p=0.5)
+            mutate(clone2, p=0.5)
 
         if np.random.random() < 0.9:
             crossover(clone1, clone2)

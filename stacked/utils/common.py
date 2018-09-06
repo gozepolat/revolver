@@ -4,7 +4,9 @@ import numpy as np
 import torch
 from torch.autograd import Variable
 from torch.nn import Parameter
+from logging import warning
 import math
+import subprocess
 
 
 DEBUG_DOMAIN = True
@@ -18,6 +20,7 @@ DEBUG_ENGINE = True
 DEBUG_MEANMODEL = True
 DEBUG_CONV = True
 DEBUG_CONVDECONV = True
+DEBUG_COMMON = True
 
 BLUEPRINT_GUI = True
 GUI = None
@@ -34,9 +37,36 @@ PREVIOUS_LABEL = None
 CURRENT_LABEL = None
 TRAIN = False
 
-POPULATION_COST_ESTIMATION_SCALE = 0.5
+POPULATION_COST_ESTIMATION_SCALE = 0.25
 POPULATION_COST_NUM_PARAMETER_SCALE = 0.1
 POPULATION_COST_SEED_INDIVIDUAL_SCALE = 0.1
+
+
+def log(log_func, msg):
+    if DEBUG_COMMON:
+        log_func("stacked.utils.common: %s" % msg)
+
+
+def get_process_output(cmd_array):
+    log(warning, ' '.join(cmd_array))
+    out = subprocess.check_output(cmd_array)
+    return out
+
+
+def get_gpu_memory_info():
+    """Return the info in the form of {gpu_id: (used, total), ...}"""
+    cmd = ['nvidia-smi', '--query-gpu=index,memory.used,memory.total',
+           '--format=csv,nounits,noheader']
+
+    out = subprocess.check_output(cmd)
+    lines = out.strip().split('\n')
+    gpu_memory_usage = {}
+
+    for line in lines:
+        (index, memory_used, memory_total) = (int(x) for x in line.split(','))
+        gpu_memory_usage[index] = (memory_used, memory_total)
+
+    return gpu_memory_usage
 
 
 def get_cuda(param, _type='float'):

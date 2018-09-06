@@ -116,6 +116,15 @@ if __name__ == '__main__':
     parsed = parse_args()
 
     os.environ['CUDA_VISIBLE_DEVICES'] = parsed.gpu_id
+
+    gpu_id = parsed.gpu_id = int(parsed.gpu_id)
+    gpu_info = common.get_gpu_memory_info()
+    (used, total) = gpu_info[gpu_id]
+
+    print("Overall gpu info: {}".format(gpu_info))
+    print("gpu {}, has {} used, {} total".format(gpu_id, used, total))
+    assert(used * 10 < total)  # un on empty gpu
+
     adjust_options(parsed)
 
     if parsed.mode == 'single_train':
