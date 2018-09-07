@@ -4,7 +4,7 @@ from stacked.models.blueprinted.resbottleneckblock import ScopedResBottleneckBlo
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.models.blueprinted.separable import ScopedDepthwiseSeparable
 from stacked.utils.domain import ClosedList, ClosedInterval
-from stacked.modules.scoped_nn import ScopedConv2dDeconv2dConcat
+from stacked.modules.scoped_nn import ScopedConvTranspose2d
 import copy
 
 
@@ -43,9 +43,9 @@ def extend_conv_mutables(blueprint, ensemble_size=5, block_depth=2):
 
     meta = ScopedMetaMasked.describe_from_blueprint(prefix, '_meta', conv, parent)
 
-    conv_deconv = ScopedConv2dDeconv2dConcat.describe_from_blueprint(prefix, '_deconv', conv, parent)
+    deconv = ScopedConvTranspose2d.describe_from_blueprint(prefix, '_deconv', conv, parent)
 
-    mutables = [conv, res_block, ensemble, meta, separable, res_bottleneck, conv_deconv]
+    mutables = [conv, res_block, ensemble, meta, separable, res_bottleneck, deconv]
 
     if 'conv' in blueprint['mutables']:
         elements = blueprint['mutables']['conv'].elements

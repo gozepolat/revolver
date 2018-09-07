@@ -49,7 +49,7 @@ def log(log_func, msg):
 
 def get_process_output(cmd_array):
     log(warning, ' '.join(cmd_array))
-    out = subprocess.check_output(cmd_array)
+    out = subprocess.check_output(cmd_array).decode('utf-8')
     return out
 
 

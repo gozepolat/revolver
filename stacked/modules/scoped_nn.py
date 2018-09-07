@@ -84,8 +84,39 @@ class ScopedConvTranspose2d(ConvTranspose2d):
     @staticmethod
     def describe_default(*args, **kwargs):
         bp = ScopedConv2d.describe_default(*args, **kwargs)
-        assert(bp['input_shape'] == bp['output_shape'])
+
+        if bp['input_shape'] != bp['output_shape']:
+            return bp
+
         bp['type'] = ScopedConvTranspose2d
+        return bp
+
+    @staticmethod
+    def describe_from_blueprint(prefix, suffix, blueprint, parent, *_, **__):
+        input_shape = blueprint['input_shape']
+        output_shape = blueprint['output_shape']
+        kwargs = blueprint['kwargs']
+        suffix = "%s_%d_%d_%d_%d_%d_%d_%d_%d" % (suffix, input_shape[1],
+                                                 output_shape[1],
+                                                 kwargs['kernel_size'],
+                                                 kwargs['stride'],
+                                                 kwargs['padding'],
+                                                 kwargs['dilation'],
+                                                 kwargs['groups'],
+                                                 kwargs['bias'],)
+        if parent is None:
+            parent = blueprint['parent']
+
+        bp = copy.deepcopy(blueprint)
+
+        if bp['input_shape'] != bp['output_shape']:
+            return bp
+
+        bp['type'] = ScopedConvTranspose2d
+        bp['prefix'] = '%s/conv' % prefix
+        bp['suffix'] = suffix
+        bp['parent'] = parent
+        bp.refresh_name()
         return bp
 
 

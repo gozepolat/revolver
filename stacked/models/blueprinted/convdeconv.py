@@ -145,3 +145,4 @@ class ScopedConv2dDeconv2dSum(Module):
                                                       stride=1, padding=0, dilation=dilation,
                                                       groups=groups, bias=bias)
         return bp
+
