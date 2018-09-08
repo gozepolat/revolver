@@ -127,11 +127,7 @@ if __name__ == '__main__':
 
     adjust_options(parsed)
 
-    if parsed.mode == 'single_train':
-        set_default_options_for_single_network(parsed)
-        train_single_network(parsed)
-
-    elif parsed.mode == 'population_train':
+    if parsed.mode == 'population_train':
         set_default_options_for_population(parsed)
         p = Population(parsed)
         net_blueprint = train_population(p, parsed,
@@ -146,6 +142,10 @@ if __name__ == '__main__':
         parsed.lr_drop_epochs = (5, 8)
         print("Best model blueprint: %s" % net_blueprint)
         train_with_single_engine(net_blueprint, parsed)
+    else:
+        set_default_options_for_single_network(parsed)
+        train_single_network(parsed)
+
 
     # dump all options
     print(parsed)

@@ -1,9 +1,8 @@
 from six import add_metaclass
 from stacked.meta.scope import ScopedMeta
-from torch.nn import Module, Sequential
+from stacked.models.blueprinted.sequentialunit import SequentialUnit
 from stacked.modules.scoped_nn import ScopedConv2d, \
     ScopedConv2dDeconv2dConcat, ScopedConvTranspose2d
-from stacked.meta.blueprint import make_module
 from stacked.models.blueprinted.ensemble import ScopedEnsembleConcat
 from stacked.utils import common
 from logging import warning
@@ -15,40 +14,39 @@ def log(log_func, msg):
 
 
 @add_metaclass(ScopedMeta)
-class ScopedConv2dDeconv2dSum(Module):
+class ScopedConv2dDeconv2d(SequentialUnit):
+    def __init__(self, scope, blueprint, *_, **__):
+        super(ScopedConv2dDeconv2d, self).__init__(blueprint)
+        self.scope = scope
+
+    @staticmethod
+    def describe_default(prefix='conv', suffix='', parent=None,
+                         input_shape=None, in_channels=3, out_channels=3,
+                         kernel_size=3, stride=1, padding=1,
+                         dilation=1, groups=1, bias=True, separable_deconv=True, *_, **__):
+        # modify the description from vanilla Conv2d
+        bp = ScopedConv2d.describe_default(prefix=prefix, suffix=suffix, parent=parent,
+                                           input_shape=input_shape, in_channels=in_channels,
+                                           out_channels=out_channels, kernel_size=kernel_size,
+                                           stride=stride, padding=padding, dilation=dilation,
+                                           groups=groups, bias=bias)
+
+        if kernel_size == 1:
+            return bp
+
+        bp['type'] = ScopedConv2dDeconv2d
+        bp['kwargs']['blueprint'] = bp
+        bp['module_order'] = []
+        # TODO: change and recover resolution
+
+
+@add_metaclass(ScopedMeta)
+class ScopedConv2dDeconv2dSum(SequentialUnit):
     """Regular conv2d convdim summed with transposed conv2d (deconv) output"""
 
     def __init__(self, scope, blueprint, *_, **__):
-        super(ScopedConv2dDeconv2dSum, self).__init__()
+        super(ScopedConv2dDeconv2dSum, self).__init__(blueprint)
         self.scope = scope
-
-        self.blueprint = blueprint
-        self.sequence = None
-        self.update(True)
-
-    def update(self, init=False):
-        if not init:
-            super(ScopedConv2dDeconv2dSum, self).update()
-
-        blueprint = self.blueprint
-
-        module_order = blueprint['module_order']
-
-        self.sequence = None
-        self.sequence = Sequential()
-
-        for key in module_order:
-            module = make_module(blueprint[key])
-            if module is not None:
-                self.sequence.add_module(key, module)
-
-    def forward(self, x):
-        return self.function(self.sequence, x)
-
-    @staticmethod
-    def function(sequence, x):
-        x = sequence(x)
-        return x
 
     @staticmethod
     def describe_default(prefix='conv', suffix='', parent=None,

@@ -77,8 +77,22 @@ class ScopedConv2d(Conv2d):
 
 @add_metaclass(ScopedMeta)
 class ScopedConvTranspose2d(ConvTranspose2d):
-    def __init__(self, scope, *args, **kwargs):
-        super(ScopedConvTranspose2d, self).__init__(*args, **kwargs)
+    def __init__(self, scope, blueprint, *_, **__):
+        input_shape = blueprint['input_shape']
+        output_shape = blueprint['output_shape']
+        in_channels = input_shape[1]
+        out_channels = output_shape[1]
+        kwargs = blueprint['kwargs']
+        kernel_size = kwargs['kernel_size']
+        stride = kwargs['stride']
+        padding = kwargs['padding']
+        dilation = kwargs['dilation']
+        groups = kwargs['groups']
+        bias = kwargs['bias']
+        super(ScopedConvTranspose2d, self).__init__(in_channels, out_channels,
+                                                    kernel_size, stride=stride,
+                                                    padding=padding, dilation=dilation,
+                                                    groups=groups, bias=bias)
         self.scope = scope
 
     @staticmethod
@@ -89,6 +103,7 @@ class ScopedConvTranspose2d(ConvTranspose2d):
             return bp
 
         bp['type'] = ScopedConvTranspose2d
+        bp['kwargs']['blueprint'] = bp
         return bp
 
     @staticmethod
@@ -116,6 +131,7 @@ class ScopedConvTranspose2d(ConvTranspose2d):
         bp['prefix'] = '%s/conv' % prefix
         bp['suffix'] = suffix
         bp['parent'] = parent
+        bp['kwargs']['blueprint'] = bp
         bp.refresh_name()
         return bp
 

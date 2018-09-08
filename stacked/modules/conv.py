@@ -18,17 +18,30 @@ def _repeat_in_array(value, length):
     return [value] * length
 
 
-def get_conv_out_res(x, kernel_size, stride, padding, dilation):
-    """Given [D], H, W, get [D_out], H_out, W_out after conv"""
+def _adjust_repeated_args(x, kernel_size, stride, padding, dilation):
     length = len(x)
     kernel_size = _repeat_in_array(kernel_size, length)
     stride = _repeat_in_array(stride, length)
     padding = _repeat_in_array(padding, length)
     dilation = _repeat_in_array(dilation, length)
+    return kernel_size, stride, padding, dilation
 
+
+def get_conv_out_res(x, kernel_size, stride, padding, dilation):
+    """Given [D], H, W, get [D_out], H_out, W_out after conv"""
+    args = _adjust_repeated_args(x, kernel_size, stride, padding, dilation)
+    kernel_size, stride, padding, dilation = args
     return tuple(int((x_in + 2 * padding[i] - dilation[i] *
                       (kernel_size[i] - 1) - 1) / stride[i] + 1)
                  for i, x_in in enumerate(x))
+
+
+def get_deconv_out_res(x, kernel_size, stride, padding, dilation):
+    """Given [D], H, W, get [D_out], H_out, W_out after deconv"""
+    args = _adjust_repeated_args(x, kernel_size, stride, padding, dilation)
+    kernel_size, stride, padding, dilation = args
+    return tuple(int((x_in - 1) * stride[i] - 2 * padding[i]
+                     + kernel_size[i] * padding[i]) for i, x_in in enumerate(x))
 
 
 def get_conv_out_shape(input_shape, c_out, kernel_size=3,
@@ -39,6 +52,18 @@ def get_conv_out_shape(input_shape, c_out, kernel_size=3,
 
     x = input_shape[2:]
     x_out = get_conv_out_res(x, kernel_size, stride, padding, dilation)
+
+    return (input_shape[0], c_out) + x_out
+
+
+def get_deconv_out_shape(input_shape, c_out, kernel_size=3,
+                         stride=1, padding=1, dilation=1):
+    """Given input shape and deconv arguments, get the output shape"""
+    if input_shape is None:
+        return None
+
+    x = input_shape[2:]
+    x_out = get_deconv_out_res(x, kernel_size, stride, padding, dilation)
 
     return (input_shape[0], c_out) + x_out
 

@@ -243,8 +243,15 @@ class Population(object):
             return np.random.choice(len(self.genotypes),
                                     sample_size, replace=False)
 
-        return np.random.choice(len(self.genotypes),
-                                sample_size, p=distribution, replace=False)
+        try:
+            choice = np.random.choice(len(self.genotypes),
+                                      sample_size, p=distribution, replace=False)
+            return choice
+
+        except ValueError:
+            exception("Population.pick_indices: Caught exception with weighted choice")
+            return np.random.choice(len(self.genotypes),
+                                    sample_size, replace=False)
 
     def update_scores(self):
         """Evaluate and improve a portion of the population according to the scores"""

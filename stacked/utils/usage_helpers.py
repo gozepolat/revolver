@@ -80,6 +80,8 @@ def create_single_engine(net_blueprint, options):
 
 
 def train_with_single_engine(model, options):
+    if options.mode == 'test':
+        options.lr = 0.00001
     engine = create_single_engine(model, options)
 
     name = '{}_model_dw_{}_{}_bs_{}_decay_{}_lr_{}_{}.pth.tar'.format(
@@ -101,6 +103,14 @@ def train_with_single_engine(model, options):
     log(warning, "=====================")
     log(warning, engine.net)
     log(warning, "=====================")
+
+    if options.mode == 'test':
+        log(warning, "Test mode is activated")
+        engine.start_epoch()
+        engine.train_n_samples(options.batch_size)
+        engine.end_epoch()
+        engine.hook('on_end', engine.state)
+        return
 
     test_every_nth = options.test_every_nth
     if test_every_nth > 0:

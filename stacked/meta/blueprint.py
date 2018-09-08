@@ -429,7 +429,6 @@ def make_module(blueprint):
                                    **blueprint['kwargs'])
     except TypeError:
         log(warning, "make_module: Different typed objects, same scope!")
-        blueprint.make_common()
         blueprint.make_unique()
         blueprint.refresh_name()
         module = blueprint['type'](blueprint['name'], *blueprint['args'],
