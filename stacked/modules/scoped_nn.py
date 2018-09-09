@@ -6,7 +6,8 @@ from torch.nn import Conv2d, Conv3d, BatchNorm2d, \
     BatchNorm3d, Linear, Module, ModuleList, Parameter, \
     ParameterList, ReLU, ReLU6, Tanh, Hardtanh, Sigmoid, \
     CrossEntropyLoss, AvgPool2d, Dropout2d, MaxPool2d, ConvTranspose2d
-from stacked.modules.conv import Conv3d2d, get_conv_out_shape, Conv2dDeconv2dConcat
+from stacked.modules.conv import Conv3d2d, get_conv_out_shape, \
+    get_deconv_out_shape, Conv2dDeconv2dConcat
 from stacked.modules.loss import FeatureSimilarityLoss, \
     ParameterSimilarityLoss, FeatureConvergenceLoss
 import torch
@@ -96,12 +97,17 @@ class ScopedConvTranspose2d(ConvTranspose2d):
         self.scope = scope
 
     @staticmethod
-    def describe_default(*args, **kwargs):
-        bp = ScopedConv2d.describe_default(*args, **kwargs)
-
-        if bp['input_shape'] != bp['output_shape']:
-            return bp
-
+    def describe_default(prefix='conv', suffix='', parent=None,
+                         input_shape=None, in_channels=3, out_channels=3,
+                         kernel_size=3, stride=1, padding=1,
+                         dilation=1, groups=1, bias=True, *_, **__):
+        bp = ScopedConv2d.describe_default(prefix, suffix, parent,
+                                           input_shape, in_channels, out_channels,
+                                           kernel_size, stride, padding,
+                                           dilation, groups, bias)
+        bp['output_shape'] = get_deconv_out_shape(input_shape, out_channels,
+                                                  kernel_size, stride,
+                                                  padding, dilation)
         bp['type'] = ScopedConvTranspose2d
         bp['kwargs']['blueprint'] = bp
         return bp
@@ -128,9 +134,13 @@ class ScopedConvTranspose2d(ConvTranspose2d):
             return bp
 
         bp['type'] = ScopedConvTranspose2d
-        bp['prefix'] = '%s/conv' % prefix
+        bp['prefix'] = '%s/deconv' % prefix
         bp['suffix'] = suffix
         bp['parent'] = parent
+        bp['output_shape'] = get_deconv_out_shape(input_shape, output_shape[1],
+                                                  kwargs['kernel_size'], kwargs['stride'],
+                                                  kwargs['padding'], kwargs['dilation'])
+        assert(bp['output_shape'] == output_shape)
         bp['kwargs']['blueprint'] = bp
         bp.refresh_name()
         return bp

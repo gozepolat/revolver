@@ -5,7 +5,7 @@ from stacked.models.blueprinted.resgroup import ScopedResGroup
 from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.models.blueprinted.resbottleneckblock import ScopedResBottleneckBlock
 from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
-from stacked.models.blueprinted.convdeconv import ScopedConv2dDeconv2dSum
+from stacked.models.blueprinted.convdeconv import ScopedConv2dDeconv2d
 from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
 from stacked.modules.scoped_nn import ScopedCrossEntropyLoss, ScopedConv2d, ScopedConv2dDeconv2dConcat
 from stacked.models.blueprinted.meta import ScopedMetaMasked
@@ -61,7 +61,7 @@ def parse_args():
 
 def set_default_options_for_single_network(options):
     """Default options for the single network training"""
-    options.conv_module = ScopedConv2dDeconv2dSum  # ScopedMetaMasked
+    options.conv_module = ScopedConv2dDeconv2d
     options.dropout_p = 0.0
     options.drop_p = 0.5
     options.fractal_depth = 4

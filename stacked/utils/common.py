@@ -47,6 +47,13 @@ def log(log_func, msg):
         log_func("stacked.utils.common: %s" % msg)
 
 
+def gcd(a, b):
+    while b > 0:
+        a, b = b, a % b
+
+    return a
+
+
 def get_process_output(cmd_array):
     log(warning, ' '.join(cmd_array))
     out = subprocess.check_output(cmd_array).decode('utf-8')

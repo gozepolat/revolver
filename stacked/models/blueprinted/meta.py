@@ -9,6 +9,7 @@ from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.models.blueprinted.convunit import ScopedConvUnit
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.utils.transformer import get_cuda, all_to_none
+from stacked.utils import common
 from stacked.modules.fakes import MaskSummedMultiplied, \
     MaskScalarMultipliedSummed
 from six import add_metaclass
@@ -251,14 +252,8 @@ class ScopedMetaMasked(Module):
         if gen_kernel_size < 3:
             gen_kernel_size = 2 * (out_shape[-1] // 4) + 1
 
-        def gcd(a, b):
-            while b > 0:
-                a, b = b, a % b
-
-            return a
-
         if gen_in_channels < 1:
-            gen_in_channels = gcd(out_shape[1], 864)
+            gen_in_channels = common.gcd(out_shape[1], 864)
 
         gen_out_channels = gen_in_channels
 

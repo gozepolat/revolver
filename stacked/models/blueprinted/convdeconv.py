@@ -23,7 +23,8 @@ class ScopedConv2dDeconv2d(SequentialUnit):
     def describe_default(prefix='conv', suffix='', parent=None,
                          input_shape=None, in_channels=3, out_channels=3,
                          kernel_size=3, stride=1, padding=1,
-                         dilation=1, groups=1, bias=True, separable_deconv=True, *_, **__):
+                         dilation=1, groups=1, bias=True,
+                         separable=True, module_order=None, *_, **__):
         # modify the description from vanilla Conv2d
         bp = ScopedConv2d.describe_default(prefix=prefix, suffix=suffix, parent=parent,
                                            input_shape=input_shape, in_channels=in_channels,
@@ -31,13 +32,53 @@ class ScopedConv2dDeconv2d(SequentialUnit):
                                            stride=stride, padding=padding, dilation=dilation,
                                            groups=groups, bias=bias)
 
-        if kernel_size == 1:
+        if kernel_size == 1 or bp['input_shape'][2:] != bp['output_shape'][2:]:
             return bp
+
+        if module_order is None:
+            module_order = ['deconv', 'conv']
 
         bp['type'] = ScopedConv2dDeconv2d
         bp['kwargs']['blueprint'] = bp
-        bp['module_order'] = []
-        # TODO: change and recover resolution
+        bp['module_order'] = module_order
+
+        if groups == 1 and separable:
+            groups = common.gcd(in_channels, out_channels)
+
+        for i, label in enumerate(module_order):
+            module = ScopedConvTranspose2d
+            if label == 'conv':
+                module = ScopedConv2d
+            bp[label] = module.describe_default(prefix='%s/%s' % (prefix, label),
+                                                suffix=suffix, parent=bp,
+                                                input_shape=input_shape,
+                                                in_channels=in_channels,
+                                                out_channels=out_channels,
+                                                kernel_size=kernel_size,
+                                                stride=2, padding=padding,
+                                                dilation=dilation,
+                                                groups=groups, bias=bias)
+            input_shape = bp[label]['output_shape']
+            in_channels = out_channels
+
+            if separable:
+                groups = out_channels
+
+        if separable:
+            input_shape = bp[module_order[-1]]['output_shape']
+            bp['convdim'] = ScopedConv2d.describe_default(prefix='%s/convdim' % prefix,
+                                                          suffix=suffix, parent=bp,
+                                                          input_shape=input_shape,
+                                                          in_channels=input_shape[1],
+                                                          out_channels=out_channels, kernel_size=1,
+                                                          stride=1, padding=0, dilation=dilation,
+                                                          groups=1, bias=bias)
+
+            module_order.append('convdim')
+
+        bp['output_shape'] = bp[module_order[-1]]['output_shape']
+
+        return bp
 
 
 @add_metaclass(ScopedMeta)
@@ -52,7 +93,7 @@ class ScopedConv2dDeconv2dSum(SequentialUnit):
     def describe_default(prefix='conv', suffix='', parent=None,
                          input_shape=None, in_channels=3, out_channels=3,
                          kernel_size=3, stride=1, padding=1,
-                         dilation=1, groups=1, bias=True, separable_deconv=True, *_, **__):
+                         dilation=1, groups=1, bias=True, separable=True, *_, **__):
         """Create a default ScopedConv2dDeconv2dSum blueprint
 
         Args:
@@ -68,7 +109,7 @@ class ScopedConv2dDeconv2dSum(SequentialUnit):
             dilation (int): Spacing between kernel elements.
             groups (int): Number of blocked connections from input to output channels.
             bias (bool): Add a learnable bias if True
-            separable_deconv (bool): Conv and deconv with independent and separable weights or not
+            separable (bool): Conv and deconv with independent and separable weights or not
         """
         # modify the description from vanilla Conv2d
         bp = ScopedConv2d.describe_default(prefix=prefix, suffix=suffix, parent=parent,
@@ -100,7 +141,7 @@ class ScopedConv2dDeconv2dSum(SequentialUnit):
 
         bp['module_order'].extend(['convdeconv', 'convdim'])
 
-        if separable_deconv:
+        if separable:
             conv = ScopedConv2d.describe_default(prefix='%s/convdeconv/conv' % prefix,
                                                  suffix=suffix,
                                                  input_shape=bp['output_shape'],
@@ -143,4 +184,3 @@ class ScopedConv2dDeconv2dSum(SequentialUnit):
                                                       stride=1, padding=0, dilation=dilation,
                                                       groups=groups, bias=bias)
         return bp
-
