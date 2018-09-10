@@ -56,7 +56,7 @@ def gcd(a, b):
 
 def get_process_output(cmd_array):
     log(warning, ' '.join(cmd_array))
-    out = subprocess.check_output(cmd_array).decode('utf-8')
+    out = subprocess.check_output(cmd_array)
     return out
 
 
@@ -66,7 +66,7 @@ def get_gpu_memory_info():
            '--format=csv,nounits,noheader']
 
     out = subprocess.check_output(cmd)
-    lines = out.strip().split('\n')
+    lines = out.decode("utf-8").strip().split('\n')
     gpu_memory_usage = {}
 
     for line in lines:

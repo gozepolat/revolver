@@ -88,3 +88,28 @@ def set_conv(default, prefix, suffix, input_shape, ni, no,
                                               no, kernel_size, stride,
                                               padding, dilation, groups,
                                               bias, conv_kwargs=conv_kwargs)
+
+
+def describe_from_blueprint(prefix, suffix, blueprint, parent,
+                            kernel_size=None, stride=None, padding=None,
+                            dilation=None, groups=None, bias=None,
+                            conv_kwargs=None, module=ScopedConv2d):
+    input_shape = blueprint['input_shape']
+    output_shape = blueprint['output_shape']
+    kwargs = blueprint['kwargs']
+    args = ScopedConv2d.adjust_args(kwargs, kernel_size, stride,
+                                    padding, dilation, groups, bias)
+
+    _kernel, _stride, _padding, _dilation, _groups, _bias = args
+    return module.describe_default(prefix=prefix,
+                                   suffix=suffix,
+                                   parent=parent,
+                                   input_shape=input_shape,
+                                   in_channels=input_shape[1],
+                                   out_channels=output_shape[1],
+                                   kernel_size=_kernel, stride=_stride,
+                                   padding=_padding,
+                                   dilation=_dilation, groups=_groups,
+                                   bias=_bias,
+                                   conv_module=blueprint['type'],
+                                   conv_kwargs=conv_kwargs, )

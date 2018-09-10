@@ -81,7 +81,7 @@ def set_default_options_for_single_network(options):
     options.head_modules = ('conv', 'bn')
     options.unique = ('bn', 'convdim')
     options.use_tqdm = True
-    options.test_every_nth = 5
+    options.test_every_nth = 1
 
 
 def set_default_options_for_population(options):

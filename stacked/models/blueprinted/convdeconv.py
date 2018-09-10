@@ -4,6 +4,7 @@ from stacked.models.blueprinted.sequentialunit import SequentialUnit
 from stacked.modules.scoped_nn import ScopedConv2d, \
     ScopedConv2dDeconv2dConcat, ScopedConvTranspose2d
 from stacked.models.blueprinted.ensemble import ScopedEnsembleConcat
+from stacked.models.blueprinted.unit import describe_from_blueprint
 from stacked.utils import common
 from logging import warning
 
@@ -24,7 +25,7 @@ class ScopedConv2dDeconv2d(SequentialUnit):
                          input_shape=None, in_channels=3, out_channels=3,
                          kernel_size=3, stride=1, padding=1,
                          dilation=1, groups=1, bias=True,
-                         separable=True, module_order=None, *_, **__):
+                         separable=False, module_order=None, *_, **__):
         # modify the description from vanilla Conv2d
         bp = ScopedConv2d.describe_default(prefix=prefix, suffix=suffix, parent=parent,
                                            input_shape=input_shape, in_channels=in_channels,
@@ -79,6 +80,17 @@ class ScopedConv2dDeconv2d(SequentialUnit):
         bp['output_shape'] = bp[module_order[-1]]['output_shape']
 
         return bp
+
+    @staticmethod
+    def describe_from_blueprint(prefix, suffix, blueprint, parent,
+                                kernel_size=None, stride=None, padding=None,
+                                dilation=None, groups=None, bias=None,
+                                conv_kwargs=None, ):
+        return describe_from_blueprint(prefix=prefix, suffix=suffix, blueprint=blueprint,
+                                       parent=parent, kernel_size=kernel_size, stride=stride,
+                                       padding=padding, dilation=dilation, groups=groups,
+                                       bias=bias, conv_kwargs=conv_kwargs,
+                                       module=ScopedConv2dDeconv2d)
 
 
 @add_metaclass(ScopedMeta)
