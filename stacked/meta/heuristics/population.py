@@ -339,8 +339,6 @@ class Population(object):
         # favor weighted pick eventually
         index1, index2 = self.pick_indices(2)
 
-        # favor uniform pick in the beginning
-        p = 1.0 - float(self.iteration) / self.options.max_iteration
         if index1 in (r1, r2) or index2 in (r1, r2):
             selected_indices = [i for i in range(self.population_size)
                                 if i not in (r1, r2)]
@@ -356,14 +354,14 @@ class Population(object):
         log(warning, "Overall gpu info: {}".format(gpu_usage_dict))
 
         # adjust mutation settings and uniqueness
-        p_unique = 0.15 - 0.15 * used / total
+        p_unique = 0.16 - 0.25 * used / total
         visit_modules(clone1, p_unique, [],
                       make_mutable_and_randomly_unique)
 
         visit_modules(clone2, p_unique, [],
                       make_mutable_and_randomly_unique)
 
-        if used < total * 0.8:
+        if np.random.random() < 0.8 - used / total:
             mutate(clone1, p=0.5)
             mutate(clone2, p=0.5)
 

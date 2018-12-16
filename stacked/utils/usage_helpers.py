@@ -141,6 +141,7 @@ def get_default_resnet(options):
     net = ScopedResNet.describe_default(prefix=prefix, num_classes=options.num_classes,
                                         depth=options.depth, width=options.width,
                                         block_depth=options.block_depth,
+                                        head_modules=options.head_modules,
                                         skeleton=(12, 24, 48), group_depths=options.group_depths,
                                         input_shape=options.input_shape)
     adjust_uniqueness(net, options)

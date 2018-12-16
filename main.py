@@ -78,7 +78,7 @@ def set_default_options_for_single_network(options):
     options.head_pool_kernel = 3
     options.head_pool_stride = 2
     options.head_pool_padding = 1
-    options.head_modules = ('conv', 'bn')
+    options.head_modules = ('conv',)
     options.unique = ('bn', 'convdim')
     options.use_tqdm = True
     options.test_every_nth = 1
@@ -98,7 +98,7 @@ def set_default_options_for_population(options):
 
     # number of updated individuals per generation
     options.sample_size = 10
-    options.update_score_weight = 0.2
+    options.update_score_weight = 0.4
     options.max_iteration = options.epochs
 
     # default heuristics
@@ -123,7 +123,7 @@ if __name__ == '__main__':
 
     print("Overall gpu info: {}".format(gpu_info))
     print("gpu {}, has {} used, {} total".format(gpu_id, used, total))
-    assert(used * 10 < total)  # un on empty gpu
+    assert(used * 10 < total)  # only run with a relatively empty gpu
 
     adjust_options(parsed)
 
