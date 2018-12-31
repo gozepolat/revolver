@@ -27,7 +27,7 @@ class TestTrainer(unittest.TestCase):
         engine = make_module(blueprint)
         engine.start_epoch()
         engine.train_n_samples(16)
-        engine.end_epoch()
+        engine.state['epoch'] += 1
 
     @unittest.skip("Requires retain_graph option enabled")
     def test_parameter_similarity_loss(self):
@@ -41,7 +41,7 @@ class TestTrainer(unittest.TestCase):
         engine = make_module(blueprint)
         engine.start_epoch()
         engine.train_n_samples(16)
-        engine.end_epoch()
+        engine.state['epoch'] += 1
 
     def test_densenet(self):
         common.BLUEPRINT_GUI = False
@@ -68,4 +68,4 @@ class TestTrainer(unittest.TestCase):
         engine = make_module(engine_blueprint)
         engine.start_epoch()
         engine.train_n_samples(16)
-        engine.end_epoch()
+        engine.state['epoch'] += 1

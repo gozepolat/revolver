@@ -89,7 +89,7 @@ class TestResNet(unittest.TestCase):
             out = new_model(x)
             self.assertEqual(out.size(), self.out_size)
 
-    # @unittest.skip("GUI test for uniqueness skipped")
+    @unittest.skip("GUI test for uniqueness skipped")
     def test_visual_change_blueprinted(self):
         common.BLUEPRINT_GUI = True
         if common.GUI is None:

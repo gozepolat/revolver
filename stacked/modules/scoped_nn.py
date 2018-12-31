@@ -1,6 +1,5 @@
 from six import add_metaclass
 from stacked.meta.scope import ScopedMeta
-from stacked.utils.transformer import scalar_to_tensor
 from stacked.meta.blueprint import Blueprint
 from torch.nn import Conv2d, Conv3d, BatchNorm2d, \
     BatchNorm3d, Linear, Module, ModuleList, Parameter, \
@@ -10,7 +9,6 @@ from stacked.modules.conv import Conv3d2d, get_conv_out_shape, \
     get_deconv_out_shape, Conv2dDeconv2dConcat
 from stacked.modules.loss import FeatureSimilarityLoss, \
     ParameterSimilarityLoss, FeatureConvergenceLoss
-import torch
 import copy
 
 

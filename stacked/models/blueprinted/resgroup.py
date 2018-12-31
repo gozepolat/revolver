@@ -95,13 +95,11 @@ class ScopedResGroup(Sequential):
                              'dilation': dilation,
                              'groups': groups,
                              'bias': bias}
-
         for i in range(group_depth):
             block_prefix = '%s/block' % prefix
             suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
                                                   kernel_size, stride,
                                                   padding, dilation, groups, bias)
-
             block = block_module.describe_default(block_prefix, suffix,
                                                   default, input_shape,
                                                   in_channels, out_channels,

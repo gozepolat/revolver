@@ -181,6 +181,9 @@ class ScopedBottleneckBlock(Sequential):
         if hidden_channels == 0:
             hidden_channels = out_channels * hidden_scale
 
+        if block_depth == 1:
+            hidden_channels = out_channels
+
         shape = ScopedBottleneckBlock.__set_default_items(prefix, default, input_shape,
                                                           in_channels, hidden_channels,
                                                           stride, conv_module, act_module,

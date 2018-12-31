@@ -26,6 +26,9 @@ class ScopedConv2dDeconv2d(SequentialUnit):
                          kernel_size=3, stride=1, padding=1,
                          dilation=1, groups=1, bias=True,
                          separable=False, module_order=None, *_, **__):
+        if input_shape[1] != in_channels:
+            print(prefix, suffix, input_shape, in_channels, out_channels, kernel_size, stride, padding, dilation)
+            raw_input("dodo")
         # modify the description from vanilla Conv2d
         bp = ScopedConv2d.describe_default(prefix=prefix, suffix=suffix, parent=parent,
                                            input_shape=input_shape, in_channels=in_channels,
