@@ -10,6 +10,21 @@ from stacked.modules.conv import Conv3d2d, get_conv_out_shape, \
 from stacked.modules.loss import FeatureSimilarityLoss, \
     ParameterSimilarityLoss, FeatureConvergenceLoss
 import copy
+from stacked.utils import common
+from logging import warning
+
+
+def log(log_func, msg):
+    if common.DEBUG_BLUEPRINT:
+        log_func("stacked.modules.scoped_nn: %s" % msg)
+
+
+def adjust_padding(padding, kernel_size):
+    if padding != kernel_size // 2:
+        warn = "padding {} would reduce the resolution, instead using {}".format(padding, kernel_size // 2)
+        log(warning, warn)
+        return kernel_size // 2
+    return padding
 
 
 @add_metaclass(ScopedMeta)
@@ -43,6 +58,7 @@ class ScopedConv2d(Conv2d):
             groups (int): Number of blocked connections from input to output channels.
             bias (bool): Add a learnable bias if True
         """
+        padding = adjust_padding(padding, kernel_size)
         kwargs = {'in_channels': in_channels,
                   'out_channels': out_channels,
                   'kernel_size': kernel_size, 'stride': stride,
@@ -99,6 +115,7 @@ class ScopedConvTranspose2d(ConvTranspose2d):
                          input_shape=None, in_channels=3, out_channels=3,
                          kernel_size=3, stride=1, padding=1,
                          dilation=1, groups=1, bias=True, *_, **__):
+        padding = adjust_padding(padding, kernel_size)
         bp = ScopedConv2d.describe_default(prefix, suffix, parent,
                                            input_shape, in_channels, out_channels,
                                            kernel_size, stride, padding,
@@ -231,6 +248,10 @@ class ScopedConv3d2d(Conv3d2d):
         stride = conv_kwargs['stride']
         padding = conv_kwargs['padding']
         dilation = conv_kwargs['dilation']
+        padding = adjust_padding(padding, kernel_size)
+
+        if isinstance(stride, int):
+            conv_kwargs['stride'] = stride = (1, stride, stride)
 
         if len(input_shape) == 4:
             input_shape = (input_shape[0], in_channels,
@@ -244,12 +265,44 @@ class ScopedConv3d2d(Conv3d2d):
             bp['output_shape'] = (output_shape[0],
                                   output_shape[2] * out_channels,
                                   output_shape[3], output_shape[4])
+
             return bp
 
         bp['output_shape'] = get_conv_out_shape(input_shape, out_channels,
                                                 kernel_size, stride,
                                                 padding, dilation)
         return bp
+
+    @staticmethod
+    def describe_from_blueprint(prefix, suffix, blueprint, parent, conv_kwargs=None):
+        input_shape = blueprint['input_shape']
+        output_shape = blueprint['output_shape']
+        kwargs = blueprint['kwargs']
+        suffix = "{}_{}_{}_{}_{}_{}_{}_{}_{}".format(suffix, input_shape[1],
+                                                 output_shape[1],
+                                                 kwargs['kernel_size'],
+                                                 kwargs['stride'],
+                                                 kwargs['padding'],
+                                                 kwargs['dilation'],
+                                                 kwargs['groups'],
+                                                 kwargs['bias'],)
+        if parent is None:
+            parent = blueprint['parent']
+
+        prefix = '%s/conv' % prefix
+        in_channels = input_shape[1]
+        out_channels = output_shape[1]
+        kernel_size = kwargs['kernel_size']
+        stride = kwargs['stride']
+        padding = kwargs['padding']
+        dilation = kwargs['dilation']
+        groups = kwargs['groups']
+        bias = kwargs['bias']
+
+        return ScopedConv3d2d.describe_default(prefix, suffix, parent, input_shape,
+                                               in_channels, out_channels, kernel_size,
+                                               stride, padding, dilation, groups,
+                                               bias, conv_kwargs)
 
     @staticmethod
     def adjust_args(conv_kwargs, conv_module, in_channels, out_channels,

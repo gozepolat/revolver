@@ -15,6 +15,7 @@ def _repeat_in_array(value, length):
     """Repeat int value in an array"""
     if not isinstance(value, int):
         return value
+
     return [value] * length
 
 
