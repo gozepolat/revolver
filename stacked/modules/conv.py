@@ -73,6 +73,14 @@ class Conv3d2d(Module):
     r""" Conv3d with 4d input mode
 
     When the input dimension == 4, converts the input into 5d and outputs 4d
+
+    For 4d input, channel arguments are not equal to actual io channels,
+    they are used for creating 5d input, by dividing the actual input_channels
+    to in_channels, and multiplying the result with output_channels
+
+    example: in_channels = 1, out_channels = 20
+             input.size() = (256, 3, 32, 32)
+             # conv3d2d output channels = 3 / 1 * 20 = 60
     """
 
     def __init__(self, in_channels, out_channels, kernel_size=3,

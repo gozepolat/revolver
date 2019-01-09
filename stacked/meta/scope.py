@@ -7,6 +7,8 @@ from six import add_metaclass
 import sys
 from logging import warning
 
+UNIQUE_SUFFIX_DELIMITER = '~'
+
 
 def log(log_func, msg):
     if common.DEBUG_SCOPE:
@@ -94,7 +96,7 @@ def get_meta(scope):
     """Get meta information about the scope"""
     validate_scope(scope)
     if scope in common.SCOPE_DICTIONARY:
-        return common.SCOPE_DICTIONARY[scope]['instance']
+        return common.SCOPE_DICTIONARY[scope]['meta']
     else:
         raise KeyError("scope {} not recorded".format(scope))
 
@@ -104,4 +106,9 @@ def get_elements():
 
 
 def generate_random_scope(prefix=""):
-    return '~'.join([prefix, uuid.uuid4().hex])
+    return UNIQUE_SUFFIX_DELIMITER.join([prefix, uuid.uuid4().hex])
+
+
+def get_common_scope_name_length(scope):
+    validate_scope(scope)
+    return scope.find(UNIQUE_SUFFIX_DELIMITER)

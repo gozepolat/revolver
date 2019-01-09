@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from six import string_types
 from six.moves import cPickle as pickle
-from stacked.meta.scope import generate_random_scope
+from stacked.meta.scope import generate_random_scope, get_common_scope_name_length, UNIQUE_SUFFIX_DELIMITER
 from stacked.utils.transformer import all_to_none
 from torch.nn import Module
 import tkinter as tk
@@ -292,7 +292,9 @@ class Blueprint(dict):
             return
         log(warning,
             "Can make common, %s has no unique elements." % self['name'])
-        index = self['name'].find('~')
+
+        index = get_common_scope_name_length(self['name'])
+
         if index > 0:
             self['name'] = self['name'][0:index]
             self.make_button_common()
@@ -310,7 +312,7 @@ class Blueprint(dict):
     def make_unique(self):
         """Make the blueprint and all parents unique"""
         self['unique'] = True
-        if '~' not in self['name']:
+        if UNIQUE_SUFFIX_DELIMITER not in self['name']:
             self['name'] = generate_random_scope(self['name'])
             self.make_button_unique()
 
