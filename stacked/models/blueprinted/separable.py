@@ -3,7 +3,7 @@ from torch.nn import Module
 from stacked.modules.scoped_nn import ScopedConv2d
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.blueprint import Blueprint, make_module
-from stacked.models.blueprinted.unit import describe_from_blueprint
+from stacked.models.blueprinted import unit
 from six import add_metaclass
 
 
@@ -85,8 +85,8 @@ class ScopedDepthwiseSeparable(Module):
                                 kernel_size=None, stride=None, padding=None,
                                 dilation=None, groups=None, bias=None,
                                 conv_kwargs=None, ):
-        return describe_from_blueprint(prefix=prefix, suffix=suffix, blueprint=blueprint,
-                                       parent=parent, kernel_size=kernel_size, stride=stride,
-                                       padding=padding, dilation=dilation, groups=groups,
-                                       bias=bias, conv_kwargs=conv_kwargs,
-                                       module=ScopedDepthwiseSeparable)
+        return unit.describe_from_blueprint(prefix=prefix, suffix=suffix, blueprint=blueprint,
+                                            parent=parent, kernel_size=kernel_size, stride=stride,
+                                            padding=padding, dilation=dilation, groups=groups,
+                                            bias=bias, conv_kwargs=conv_kwargs,
+                                            module=ScopedDepthwiseSeparable)

@@ -123,11 +123,11 @@ if __name__ == '__main__':
 
     print("Overall gpu info: {}".format(gpu_info))
     print("gpu {}, has {} used, {} total".format(gpu_id, used, total))
-    assert(used * 10 < total)  # only run with a relatively empty gpu
 
     adjust_options(parsed)
 
     if parsed.mode == 'population_train':
+        assert (used * 10 < total)  # only run with a relatively empty gpu
         set_default_options_for_population(parsed)
         p = Population(parsed)
         net_blueprint = train_population(p, parsed,
