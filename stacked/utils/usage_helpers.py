@@ -17,7 +17,8 @@ import argparse
 import json
 import os
 from stacked.utils.visualize import plot_model
-from logging import warning
+from logging import warning, info
+import glob
 
 
 def log(log_func, msg):
@@ -80,7 +81,7 @@ def create_single_engine(net_blueprint, options):
 
 
 def make_ckpt(path, epoch):
-    return f'{path}[:-4]_epoch_{epoch}.tar'
+    return f'{path[:-8]}_epoch_{epoch}.pth.tar'
 
 
 def remove_older_checkpoints(path, epoch, keep_last_n, oldest_kept):
@@ -95,6 +96,7 @@ def remove_older_checkpoints(path, epoch, keep_last_n, oldest_kept):
 def train_with_single_engine(model, options):
     if options.mode == 'test':
         options.lr = 0.00001
+
     engine = create_single_engine(model, options)
 
     name = '{}_model_dw_{}_{}_bs_{}_decay_{}_lr_{}_{}.pth.tar'.format(
@@ -105,6 +107,16 @@ def train_with_single_engine(model, options):
         options.weight_decay,
         options.lr,
         options.dataset, )
+
+    if options.load_latest_checkpoint:
+        ckpt_regex = make_ckpt(name, '*')
+        ckpt_paths = glob.glob(ckpt_regex)
+        latest_path = sorted(ckpt_paths,
+                             key=lambda x: int(x.split('.')[-3].split('_')[-1]),
+                             reverse=True)[0]
+        log(info, f'Setting load_path to {latest_path} and loading from the most recent checkpoint')
+        options.load_path = latest_path
+        engine.load_state_dict(options.load_path)
 
     filename = os.path.join(options.save_folder, name)
     log(warning, "Engine blueprint:")
@@ -128,6 +140,7 @@ def train_with_single_engine(model, options):
     test_every_nth = options.test_every_nth
     keep_last_n = options.keep_last_n
     oldest_kept = 0
+
     if test_every_nth > 0:
         for j in range(engine.state['epoch'], options.epochs, 1):
             engine.start_epoch()
