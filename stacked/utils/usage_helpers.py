@@ -79,6 +79,19 @@ def create_single_engine(net_blueprint, options):
     return single_engine
 
 
+def make_ckpt(path, epoch):
+    return f'{path}[:-4]_epoch_{epoch}.tar'
+
+
+def remove_older_checkpoints(path, epoch, keep_last_n, oldest_kept):
+    while oldest_kept < epoch - keep_last_n + 1:
+        ckpt_path = make_ckpt(path, oldest_kept)
+        if os.path.exists(ckpt_path):
+            os.remove(ckpt_path)
+        oldest_kept += 1
+    return oldest_kept
+
+
 def train_with_single_engine(model, options):
     if options.mode == 'test':
         options.lr = 0.00001
@@ -113,12 +126,17 @@ def train_with_single_engine(model, options):
         return
 
     test_every_nth = options.test_every_nth
+    keep_last_n = options.keep_last_n
+    oldest_kept = 0
     if test_every_nth > 0:
         for j in range(engine.state['epoch'], options.epochs, 1):
             engine.start_epoch()
             engine.train_n_samples(options.num_samples)
             if j % test_every_nth == test_every_nth - 1:
                 engine.end_epoch()
+                ckpt_name = make_ckpt(name, j)
+                engine.dump_state(ckpt_name)
+                oldest_kept = remove_older_checkpoints(name, j, keep_last_n, oldest_kept)
             else:
                 engine.state['epoch'] += 1
     else:

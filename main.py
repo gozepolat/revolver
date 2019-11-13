@@ -82,6 +82,7 @@ def set_default_options_for_single_network(options):
     options.unique = ('bn', 'convdim')
     options.use_tqdm = True
     options.test_every_nth = 1
+    options.keep_last_n = 5
 
 
 def set_default_options_for_population(options):
@@ -145,7 +146,6 @@ if __name__ == '__main__':
     else:
         set_default_options_for_single_network(parsed)
         train_single_network(parsed)
-
 
     # dump all options
     print(parsed)
