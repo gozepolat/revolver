@@ -108,17 +108,22 @@ def train_with_single_engine(model, options):
         options.lr,
         options.dataset, )
 
+    def get_epoch_number(path):
+        return int(path.split('.')[-3].split('_')[-1])
+
     if options.load_latest_checkpoint:
         ckpt_regex = make_ckpt(name, '*')
         ckpt_paths = glob.glob(ckpt_regex)
         latest_paths = sorted(ckpt_paths,
-                              key=lambda x: int(x.split('.')[-3].split('_')[-1]),
+                              key=get_epoch_number,
                               reverse=True)
         if len(latest_paths) > 0:
             latest_path = latest_paths[0]
             log(info, f'Setting load_path to {latest_path} and loading from the most recent checkpoint')
             options.load_path = latest_path
             engine.load_state_dict(options.load_path)
+            log(info, f"{engine.state['epoch']}")
+            assert get_epoch_number(latest_path) == engine.state['epoch']
 
     filename = os.path.join(options.save_folder, name)
     log(warning, "Engine blueprint:")
