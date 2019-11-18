@@ -19,6 +19,7 @@ import os
 from stacked.utils.visualize import plot_model
 from logging import warning, info
 import glob
+import pandas as pd
 
 
 def log(log_func, msg):
@@ -56,32 +57,41 @@ def make_net_blueprint(options, suffix=''):
 
 
 def create_single_engine(net_blueprint, options):
-    engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
-                                                          net_blueprint=net_blueprint,
-                                                          max_epoch=options.epochs,
-                                                          batch_size=options.batch_size,
-                                                          learning_rate=options.lr,
-                                                          lr_decay_ratio=options.lr_decay_ratio,
-                                                          lr_drop_epochs=options.lr_drop_epochs,
-                                                          criterion=options.criterion,
-                                                          callback=options.callback,
-                                                          dataset=options.dataset,
-                                                          num_thread=options.num_thread,
-                                                          use_tqdm=options.use_tqdm,
-                                                          crop_size=options.crop_size,
-                                                          weight_decay=options.weight_decay)
+    if options.engine_pkl is None:
+        engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
+                                                              net_blueprint=net_blueprint,
+                                                              max_epoch=options.epochs,
+                                                              batch_size=options.batch_size,
+                                                              learning_rate=options.lr,
+                                                              lr_decay_ratio=options.lr_decay_ratio,
+                                                              lr_drop_epochs=options.lr_drop_epochs,
+                                                              criterion=options.criterion,
+                                                              callback=options.callback,
+                                                              dataset=options.dataset,
+                                                              num_thread=options.num_thread,
+                                                              use_tqdm=options.use_tqdm,
+                                                              crop_size=options.crop_size,
+                                                              weight_decay=options.weight_decay)
+    else:
+        input('Loading engine')
+        engine_blueprint = pd.read_pickle(options.engine_pkl)
 
     single_engine = make_module(engine_blueprint)
 
     if len(options.load_path) > 0:
         log(warning, "Loading the engine state dictionary from: %s" % options.load_path)
+        if not os.path.isfile(options.load_path):
+            log(warning, f'Loading failed, no such file: {options.load_path}')
+            return single_engine
         single_engine.load_state_dict(options.load_path)
 
     return single_engine
 
 
 def make_ckpt(path, epoch):
-    return f'{path[:-8]}_epoch_{epoch}.pth.tar'
+    no_extension = path[:-7]
+    ix = no_extension.rfind('epoch')
+    return f'{no_extension[:ix]}epoch_{epoch}.pth.tar'
 
 
 def remove_older_checkpoints(path, epoch, keep_last_n, oldest_kept):
@@ -102,6 +112,7 @@ def train_with_single_engine(model, options):
 
     if options.load_latest_checkpoint:
         ckpt_regex = make_ckpt(options.load_path, '*')
+
         ckpt_paths = glob.glob(ckpt_regex)
         latest_paths = sorted(ckpt_paths,
                               key=get_epoch_number,
@@ -124,10 +135,6 @@ def train_with_single_engine(model, options):
         options.dataset, )
 
     filename = os.path.join(options.save_folder, name)
-    log(warning, "Engine blueprint:")
-    log(warning, "=====================")
-    log(warning, "%s" % engine.blueprint)
-    log(warning, "=====================")
 
     log(warning, "Network architecture:")
     log(warning, "=====================")

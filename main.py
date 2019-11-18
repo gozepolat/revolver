@@ -84,6 +84,7 @@ def set_default_options_for_single_network(options):
     options.test_every_nth = 1
     options.keep_last_n = 5
     options.load_latest_checkpoint = True
+    options.engine_pkl = 'EpochEngine~f3600fda4c104e718cd2c4e47d020056.pkl'
 
 
 def set_default_options_for_population(options):

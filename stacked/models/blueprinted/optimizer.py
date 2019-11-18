@@ -18,11 +18,16 @@ from logging import warning
 from six import add_metaclass, string_types
 from torch.optim import SGD
 from tqdm import tqdm
+import pandas as pd
 
 
 def log(log_func, msg):
     if common.DEBUG_OPTIMIZER:
         log_func("stacked.meta.optimizer: %s" % msg)
+
+
+def get_all_parameters(model):
+    return model.parameters()
 
 
 @add_metaclass(ScopedMeta)
@@ -52,9 +57,6 @@ class ScopedOptimizerMaker:
         default['weight_decay'] = weight_decay
 
         if optimizer_parameter_picker is None:
-            def get_all_parameters(model):
-                return model.parameters()
-
             optimizer_parameter_picker = get_all_parameters
 
         default['optimizer_parameter_picker'] = optimizer_parameter_picker
@@ -217,6 +219,12 @@ class ScopedEpochEngine(EpochEngine):
         d['optimizer'] = self.state['optimizer'].state_dict()
         d['iterator'] = self.train_loader
         torch.save(d, filename)
+
+        log(warning, "Dumped engine blueprint:")
+        pd.to_pickle(self.blueprint, f"{self.blueprint['name']}.pkl")
+        log(warning, "=====================")
+        log(warning, "%s" % self.blueprint)
+        log(warning, "=====================")
 
     @staticmethod
     def describe_default(prefix='EpochEngine', suffix='', parent=None,
