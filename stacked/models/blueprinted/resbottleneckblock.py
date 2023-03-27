@@ -178,12 +178,13 @@ class ScopedResBottleneckBlock(Sequential):
             act_kwargs: extra act args, if act module requires other than defaults
             block_depth: Number of (bn, act, conv) units in the block
             hidden_channels: Number of hidden channels as the output of the first layer
-            hidden_scale: Default multiplier for the hidden_channels
+            hidden_scale: Default multiplier for the hidden_channels,
+            if smaller than 1.0, opposite of bottleneck
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedResBottleneckBlock)
 
         if hidden_channels == 0:
-            hidden_channels = out_channels // hidden_scale
+            hidden_channels = int(out_channels / hidden_scale)
 
         ScopedResBottleneckBlock.__set_default_items(prefix, default, input_shape,
                                                      in_channels, out_channels,

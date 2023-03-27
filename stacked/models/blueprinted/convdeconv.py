@@ -107,7 +107,8 @@ class ScopedConv2dDeconv2dSum(SequentialUnit):
     def describe_default(prefix='conv', suffix='', parent=None,
                          input_shape=None, in_channels=3, out_channels=3,
                          kernel_size=3, stride=1, padding=1,
-                         dilation=1, groups=1, bias=True, separable=True, *_, **__):
+                         dilation=1, groups=1, bias=True, separable=True,
+                         mutation_p=0.01, toggle_p=0.01, *_, **__):
         """Create a default ScopedConv2dDeconv2dSum blueprint
 
         Args:
@@ -197,4 +198,6 @@ class ScopedConv2dDeconv2dSum(SequentialUnit):
                                                       out_channels=out_channels, kernel_size=1,
                                                       stride=1, padding=0, dilation=dilation,
                                                       groups=groups, bias=bias)
+        bp['mutation_p'] = mutation_p
+        bp['toggle_p'] = toggle_p
         return bp

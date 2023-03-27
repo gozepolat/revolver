@@ -2,6 +2,7 @@
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.densenet import ScopedDenseNet
 from stacked.models.blueprinted.resgroup import ScopedResGroup
+# from stacked.models.blueprinted.tree import ScopedTreeGroup
 from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.models.blueprinted.resbottleneckblock import ScopedResBottleneckBlock
 from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
@@ -84,7 +85,7 @@ def set_default_options_for_single_network(options):
     options.test_every_nth = 1
     options.keep_last_n = 5
     options.load_latest_checkpoint = True
-    options.engine_pkl = 'EpochEngine~f3600fda4c104e718cd2c4e47d020056.pkl'
+    options.engine_pkl = None
 
 
 def set_default_options_for_population(options):
@@ -128,6 +129,7 @@ if __name__ == '__main__':
     print("gpu {}, has {} used, {} total".format(gpu_id, used, total))
 
     adjust_options(parsed)
+    print(vars(parsed))
 
     if parsed.mode == 'population_train':
         assert (used * 10 < total)  # only run with a relatively empty gpu

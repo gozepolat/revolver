@@ -5,6 +5,7 @@ from PIL import Image
 from torch.nn import Conv2d
 from stacked.utils import transformer
 import glob
+import torch
 
 
 class TestEnsemble(unittest.TestCase):
@@ -25,8 +26,10 @@ class TestEnsemble(unittest.TestCase):
         kwargs = {'padding': 1}
         args = [(Conv2d, args, kwargs)] * 5
         out_size = (1, 3, 256, 256)
+        print(len(self.test_images))
         input_shape = transformer.image_to_unsqueezed_cuda_variable(self.test_images[0][1]).size()
-        ensemble = masked_sketch.Ensemble(args, input_shape).cuda()
+        ensemble = masked_sketch.Ensemble(args, input_shape)
+        ensemble = ensemble.cuda() if torch.cuda.is_available() else ensemble
         self.assertEqual(out_size, ensemble.output_shape)
 
         # test forward with various images

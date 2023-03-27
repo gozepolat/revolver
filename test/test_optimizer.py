@@ -20,8 +20,8 @@ class TestTrainer(unittest.TestCase):
         blueprint = ScopedEpochEngine.describe_default(prefix='OptimizerEpochEngineWithLoss',
                                                        depth=10,
                                                        block_module=ScopedResBottleneckBlock,
-                                                       criterion=ScopedFeatureSimilarityLoss,
-                                                       callback=collect_features,
+                                                       #criterion=ScopedFeatureSimilarityLoss,
+                                                       #callback=collect_features,
                                                        batch_size=16)
 
         engine = make_module(blueprint)

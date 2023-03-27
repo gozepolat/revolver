@@ -53,7 +53,8 @@ class ScopedResGroup(Sequential):
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True, block_module=ScopedResBlock,
-                         group_depth=2, drop_p=0.0, *_, **__):
+                         group_depth=2, drop_p=0.0, mutation_p=0.01, toggle_p=0.01,
+                         *_, **__):
         """Create a default ResGroup blueprint
 
         Args:
@@ -121,4 +122,6 @@ class ScopedResGroup(Sequential):
         default['children'] = children
         default['depth'] = len(children)
         default['output_shape'] = input_shape
+        default['mutation_p'] = 0.01
+        default['toggle_p'] = 0.01
         return default

@@ -146,7 +146,8 @@ class ScopedBottleneckBlock(Sequential):
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True,
-                         hidden_channels=0, hidden_scale=4, *_, **__):
+                         hidden_channels=0, hidden_scale=4,
+                         mutation_p=0.01, toggle_p=0.001, *_, **__):
         """Create a default ScopedBottleneckBlock blueprint
 
         Args:
@@ -208,6 +209,8 @@ class ScopedBottleneckBlock(Sequential):
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
                              'stride': stride, 'padding': padding, 'dilation': dilation,
                              'groups': groups, 'bias': bias}
+        default['mutation_p'] = mutation_p
+        default['toggle_p'] = toggle_p
         return default
 
     @staticmethod
@@ -245,4 +248,4 @@ class ScopedBottleneckBlock(Sequential):
                                                       groups=_groups,
                                                       bias=_bias,
                                                       callback=callback,
-                                                      hidden_channels=output_shape[1] * 4)
+                                                      hidden_channels=output_shape[1] * 4,)

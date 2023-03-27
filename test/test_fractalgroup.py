@@ -1,4 +1,7 @@
 import unittest
+
+import torch.cuda
+
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.fractalgroup import ScopedFractalGroup
@@ -39,7 +42,9 @@ class TestScopedFractalGroup(unittest.TestCase):
                                                group_module=ScopedFractalGroup,
                                                fractal_depth=fractal_depth)
 
-            model = ScopedResNet('ResNet_fractal%d' % fractal_depth, bp).cuda()
+            model = ScopedResNet('ResNet_fractal%d' % fractal_depth, bp)
+            if torch.cuda.is_available():
+                model.cuda()
             self.model_run(model)
             if common.BLUEPRINT_GUI:
                 visualize(bp)

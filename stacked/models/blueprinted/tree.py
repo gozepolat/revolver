@@ -12,8 +12,97 @@ import torch
 
 
 @add_metaclass(ScopedMeta)
+class ScopedDependencyNet(Sequential):
+    def __init__(self, scope, blueprint, *_, **__):
+        self.scope = scope
+        self.blueprint = blueprint
+
+        super(ScopedDependencyNet, self).__init__(blueprint)
+    def forward(self, x):
+        pass
+
+    @staticmethod
+    def function(self, x):
+        pass
+
+    @staticmethod
+    def describe_default(prefix, suffix, parent, input_shape,
+                         in_channels, out_channels, kernel_size, stride, padding=1,
+                         dilation=1, groups=1, bias=True,
+                         act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
+                         conv_module=ScopedConv2d, callback=all_to_none,
+                         conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
+                         unit_module=ScopedConvUnit, block_depth=2,
+                         dropout_p=0.0, residual=True, block_module=ScopedDependencyConvUnit,
+                         group_depth=2, drop_p=0.0, fractal_depth=1,
+                         squeeze=False, *_, **__):
+
+        pass
+
+# Vertical, Horizontal, None, Both, Probabilistic mix
+
+@add_metaclass(ScopedMeta)
+class ScopedReusableGroup(Sequential):
+    """Group of dense trees with the same number of output channels"""
+
+    def __init__(self, scope, blueprint, *_, **__):
+        self.scope = scope
+        self.blueprint = blueprint
+
+        super(ScopedReusableGroup, self).__init__(blueprint)
+        self.callback = None
+        self.dropout_p = None
+        self.drop_p = None
+        self.depth = None
+        self.squeeze = None
+        self.scalar_weights = None
+        self.update(True)
+
+    def update(self, init=False):
+        if not init:
+            super(ScopedTreeGroup, self).update()
+        blueprint = self.blueprint
+
+        self.callback = blueprint['callback']
+
+    def forward(self, x):
+        pass
+    @staticmethod
+    def function(container, callback, depth, scope,
+                 training, drop_p, squeeze, module_id, x):
+        pass
+
+    @staticmethod
+    def describe_default(prefix, suffix, parent, input_shape,
+                         in_channels, out_channels, kernel_size, stride, padding=1,
+                         dilation=1, groups=1, bias=True,
+                         act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
+                         conv_module=ScopedConv2d, callback=all_to_none,
+                         conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
+                         unit_module=ScopedConvUnit, block_depth=2,
+                         dropout_p=0.0, residual=True, block_module=ScopedConvUnit,
+                         group_depth=2, drop_p=0.0, depth=1,
+                         squeeze=False, *_, **__):
+
+
+
+# no blueprint
+class TreeGroup(Sequential):
+    def __init__(self, head, input_shape, block_maker, num_blocks):
+        self.head = head
+        self.blocks = []
+        for i in range(num_blocks):
+            self.blocks.append(block_maker(input_shape, i))
+
+    @staticmethod
+    def function():
+
+        TreeGroup.function()
+
+
+@add_metaclass(ScopedMeta)
 class ScopedTreeGroup(Sequential):
-    """Group of dense fractals with the same number of output channels"""
+    """Group of dense trees with the same number of output channels"""
     def __init__(self, scope, blueprint, *_, **__):
         self.scope = scope
         self.blueprint = blueprint

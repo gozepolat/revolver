@@ -127,8 +127,8 @@ class ScopedNetRunner:
         self.loss_func.criterion.engine = engine
 
     def __call__(self, sample):
-        x_input = Variable(getattr(sample[0].cuda(), 'float')())
-        y_targets = Variable(getattr(sample[1].cuda(), 'long')())
+        x_input = Variable(getattr(sample[0].cuda() if torch.cuda.is_available() else sample[0], 'float')())
+        y_targets = Variable(getattr(sample[1].cuda() if torch.cuda.is_available() else sample[1], 'long')())
         y_out = self.net(x_input)
         return self.loss_func(y_out, y_targets), y_out
 
@@ -158,7 +158,10 @@ class ScopedEpochEngine(EpochEngine):
         train_loader = self.train_loader = make_module(blueprint['train_loader'])
         test_loader = make_module(blueprint['test_loader'])
 
-        net = make_module(blueprint['net']).cuda()
+        net = make_module(blueprint['net'])
+        if torch.cuda.is_available():
+            net.cuda()
+
         self.net = net
         net_runner = make_module(blueprint['net_runner'])
         net_runner.set_model(engine, net)
@@ -196,6 +199,10 @@ class ScopedEpochEngine(EpochEngine):
             log(Warning, "State is not a dictionary, attempting to load as a file")
             state = torch.load(state)
 
+        if 'blueprint' in state:
+            log(warning, 'Overriding the blueprint, using the last saved state')
+            self.blueprint = pd.read_pickle(state['blueprint'])
+
         net = self.state['network'].net
         net.load_state_dict(state['network'])
         self.state['optimizer'].load_state_dict(state['optimizer'])
@@ -218,13 +225,15 @@ class ScopedEpochEngine(EpochEngine):
         d['network'] = self.net.state_dict()
         d['optimizer'] = self.state['optimizer'].state_dict()
         d['iterator'] = self.train_loader
+        d['blueprint'] = f"{self.blueprint['name']}.pkl"
         torch.save(d, filename)
+        pd.to_pickle(self.blueprint, d['blueprint'])
 
-        log(warning, "Dumped engine blueprint:")
-        pd.to_pickle(self.blueprint, f"{self.blueprint['name']}.pkl")
-        log(warning, "=====================")
-        log(warning, "%s" % self.blueprint)
-        log(warning, "=====================")
+        if common.DEBUG_OPTIMIZER_VERBOSE:
+            log(warning, "Dumped engine blueprint:")
+            log(warning, "=====================")
+            log(warning, "%s" % self.blueprint)
+            log(warning, "=====================")
 
     @staticmethod
     def describe_default(prefix='EpochEngine', suffix='', parent=None,

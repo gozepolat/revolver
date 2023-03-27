@@ -1,4 +1,6 @@
 import unittest
+
+import torch.cuda
 from PIL import Image
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.utils import transformer
@@ -60,7 +62,9 @@ class TestMetaOperators(unittest.TestCase):
         # run and test a model created from the blueprint
         blueprint.make_common()
         blueprint.make_unique()
-        model = ScopedResNet(blueprint['name'], blueprint).cuda()
+        model = ScopedResNet(blueprint['name'], blueprint)
+        if torch.cuda.is_available():
+            model.cuda()
         for path, im in self.test_images:
             x = transformer.image_to_unsqueezed_cuda_variable(im)
             out = model(x)

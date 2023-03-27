@@ -66,7 +66,9 @@ def get_feature_similarity_loss(previous_feature, current_feature):
         return 0
 
     index = x != y
-    label = torch.ones(index.size()).cuda()
+    label = torch.ones(index.size())
+    if torch.cuda.is_available():
+        label.cuda()
     label[index] = -1
     second_dim = previous_feature.size()[1:]
 

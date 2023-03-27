@@ -69,6 +69,7 @@ class ScopedDenseConcatGroup(Sequential):
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True, block_module=ScopedResBlock,
                          group_depth=2, drop_p=0.0, dense_unit_module=ScopedConvUnit,
+                         mutation_p=0.01, toggle_p=0.01,
                          *_, **__):
         """Create a default DenseGroup blueprint
 
@@ -169,4 +170,6 @@ class ScopedDenseConcatGroup(Sequential):
         default['children'] = children
         default['depth'] = len(children)
         default['output_shape'] = output_shape
+        default['mutation_p'] = mutation_p
+        default['toggle_p'] = toggle_p
         return default

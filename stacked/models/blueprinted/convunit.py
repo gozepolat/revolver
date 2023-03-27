@@ -125,6 +125,7 @@ class ScopedConvUnit(Module):
                          drop_kwargs=None, module_order=None,
                          pool_module=ScopedAvgPool2d, pool_kernel_size=2,
                          pool_stride=-1, pool_padding=0, pool_kwargs=None,
+                         mutation_p=0.01, toggle_p=0.01,
                          *_, **__):
         """Create a default ScopedConvUnit blueprint
 
@@ -157,6 +158,7 @@ class ScopedConvUnit(Module):
             pool_stride (int or tuple): Stride for resizing the resolution
             pool_padding (int or tuple): Padding for resizing the resolution
             pool_kwargs: Extra pool args for the pool module
+            mutation_p (float): How much mutation is allowed as default
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedConvUnit)
         default['input_shape'] = input_shape
@@ -179,4 +181,6 @@ class ScopedConvUnit(Module):
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
                              'stride': stride, 'padding': padding,
                              'dilation': dilation, 'groups': groups, 'bias': bias}
+        default['mutation_p'] = mutation_p
+        default['toggle_p'] = toggle_p
         return default

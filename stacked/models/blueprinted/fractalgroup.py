@@ -81,7 +81,8 @@ class ScopedFractalGroup(Sequential):
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True, block_module=ScopedResBlock,
-                         group_depth=1, drop_p=0.0, fractal_depth=1, *_, **__):
+                         group_depth=1, drop_p=0.0, fractal_depth=1, mutation_p=0.01,
+                         *_, **__):
         """Create a default ResGroup blueprint
 
         Args:
@@ -113,6 +114,7 @@ class ScopedFractalGroup(Sequential):
             group_depth: Number of blocks in the group
             drop_p: Probability of vertical drop
             fractal_depth: recursion depth for fractal group module
+            mutation_p (float): How much mutation is allowed as default
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedFractalGroup)
         children = []
@@ -172,4 +174,5 @@ class ScopedFractalGroup(Sequential):
                              'dilation': dilation,
                              'groups': groups,
                              'bias': bias}
+        default['mutation_p'] = mutation_p
         return default

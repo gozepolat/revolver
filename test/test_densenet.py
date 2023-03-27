@@ -1,4 +1,7 @@
 import unittest
+
+import torch.cuda
+
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.models.blueprinted.separable import ScopedDepthwiseSeparable
 from stacked.models.blueprinted.densenet import ScopedDenseNet
@@ -47,7 +50,9 @@ class TestScopedDenseNet(unittest.TestCase):
                                                  block_module=ScopedBottleneckBlock,
                                                  head_modules=('conv', 'bn', 'act', 'pool'))
 
-            model = ScopedDenseNet('DenseNet_sum%d' % dense_depth, bp).cuda()
+            model = ScopedDenseNet('DenseNet_sum%d' % dense_depth, bp)
+            if torch.cuda.is_available():
+                model.cuda()
             self.model_run(model)
             if common.BLUEPRINT_GUI:
                 visualize(bp)
@@ -71,7 +76,9 @@ class TestScopedDenseNet(unittest.TestCase):
                                                  residual=False,
                                                  group_module=ScopedDenseConcatGroup)
 
-            model = ScopedDenseNet('DenseNet_concat%d' % dense_depth, bp).cuda()
+            model = ScopedDenseNet('DenseNet_concat%d' % dense_depth, bp)
+            if torch.cuda.is_available():
+                model.cuda()
             self.model_run(model)
             if common.BLUEPRINT_GUI:
                 visualize(bp)
@@ -97,7 +104,9 @@ class TestScopedDenseNet(unittest.TestCase):
                                                  block_module=ScopedBottleneckBlock,
                                                  residual=False)
 
-            model = ScopedDenseNet('DenseNet_concat_bottleneck%d' % dense_depth, bp).cuda()
+            model = ScopedDenseNet('DenseNet_concat_bottleneck%d' % dense_depth, bp)
+            if torch.cuda.is_available():
+                model.cuda()
             self.model_run(model)
             if common.BLUEPRINT_GUI:
                 visualize(bp)
@@ -123,7 +132,9 @@ class TestScopedDenseNet(unittest.TestCase):
                                                  block_module=ScopedBottleneckBlock,
                                                  residual=False)
             print("%s" % bp)
-            model = ScopedDenseNet('DenseNet_separable%d' % dense_depth, bp).cuda()
+            model = ScopedDenseNet('DenseNet_separable%d' % dense_depth, bp)
+            if torch.cuda.is_available():
+                model.cuda()
             self.model_run(model)
             if common.BLUEPRINT_GUI:
                 visualize(bp)

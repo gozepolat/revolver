@@ -88,14 +88,20 @@ def image_to_numpy(image):
 
 
 def image_numpy_to_unsqueezed_cuda_tensor(data):
-    return torch.unsqueeze(get_cuda(torch.from_numpy(data)), 0)
+    return T.functional.to_tensor(data).reshape((1, *data.shape))
+    #if torch.cuda.is_available():
+    #    return torch.unsqueeze(get_cuda(torch.from_numpy(data.copy())), 0)
+    #return torch.unsqueeze(torch.from_numpy(data.copy()), 0)
 
 
 def image_to_unsqueezed_cuda_variable(image, requires_grad=False):
     if isinstance(image, string_types) or isinstance(image, Image.Image):
         image = image_to_numpy(image)
     if isinstance(image, np.ndarray):
-        image = np.rollaxis(image, 2, 0)
+        if image.ndim > 2:
+            image = np.rollaxis(image, 2, 0)
+        else:
+            image = image.reshape((1, *image.shape))
         image = image_numpy_to_unsqueezed_cuda_tensor(image)
     return Variable(image, requires_grad=requires_grad)
 

@@ -1,4 +1,7 @@
 import unittest
+
+import torch.cuda
+
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.models.blueprinted.optimizer import ScopedEpochEngine
 from stacked.models.blueprinted.resnet import ScopedResNet
@@ -35,7 +38,7 @@ class TestScopedMetaMasked(unittest.TestCase):
             common.GUI = Tk()
 
         bp = ScopedResNet.describe_default('ResNet_meta', depth=22,
-                                           conv_module=ScopedMetaMasked,
+                                            conv_module=ScopedMetaMasked,
                                            input_shape=(1, 3, 32, 32),
                                            num_classes=10)
         if common.BLUEPRINT_GUI:
@@ -46,7 +49,7 @@ class TestScopedMetaMasked(unittest.TestCase):
 
             visit_modules(bp, None, None, make_conv2d_unique)
             visualize(bp)
-        self.model_run(ScopedResNet('ResNet_meta', bp).cuda())
+        self.model_run(ScopedResNet('ResNet_meta', bp).cuda() if torch.cuda.is_available() else ScopedResNet('ResNet_meta', bp))
 
         common.BLUEPRINT_GUI = False
         common.GUI = None
@@ -100,10 +103,10 @@ class TestScopedMetaMasked(unittest.TestCase):
         resnet = self._get_model_blueprint()
 
         fname = '/tmp/%s' % resnet['name']
-        with open(fname, 'w') as f:
+        with open(fname, 'wb') as f:
             pickle.dump(resnet, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-        with open(fname, 'r') as f:
+        with open(fname, 'rb') as f:
             bp = pickle.load(f)
 
         self._recursive_assertEqual(bp, resnet)

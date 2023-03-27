@@ -1,4 +1,7 @@
 import unittest
+
+import torch.cuda
+
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.densesumgroup import ScopedDenseSumGroup
@@ -40,7 +43,9 @@ class TestScopedFractalGroup(unittest.TestCase):
                                                num_classes=10,
                                                group_module=ScopedDenseSumGroup)
 
-            model = ScopedResNet('ResNet_dense%d' % dense_depth, bp).cuda()
+            model = ScopedResNet('ResNet_dense%d' % dense_depth, bp)
+            if torch.cuda.is_available():
+                model.cuda()
             self.model_run(model)
             if common.BLUEPRINT_GUI:
                 visualize(bp)
@@ -63,7 +68,9 @@ class TestScopedFractalGroup(unittest.TestCase):
                                                num_classes=10,
                                                group_module=ScopedDenseConcatGroup)
 
-            model = ScopedResNet('ResNet_dense_concat%d' % dense_depth, bp).cuda()
+            model = ScopedResNet('ResNet_dense_concat%d' % dense_depth, bp)
+            if torch.cuda.is_available():
+                model.cuda()
             self.model_run(model)
             if common.BLUEPRINT_GUI:
                 visualize(bp)
@@ -89,7 +96,9 @@ class TestScopedFractalGroup(unittest.TestCase):
                                                block_module=ScopedBottleneckBlock,
                                                residual=False)
 
-            model = ScopedResNet('ResNet_dense_bottleneck%d' % dense_depth, bp).cuda()
+            model = ScopedResNet('ResNet_dense_bottleneck%d' % dense_depth, bp)
+            if torch.cuda.is_available():
+                model.cuda()
             self.model_run(model)
             if common.BLUEPRINT_GUI:
                 visualize(bp)

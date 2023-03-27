@@ -16,6 +16,7 @@ DEBUG_HEURISTICS = True
 DEBUG_BLUEPRINT = True
 DEBUG_POPULATION = True
 DEBUG_OPTIMIZER = True
+DEBUG_OPTIMIZER_VERBOSE = False
 DEBUG_ENGINE = True
 DEBUG_MEANMODEL = True
 DEBUG_CONV = True
@@ -77,7 +78,9 @@ def get_gpu_memory_info():
 
 
 def get_cuda(param, _type='float'):
-    return getattr(param.cuda(), _type)()
+    if torch.cuda.is_available():
+        return getattr(param.cuda(), _type)()
+    return param
 
 
 def imshow(img, duration=0.001):

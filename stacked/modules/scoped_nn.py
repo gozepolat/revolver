@@ -41,7 +41,8 @@ class ScopedConv2d(Conv2d):
     def describe_default(prefix='conv', suffix='', parent=None,
                          input_shape=None, in_channels=3, out_channels=3,
                          kernel_size=3, stride=1, padding=1,
-                         dilation=1, groups=1, bias=True, *_, **__):
+                         dilation=1, groups=1, bias=True,
+                         mutation_p=0.01, toggle_p=0.01, *_, **__):
         """Create a default ScopedConv2d blueprint
 
         Args:
@@ -74,6 +75,8 @@ class ScopedConv2d(Conv2d):
                                                 kernel_size, stride,
                                                 padding, dilation)
         assert (in_channels == bp['input_shape'][1])
+        bp['mutation_p'] = mutation_p
+        bp['toggle_p'] = toggle_p
         return bp
 
     @staticmethod
@@ -195,6 +198,10 @@ class ScopedConv2dDeconv2dConcat(Conv2dDeconv2dConcat):
         bp['parent'] = parent
         bp.refresh_name()
         return bp
+
+
+class Conv3d2dMeta(ScopedMeta, Conv3d2d.__class__):
+    pass
 
 
 @add_metaclass(ScopedMeta)
@@ -390,7 +397,12 @@ class ScopedParameterList(ParameterList):
         self.scope = scope
 
 
-@add_metaclass(ScopedMeta)
+# Fix for PyTorch Parameter's own Meta class
+class ParameterMeta(ScopedMeta, Parameter.__class__):
+    pass
+
+
+@add_metaclass(ParameterMeta)
 class ScopedParameter(Parameter):
     def __init__(self, scope, *args, **kwargs):
         super(ScopedParameter, self).__init__(*args, **kwargs)

@@ -68,8 +68,7 @@ def mutate_current(blueprint, key, diameter, p):
         % (blueprint['name'], key, value))
 
     adjust_mutation(blueprint, key)
-
-    if np.random.random() < p:
+    if np.random.random() < blueprint.get('toggle_p', p):
         toggle_uniqueness(blueprint, key)
 
     return True
@@ -96,7 +95,7 @@ def mutate(blueprint, key=None, diameter=1.0, p=0.05, p_decay=1.0,
 
         key = choice_fn(blueprint)
 
-    if key not in domains or np.random.random() > p:
+    if key not in domains or np.random.random() > blueprint.get('mutation_p', p):
         return mutate_sub(blueprint, key, diameter, p * p_decay, p_decay)
 
     return mutate_current(blueprint, key, diameter, p)

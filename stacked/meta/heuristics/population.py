@@ -38,7 +38,7 @@ def get_layer_cost(blueprint):
     """Input and output shape dependent cost for convolution"""
     input_shape = blueprint['input_shape']
     output_shape = blueprint['output_shape']
-    return math.log(np.prod(input_shape) * np.prod(output_shape))
+    return math.log2(math.sqrt(np.prod(input_shape) * np.prod(output_shape)))
 
 
 def get_ensemble_cost(blueprint):
@@ -49,20 +49,40 @@ def get_ensemble_cost(blueprint):
     return math.log(np.prod(input_shape) * np.prod(output_shape) * n * 3)
 
 
-def estimate_cost(blueprint):
-    """Calculate current cost"""
+def get_num_params(blueprint):
+    if 'kwargs' in blueprint:
+        c = blueprint['kwargs']
+        if 'in_channels' in c:
+            return c['in_channels'] * c['out_channels'] * c['kernel_size'] * c['kernel_size'] + c['out_channels']
+        elif 'in_features' in c:
+            return (c['in_features'] + 1) * c['out_features']
+
+    raise ValueError(f"can not calculate num_params in: {blueprint}")
+
+
+def estimate_rough_contexts(blueprint):
+    """Calculate current rough number of contexts"""
     module_list = collect_modules(blueprint)
     cost = 0
-
+    total_params = 0
+    total_weights = 0
+    name_set = set()
     for module in module_list:
         _type = module['type']
         if (issubclass(_type, Conv2d) or
                 issubclass(_type, Linear) or
                 issubclass(_type, Conv3d2d)):
             cost += get_layer_cost(module)
-        # ignore other layer types, e.g. locally_connected
-
-    return cost * common.POPULATION_COST_ESTIMATION_SCALE
+            params = get_num_params(module)
+            if module['name'] not in name_set:
+                total_params += params
+                name_set.add(module['name'])
+            total_weights += params
+        # ignores other layer types, e.g. locally_connected
+    if total_weights <= 0:
+        print(f"Zero : {blueprint}")
+        return 0.01
+    return math.log2(total_params * cost / total_weights) * common.POPULATION_COST_ESTIMATION_SCALE
 
 
 def get_share_ratio(blueprint):
@@ -75,9 +95,12 @@ def get_share_ratio(blueprint):
 
 def get_genotype_score(genotype, *_, **__):
     """Estimate a score only by looking at the genotype"""
-    unique_ratio = get_share_ratio(genotype)
-    cost = estimate_cost(genotype)
-    return unique_ratio * cost
+    utility = np.clip(estimate_rough_contexts(genotype), 0, None)
+    print(f"genotype utility: {utility}, score: {20./(utility+1)}")
+    return 20.0 / (utility + 1.)
+    # unique_ratio = get_share_ratio(genotype)
+    # cost = estimate_cost(genotype)
+    # return unique_ratio * cost
 
 
 def get_phenotype_score(genotype, options):
@@ -109,7 +132,7 @@ def get_phenotype_score(genotype, options):
     num_parameters = math.log(num_parameters, favor_params)
     score = engine.state['score'] * (1.0 + num_parameters
                                      * common.POPULATION_COST_NUM_PARAMETER_SCALE)
-
+    print(f"phenotype score: {score}")
     # create / delete the engine each time to save memory
     unregister(engine.blueprint['name'])
 
@@ -132,9 +155,14 @@ def update_score(blueprint, new_score, weight=0.2):
         bp['meta']['score'] = score
         average_score += score
 
-    if average_score > 0:
-        average_score /= len(modules)
-        blueprint['meta']['score'] = average_score
+    # the full hierarchy
+    bp = blueprint
+    if 'score' not in bp['meta']:
+        bp['meta']['score'] = get_genotype_score(bp)
+
+    print(f"Previous score {bp['meta']['score']}")
+    bp['meta']['score'] = new_score * weight + bp['meta']['score'] * (1.0 - weight)
+    print(f"New score {bp['meta']['score']}")
 
     return average_score
 
@@ -143,6 +171,7 @@ def make_mutable_and_randomly_unique(bp, p_unique, *_, **__):
     extensions.extend_conv_mutables(bp, ensemble_size=3,
                                     block_depth=2)
     extensions.extend_depth_mutables(bp)
+    extensions.extend_mutation_mutables(bp)
 
     if np.random.random() < p_unique:
         bp.make_unique()
@@ -237,7 +266,10 @@ class Population(object):
                                     sample_size, replace=False)
 
         distribution = np.array([bp['meta']['score'] for bp in self.genotypes])
-        distribution = softmax(np.max(distribution) - distribution * 0.5)
+        transformed = np.max(distribution) - distribution * 0.5
+
+        distribution = transformed / np.sum(transformed)
+        # distribution = softmax()
 
         if np.count_nonzero(distribution) <= sample_size:
             log(warning, "Population.pick_indices: Scores are not diverse enough")

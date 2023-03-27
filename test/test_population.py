@@ -111,7 +111,7 @@ class TestPopulation(unittest.TestCase):
         common.BLUEPRINT_GUI = False
         blueprints = population.generate_net_blueprints(self.options)
         for bp in blueprints:
-            cost = population.estimate_cost(bp)
+            cost = population.estimate_rough_contexts(bp)
             self.assertTrue(cost > 0)
 
     @unittest.skip("Skipped due to slow runtime")

@@ -2,10 +2,10 @@
 import uuid
 from stacked.utils import common
 from six import string_types
-from six import reraise as raise_
 from six import add_metaclass
 import sys
 from logging import warning
+import torch
 
 UNIQUE_SUFFIX_DELIMITER = '~'
 
@@ -21,6 +21,44 @@ def validate_scope(scope):
             raise ValueError("Scope string can not be empty")
     else:
         raise TypeError("Scope must be a string")
+
+
+class ScopedBase:
+    def __new__(cls, scope, *args, **kwargs):
+        validate_scope(scope)
+        if scope not in common.SCOPE_DICTIONARY:
+            if scope == "_random":
+                scope = generate_random_scope(scope)
+                while scope in common.SCOPE_DICTIONARY:
+                    scope = generate_random_scope(scope)
+
+            # uniquely associate the scope with the generated instance
+
+            instance = super().__new__(cls)
+            if hasattr(instance, 'init_from_bp') and callable(instance.init_from_bp):
+                print(f"Init from bp is being called for {cls} {args, kwargs}")
+
+                instance.init_from_bp(scope, *args, **kwargs)
+            else:
+                print(f"Init is being called for {cls} {args, kwargs}", flush=True)
+                instance.__init__(scope, *args, **kwargs)
+
+            instance.scope = scope
+            common.SCOPE_DICTIONARY[scope] = {'meta': dict(), 'instance': instance}
+        else:
+            log(warning, "Scope {} already exists, \
+                    ignoring the constructor arguments".format(scope))
+
+        scoped = common.SCOPE_DICTIONARY[scope]
+        scoped_instance = scoped['instance']
+        scoped_type = type(scoped_instance)
+        if scoped_type != cls:
+            traceback = sys.exc_info()[2]
+            error = "Same scope, different types: {}! \
+                    Current: {}, registered type: {}".format(scope, cls, scoped_type)
+            raise TypeError(error)
+
+        return scoped_instance
 
 
 class ScopedMeta(type):
@@ -58,6 +96,7 @@ class ScopedMeta(type):
             raise TypeError(error)
 
         return scoped_instance
+
 
 
 @add_metaclass(ScopedMeta)

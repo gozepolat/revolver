@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import unittest
+
+import torch.cuda
 from PIL import Image
 from stacked.utils import transformer
 from stacked.modules.conv import Conv3d2d
@@ -18,11 +20,16 @@ class TestConv3d2d(unittest.TestCase):
     def setUpClass(cls):
         image_paths = glob.glob("images/*")
         cls.test_images = [(s, Image.open(s).resize((128, 128))) for s in image_paths]
-        cls.conv2d = Conv2d(3, 160, 3, 1, 1).cuda()
-        cls.conv3d2d = Conv3d2d(2, 2, 3, (2, 1, 1), 1).cuda()
+        cls.conv2d = Conv2d(3, 160, 3, 1, 1)
+        cls.conv3d2d = Conv3d2d(2, 2, 3, (2, 1, 1), 1)
+
         cls.out_size = (1, 80, 128, 128)
         ScopedConv3d2d("scoped_conv3d-0", 2, 2, 3, (2, 1, 1), 1)
-        cls.scoped = ScopedConv3d2d("scoped_conv3d-0").cuda()
+        cls.scoped = ScopedConv3d2d("scoped_conv3d-0")
+        if torch.cuda.is_available():
+            cls.conv2d = cls.conv2d.cuda()
+            cls.conv3d2d = cls.conv3d2d.cuda()
+            cls.scoped = cls.scoped.cuda()
 
     def test_channel_squeeze(self):
         for path, im in self.test_images:
@@ -32,8 +39,11 @@ class TestConv3d2d(unittest.TestCase):
 
     def test_scope_equality(self):
         ScopedConv3d2d("scoped_conv3d-1", 2, 2, 3, (2, 1, 1), 1)
-        scoped4 = ScopedConv3d2d("scoped_conv3d-0").cuda()
-        scoped5 = ScopedConv3d2d("scoped_conv3d-1").cuda()
+        scoped4 = ScopedConv3d2d("scoped_conv3d-0")
+        scoped5 = ScopedConv3d2d("scoped_conv3d-1")
+        if torch.cuda.is_available():
+            scoped4 = scoped4.cuda()
+            scoped5 = scoped5.cuda()
         self.assertEqual(self.scoped, scoped4)
         self.assertNotEqual(self.scoped, scoped5)
 
@@ -70,8 +80,12 @@ class TestConv3d2d(unittest.TestCase):
         conv3d2dx_blueprint = ScopedConv3d2d.describe_from_blueprint('conv3d2dX_1', '', default, None,
                                                                      {'in_channels': 1, 'out_channels': 20,
                                                                       'stride': 2})
-        conv3d2d = make_module(conv3d2s_from_blueprint).cuda()
-        conv3d2dx = make_module(conv3d2dx_blueprint).cuda()
+        conv3d2d = make_module(conv3d2s_from_blueprint)
+        conv3d2dx = make_module(conv3d2dx_blueprint)
+
+        if torch.cuda.is_available():
+            conv3d2d = conv3d2d.cuda()
+            conv3d2dx = conv3d2dx.cuda()
 
         for path, im in self.test_images:
             x = transformer.image_to_unsqueezed_cuda_variable(im)

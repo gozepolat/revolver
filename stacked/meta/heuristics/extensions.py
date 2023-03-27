@@ -83,3 +83,11 @@ def extend_depth_mutables(blueprint, min_depth=2):
         min_depth = max_depth
 
     blueprint['mutables']['depth'] = ClosedInterval(min_depth, max_depth)
+
+
+def extend_mutation_mutables(blueprint, min_mutation_p=0.001, max_mutation_p=1.0,
+                             min_toggle_p=0.001, max_toggle_p=0.2):
+    if 'mutation_p' in blueprint:
+        blueprint['mutables']['mutation_p'] = ClosedInterval(min_mutation_p, max_mutation_p)
+    if 'toggle_p' in blueprint:
+        blueprint['mutables']['toggle_p'] = ClosedInterval(min_toggle_p, max_toggle_p)

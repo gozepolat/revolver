@@ -8,6 +8,7 @@ from stacked.meta.blueprint import visualize, collect_keys
 from stacked.models.blueprinted.ensemble import ScopedEnsembleMean
 from stacked.utils import common
 import glob
+import torch
 
 
 class TestResNet(unittest.TestCase):
@@ -21,7 +22,9 @@ class TestResNet(unittest.TestCase):
         cls.out_size = (1, 100)
         cls.test_images = [(s, Image.open(s).resize((128, 128))) for s in image_paths]
 
-        cls.vanilla_model = ResNet(depth=16, width=1, num_classes=100).cuda()
+        cls.vanilla_model = ResNet(depth=16, width=1, num_classes=100)
+        if torch.cuda.is_available():
+            cls.vanilla_model.cuda()
 
         cls.blueprint = ScopedResNet.describe_default('ResNet28',
                                                       depth=28,
@@ -29,7 +32,9 @@ class TestResNet(unittest.TestCase):
                                                       width=1,
                                                       num_classes=100)
         cls.blueprinted_model = ScopedResNet(cls.blueprint['name'],
-                                             cls.blueprint).cuda()
+                                             cls.blueprint)
+        if torch.cuda.is_available():
+            cls.blueprinted_model.cuda()
 
     def test_forward_vanilla_model(self):
         for path, im in self.test_images:
@@ -83,13 +88,15 @@ class TestResNet(unittest.TestCase):
         conv2.make_unique()
         self.blueprint.set_element(index, conv2)
 
-        new_model = ScopedResNet('ResNet28_ensemble', self.blueprint).cuda()
+        new_model = ScopedResNet('ResNet28_ensemble', self.blueprint)
+        if torch.cuda.is_available():
+            new_model.cuda()
         for path, im in self.test_images:
             x = transformer.image_to_unsqueezed_cuda_variable(im)
             out = new_model(x)
             self.assertEqual(out.size(), self.out_size)
 
-    @unittest.skip("GUI test for uniqueness skipped")
+    #@unittest.skip("GUI test for uniqueness skipped")
     def test_visual_change_blueprinted(self):
         common.BLUEPRINT_GUI = True
         if common.GUI is None:
@@ -108,7 +115,9 @@ class TestResNet(unittest.TestCase):
         blueprint['suffix'] = '_new'
         blueprint.refresh_name()
 
-        new_model = ScopedResNet(blueprint['name'], blueprint).cuda()
+        new_model = ScopedResNet(blueprint['name'], blueprint)
+        if torch.cuda.is_available():
+            new_model.cuda()
         self.assertEqual(self.blueprinted_model.container[1],
                          new_model.container[1])
         self.assertNotEqual(self.blueprinted_model.container[0],

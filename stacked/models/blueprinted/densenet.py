@@ -216,6 +216,7 @@ class ScopedDenseNet(Sequential):
                          head_kernel=7, head_stride=2, head_padding=3,
                          head_pool_kernel=3, head_pool_stride=2,
                          head_pool_padding=1, head_modules=('conv', 'bn', 'act', 'pool'),
+                         mutation_p=0.01,
                          *_, **__):
         """Create a default DenseNet blueprint
 
@@ -259,6 +260,7 @@ class ScopedDenseNet(Sequential):
             head_pool_stride (int or tuple): Size of the first pool stride
             head_pool_padding (int or tuple): Size of the first pool padding
             head_modules (iterable): Key list of head modules
+            mutation_p (float): How much mutation is allowed as default
         """
         if input_shape is None:
             # assume batch_size = 1, in_channels: 3, h: 32, and w : 32
@@ -297,5 +299,5 @@ class ScopedDenseNet(Sequential):
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
                              'stride': head_stride, 'padding': padding,
                              'dilation': dilation, 'groups': groups, 'bias': bias}
-
+        default['mutation_p'] = mutation_p
         return default

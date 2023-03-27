@@ -1,4 +1,7 @@
 import unittest
+
+import torch.cuda
+
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.convunit import ScopedConvUnit
@@ -41,7 +44,9 @@ class TestScopedDenseFractalGroup(unittest.TestCase):
                                                group_module=ScopedDenseFractalGroup,
                                                fractal_depth=dense_depth)
 
-            model = ScopedResNet('ResNet_densefractal%d' % dense_depth, bp).cuda()
+            model = ScopedResNet('ResNet_densefractal%d' % dense_depth, bp)
+            if torch.cuda.is_available():
+                model.cuda()
 
             self.model_run(model)
             if common.BLUEPRINT_GUI:

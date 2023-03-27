@@ -27,6 +27,7 @@ class EpochEngine(object):
             self.hooks[name](state)
 
     def train_n_samples(self, n):
+        torch.autograd.set_detect_anomaly(True)
         for i, sample in enumerate(self.state['iterator']):
             self.state['sample'] = sample
             self.hook('on_sample', self.state)

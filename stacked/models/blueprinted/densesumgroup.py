@@ -124,6 +124,7 @@ class ScopedDenseSumGroup(Sequential):
                          dropout_p=0.0, residual=True, block_module=ScopedResBlock,
                          group_depth=2, drop_p=0.0, dense_unit_module=ScopedConvUnit,
                          scalar_container=ScopedParameterList, weight_sum=False,
+                         mutation_p=0.01,
                          *_, **__):
         """Create a default DenseGroup blueprint
 
@@ -158,6 +159,7 @@ class ScopedDenseSumGroup(Sequential):
             dense_unit_module: Children modules that will be used in dense connections
             scalar_container: Sequential container of scalars for dense layers
             weight_sum (bool): Weight sum and then softmax the reused blocks or not
+            mutation_p (float): How much mutation is allowed as default
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedDenseSumGroup)
         children = []
@@ -228,4 +230,5 @@ class ScopedDenseSumGroup(Sequential):
         default['children'] = children
         default['depth'] = len(children)
         default['output_shape'] = output_shape
+        default['mutation_p'] = mutation_p
         return default

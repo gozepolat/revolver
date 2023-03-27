@@ -57,7 +57,7 @@ def make_net_blueprint(options, suffix=''):
 
 
 def create_single_engine(net_blueprint, options):
-    if options.engine_pkl is None:
+    if not hasattr(options, 'engine_pkl') or options.engine_pkl is None:
         engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
                                                               net_blueprint=net_blueprint,
                                                               max_epoch=options.epochs,
@@ -73,7 +73,7 @@ def create_single_engine(net_blueprint, options):
                                                               crop_size=options.crop_size,
                                                               weight_decay=options.weight_decay)
     else:
-        input('Loading engine')
+        log(warning, f'Loading the engine blueprint from {options.engine_pkl} and disregarding all the other options')
         engine_blueprint = pd.read_pickle(options.engine_pkl)
 
     single_engine = make_module(engine_blueprint)
@@ -88,7 +88,7 @@ def create_single_engine(net_blueprint, options):
     return single_engine
 
 
-def make_ckpt(path, epoch):
+def make_checkpoint_path(path, epoch):
     no_extension = path[:-7]
     ix = no_extension.rfind('epoch')
     return f'{no_extension[:ix]}epoch_{epoch}.pth.tar'
@@ -96,7 +96,7 @@ def make_ckpt(path, epoch):
 
 def remove_older_checkpoints(path, epoch, keep_last_n, oldest_kept):
     while oldest_kept < epoch - keep_last_n + 1:
-        ckpt_path = make_ckpt(path, oldest_kept)
+        ckpt_path = make_checkpoint_path(path, oldest_kept)
         if os.path.exists(ckpt_path):
             os.remove(ckpt_path)
         oldest_kept += 1
@@ -111,7 +111,7 @@ def train_with_single_engine(model, options):
         return int(path.split('.')[-3].split('_')[-1])
 
     if options.load_latest_checkpoint:
-        ckpt_regex = make_ckpt(options.load_path, '*')
+        ckpt_regex = make_checkpoint_path(options.load_path, '*')
 
         ckpt_paths = glob.glob(ckpt_regex)
         latest_paths = sorted(ckpt_paths,
@@ -126,7 +126,8 @@ def train_with_single_engine(model, options):
     log(info, f"{engine.state['epoch']}")
 
     name = '{}_model_dw_{}_{}_bs_{}_decay_{}_lr_{}_{}.pth.tar'.format(
-        engine.net.blueprint['name'],
+        engine.blueprint['name'],
+        type(engine.net),
         options.depth,
         options.width,
         options.batch_size,
@@ -152,6 +153,7 @@ def train_with_single_engine(model, options):
     test_every_nth = options.test_every_nth
     keep_last_n = options.keep_last_n
     oldest_kept = 0
+    engine.state['maxepoch'] = options.epochs
 
     if test_every_nth > 0:
         for j in range(engine.state['epoch'], options.epochs, 1):
@@ -159,7 +161,7 @@ def train_with_single_engine(model, options):
             engine.train_n_samples(options.num_samples)
             if j % test_every_nth == test_every_nth - 1:
                 engine.end_epoch()
-                ckpt_name = make_ckpt(name, j)
+                ckpt_name = make_checkpoint_path(name, j)
                 engine.dump_state(ckpt_name)
                 oldest_kept = remove_older_checkpoints(name, j, keep_last_n, oldest_kept)
             else:
@@ -286,7 +288,7 @@ def train_population(population, options, default_resnet_shape, default_densenet
     return net_blueprint
 
 
-def train_single_network(options):
+def train_single_network(options, net=None):
     net = make_net_blueprint(options)
 
     adjust_uniqueness(net, options)

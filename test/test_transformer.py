@@ -17,7 +17,7 @@ class TestTransformImage(unittest.TestCase):
 
     def test_image_variable_conversion(self):
         variables = []
-        variable_type = torch.autograd.Variable
+        variable_type = torch.Tensor  # torch.autograd.Variable
         image_type = Image.Image
 
         # image to variable
@@ -25,7 +25,7 @@ class TestTransformImage(unittest.TestCase):
             variable = transformer.image_to_variable(im)
             variables.append((path, variable))
             self.assertEqual(type(variable), variable_type,
-                             "{} is not converted correctly from image".format(path))
+                             f"{path} is not converted correctly from image")
 
         # variable to image
         for path, v in variables:

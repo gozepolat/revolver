@@ -92,7 +92,7 @@ def create_dataset(dataset="CIFAR10", data_root=".",
                                         transform=convert)
         if train_mode:
             if dataset != 'MNIST':
-                ds.train_data = np.pad(ds.train_data,
+                ds.data = np.pad(ds.data,
                                        ((0, 0), (padding, padding),
                                         (padding, padding), (0, 0)),
                                        mode='reflect')
