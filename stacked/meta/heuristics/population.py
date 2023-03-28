@@ -80,9 +80,9 @@ def estimate_rough_contexts(blueprint):
             total_weights += params
         # ignores other layer types, e.g. locally_connected
     if total_weights <= 0:
-        print(f"Zero : {blueprint}")
+        # print(f"Zero : {blueprint[]}")
         return 0.01
-    return math.log2(total_params * cost / total_weights) * common.POPULATION_COST_ESTIMATION_SCALE
+    return math.log2(total_params * cost / total_weights)
 
 
 def get_share_ratio(blueprint):
@@ -93,11 +93,13 @@ def get_share_ratio(blueprint):
     return float(unique_size) / all_size
 
 
-def get_genotype_score(genotype, *_, **__):
+def get_genotype_cost(genotype, *_, **__):
     """Estimate a score only by looking at the genotype"""
     utility = np.clip(estimate_rough_contexts(genotype), 0, None)
-    print(f"genotype utility: {utility}, score: {20./(utility+1)}")
-    return 20.0 / (utility + 1.)
+    cost = common.POPULATION_GENOTYPE_COST_COEFFICIENT / (utility + 1.)
+    cost *= common.POPULATION_COST_ESTIMATION_SCALE
+    print(f"genotype utility: {utility}, cost: {cost}")
+    return cost
     # unique_ratio = get_share_ratio(genotype)
     # cost = estimate_cost(genotype)
     # return unique_ratio * cost
@@ -130,6 +132,7 @@ def get_phenotype_score(genotype, options):
     # favor lower number of parameters
     num_parameters = get_num_parameters(engine.state['network'].net)
     num_parameters = math.log(num_parameters, favor_params)
+    print({k: v for k, v in engine.state.items() if k != 'sample'})
     score = engine.state['score'] * (1.0 + num_parameters
                                      * common.POPULATION_COST_NUM_PARAMETER_SCALE)
     print(f"phenotype score: {score}")
@@ -146,7 +149,7 @@ def update_score(blueprint, new_score, weight=0.2):
 
     for bp in modules:
         if 'score' not in bp['meta']:
-            bp['meta']['score'] = get_genotype_score(bp)
+            bp['meta']['score'] = get_genotype_cost(bp)
         score = bp['meta']['score']
         if score < np.inf:
             score = new_score * weight + score * (1.0 - weight)
@@ -158,11 +161,11 @@ def update_score(blueprint, new_score, weight=0.2):
     # the full hierarchy
     bp = blueprint
     if 'score' not in bp['meta']:
-        bp['meta']['score'] = get_genotype_score(bp)
+        bp['meta']['score'] = get_genotype_cost(bp)
 
     print(f"Previous score {bp['meta']['score']}")
     bp['meta']['score'] = new_score * weight + bp['meta']['score'] * (1.0 - weight)
-    print(f"New score {bp['meta']['score']}")
+    print(f"New score {bp['meta']['score']}, updated with {new_score}")
 
     return average_score
 
@@ -172,6 +175,7 @@ def make_mutable_and_randomly_unique(bp, p_unique, *_, **__):
                                     block_depth=2)
     extensions.extend_depth_mutables(bp)
     extensions.extend_mutation_mutables(bp)
+    extensions.extend_bn_mutables(bp)
 
     if np.random.random() < p_unique:
         bp.make_unique()
@@ -229,7 +233,7 @@ class Population(object):
     def replace_individual(self, index, blueprint):
         """Replace the individual at the given index with a new one"""
         if 'score' not in blueprint['meta']:
-            blueprint['meta']['score'] = get_genotype_score(blueprint)
+            blueprint['meta']['score'] = get_genotype_cost(blueprint)
 
         self.genotypes[index] = blueprint
         self.ids[index] = id(blueprint)
@@ -242,7 +246,7 @@ class Population(object):
             return
 
         if 'score' not in blueprint['meta']:
-            blueprint['meta']['score'] = get_genotype_score(blueprint)
+            blueprint['meta']['score'] = get_genotype_cost(blueprint)
 
         self.genotypes.append(blueprint)
         self.ids.append(id(blueprint))
@@ -255,6 +259,10 @@ class Population(object):
         for blueprint in genotypes:
             self.add_individual(blueprint)
 
+    def random_pick(self, sample_size=0):
+        return np.random.choice(range(len(self.genotypes)),
+                                sample_size, replace=False)
+
     def pick_indices(self, sample_size=0):
         """Randomly pick genotype indices, sometimes favor lower scores"""
         if sample_size == 0:
@@ -262,8 +270,7 @@ class Population(object):
 
         p = 0.7 - 0.4 * float(self.iteration) / self.options.max_iteration
         if np.random.random() < p:
-            return np.random.choice(range(len(self.genotypes)),
-                                    sample_size, replace=False)
+            return self.random_pick(sample_size)
 
         distribution = np.array([bp['meta']['score'] for bp in self.genotypes])
         transformed = np.max(distribution) - distribution * 0.5
@@ -354,6 +361,11 @@ class Population(object):
 
         return r1, r2
 
+    def random_pick_n_others(self, picked, n):
+        selected_indices = [i for i in range(self.population_size)
+                            if i not in picked]
+        return np.random.choice(selected_indices, n, replace=False)
+
     def evolve_generation(self, options=None):
         """A single step of evolution"""
         if options is not None:
@@ -365,16 +377,21 @@ class Population(object):
         self.iteration += 1
         self.update_scores()
 
-        # bad scored indices will be replaced with new individuals
-        r1, r2 = self.get_max_indices()
 
         # favor weighted pick eventually
         index1, index2 = self.pick_indices(2)
 
+        if np.random.random() > 0.2:
+            # clean up population
+            # bad scored indices will be replaced with new individuals
+            r1, r2 = self.get_max_indices()
+        else:
+            # competition
+            # random indices will be pitted against each other
+            r1, r2 = self.random_pick_n_others((index1, index2), 2)
+
         if index1 in (r1, r2) or index2 in (r1, r2):
-            selected_indices = [i for i in range(self.population_size)
-                                if i not in (r1, r2)]
-            index1, index2 = np.random.choice(selected_indices, 2, replace=False)
+            index1, index2 = self.random_pick_n_others((r1, r2), 2)
 
         clone1 = copy.deepcopy(self.genotypes[index1])
         clone2 = copy.deepcopy(self.genotypes[index2])
@@ -398,9 +415,12 @@ class Population(object):
             mutate(clone2, p=0.5)
 
         if np.random.random() < 0.9:
-            crossover(clone1, clone2)
+            successful = crossover(clone1, clone2)
+            log(warning, f"Crossed {successful}. "
+                         f"Removing {self.genotypes[r2]['name']} which had cost {self.genotypes[r2]['meta']['score']}")
             self.replace_individual(r2, clone1)
         else:
             copyover(clone1, clone2)
 
+        log(warning, f"Removing {self.genotypes[r1]['name']} which had cost {self.genotypes[r1]['meta']['score']}")
         self.replace_individual(r1, clone2)

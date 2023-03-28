@@ -38,7 +38,7 @@ def normalize_index(index, length, mapper=None):
 
     e.g. num = 5 would behave similar to np.linspace(0.0, 1.0, 5)
     index:            0   1    2    3    4
-    normalized index: 0.0 0.25 0.50 0.75 1.0   # =
+    normalized index: 0.0 0.25 0.50 0.75 1.0
     """
     if mapper is not None:
         return mapper.forward(index, length)
@@ -64,7 +64,7 @@ def normalize_float(value, low, high, mapper=None):
     """
     if mapper is not None:
         return mapper.forward(value, low, high)
-    assert (high >= low and high >= value >= low)
+    assert high >= low and high >= value >= low, f"It is supposed to be {low} <= {value} <= {high}"
     width = (high - low)
     if width > 0:
         return float(value - low) / width
@@ -77,7 +77,7 @@ def denormalize_float(normalized_float, low, high, mapper=None):
         value = normalized_float * (high - low) + low
     else:
         value = mapper.backward(normalized_float, low, high)
-    assert (high > low and high >= value >= low)
+    assert high > low and high >= value >= low, f"It is supposed to be {low} <= {value} <= {high}"
     return value
 
 

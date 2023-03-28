@@ -218,6 +218,7 @@ def adjust_uniqueness(net, options):
         if 'bn' in options.unique:
             if issubclass(bp['type'], ScopedBatchNorm2d):
                 bp.make_unique()
+                bp['kwargs']['momentum'] = 0.1
 
         if 'convdim' in options.unique:
             if issubclass(bp['type'], ScopedConv2d):

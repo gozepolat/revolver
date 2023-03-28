@@ -84,7 +84,7 @@ class ScopedConvUnit(Module):
                 ni = input_shape[1]
                 suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
                                                       padding, dilation, groups, bias)
-                set_batchnorm(default, prefix, suffix, ni, bn_module, bn_kwargs)
+                set_batchnorm(default, prefix, suffix, input_shape, bn_module, bn_kwargs)
                 default['bn']['input_shape'] = input_shape
                 default['bn']['output_shape'] = input_shape
 
@@ -125,7 +125,7 @@ class ScopedConvUnit(Module):
                          drop_kwargs=None, module_order=None,
                          pool_module=ScopedAvgPool2d, pool_kernel_size=2,
                          pool_stride=-1, pool_padding=0, pool_kwargs=None,
-                         mutation_p=0.01, toggle_p=0.01,
+                         mutation_p=0.2, toggle_p=0.1,
                          *_, **__):
         """Create a default ScopedConvUnit blueprint
 

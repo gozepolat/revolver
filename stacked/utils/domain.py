@@ -207,6 +207,8 @@ class ClosedInterval(Domain):
         if self.element_type == float:
             center = np.random.uniform(center - diameter,
                                        center + diameter)
+            if center > 1.0 or center < 0.0:
+                center = np.random.random()
             return center, denormalize_float(center, self.lower_bound, self.upper_bound, self.mapper)
         return self._pick_random_int_neighbor(center, diameter)
 

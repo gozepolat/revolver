@@ -7,7 +7,7 @@ from torch.nn import Module
 import tkinter as tk
 from stacked.utils import common
 from logging import warning, error
-from collections import Iterable
+from collections.abc import Iterable
 import numpy as np
 import json
 import copy

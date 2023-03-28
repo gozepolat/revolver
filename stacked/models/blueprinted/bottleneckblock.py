@@ -147,7 +147,7 @@ class ScopedBottleneckBlock(Sequential):
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True,
                          hidden_channels=0, hidden_scale=4,
-                         mutation_p=0.01, toggle_p=0.001, *_, **__):
+                         mutation_p=0.2, toggle_p=0.001, *_, **__):
         """Create a default ScopedBottleneckBlock blueprint
 
         Args:

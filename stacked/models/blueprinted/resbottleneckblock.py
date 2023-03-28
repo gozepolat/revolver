@@ -86,7 +86,7 @@ class ScopedResBottleneckBlock(Sequential):
 
         suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (out_shape[1], no, 1, stride,
                                               0, dilation, groups, bias)
-        set_batchnorm(default, prefix, suffix, out_shape[1], bn_module, bn_kwargs)
+        set_batchnorm(default, prefix, suffix, out_shape, bn_module, bn_kwargs)
         default['bn']['output_shape'] = out_shape
 
         set_activation(default, prefix, suffix, True, act_module, act_kwargs)

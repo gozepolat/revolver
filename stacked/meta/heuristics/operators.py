@@ -17,10 +17,10 @@ def mutate_sub(blueprint, key, diameter, p, p_decay):
      Mutate in blueprint[key], where the sub-element is randomly picked
     """
     element = blueprint[key]
-
-    if (issubclass(type(element), Blueprint)
-            and len(element['mutables']) > 0):
-        random_key = np.random.choice(list(element['mutables'].keys()))
+    if issubclass(type(element), Blueprint):
+        random_key = np.random.choice(element.keys())
+        if len(element['mutables']) > 0:
+            random_key = np.random.choice(list(element['mutables'].keys()))
         return mutate(element, random_key, diameter, p, p_decay)
 
     return False
@@ -63,19 +63,30 @@ def mutate_current(blueprint, key, diameter, p):
     else:
         new_index, value = domain.pick_random()
 
+    if 'meta' not in blueprint:
+        blueprint['meta'] = {key: {}}
+    if key not in blueprint['meta']:
+        blueprint['meta'][key] = {}
+    if 'mutation_history' not in blueprint['meta'][key]:
+        blueprint['meta'][key]['mutation_history'] = []
+
+    blueprint['meta'][key]['mutation_history'].append(blueprint[key])
     blueprint[key] = value
-    log(warning, 'Mutated %s, at key: %s with %s'
-        % (blueprint['name'], key, value))
+    log(warning, 'Mutated %s, at key: %s'
+        % (blueprint['name'], key))
 
     adjust_mutation(blueprint, key)
+
     if np.random.random() < blueprint.get('toggle_p', p):
+        log(warning, 'Toggle uniquenes of %s, at key: %s'
+            % (blueprint['name'], key))
         toggle_uniqueness(blueprint, key)
 
     return True
 
 
 def mutate(blueprint, key=None, diameter=1.0, p=0.05, p_decay=1.0,
-           choice_fn=lambda bp: np.random.choice(list(bp['mutables'].keys()))):
+           choice_fn=lambda bp: np.random.choice(list(bp.keys()))):
     """Mutate the blueprint element given the key
 
     Args:
@@ -93,9 +104,12 @@ def mutate(blueprint, key=None, diameter=1.0, p=0.05, p_decay=1.0,
             log(warning, "Blueprint {} not mutable".format(blueprint['name']))
             return False
 
-        key = choice_fn(blueprint)
-
-    if key not in domains or np.random.random() > blueprint.get('mutation_p', p):
+        for i in range(3):
+            key = choice_fn(blueprint)
+            if key in domains:
+                break
+    print(key, domains, flush=True)
+    if key not in domains or np.random.random() < blueprint.get('mutation_p', p):
         return mutate_sub(blueprint, key, diameter, p * p_decay, p_decay)
 
     return mutate_current(blueprint, key, diameter, p)

@@ -149,8 +149,8 @@ class ScopedResBlock(Sequential):
                          conv_module=ScopedConv2d, callback=all_to_none,
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,
-                         dropout_p=0.0, residual=True, mutation_p=0.01,
-                         toggle_p=0.01, *_, **__):
+                         dropout_p=0.0, residual=True, mutation_p=0.2,
+                         toggle_p=0.1, *_, **__):
         """Create a default ScopedResBlock blueprint
 
         Args:
@@ -200,7 +200,8 @@ class ScopedResBlock(Sequential):
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,
                              'stride': stride, 'padding': padding, 'dilation': dilation,
                              'groups': groups, 'bias': bias}
-        default['mutation_p'] = default['toggle_p'] = 0.01
+        default['mutation_p'] = mutation_p
+        default['toggle_p'] = toggle_p
         return default
 
     @staticmethod
@@ -213,7 +214,7 @@ class ScopedResBlock(Sequential):
                                 bn_kwargs=None, act_kwargs=None,
                                 unit_module=ScopedConvUnit,
                                 dropout_p=0.0, residual=True,
-                                mutation_p=0.01, toggle_p=0.01):
+                                mutation_p=0.2, toggle_p=0.1):
 
         kwargs = blueprint['kwargs']
         input_shape = blueprint['input_shape']

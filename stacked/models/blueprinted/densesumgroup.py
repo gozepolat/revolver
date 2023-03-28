@@ -124,7 +124,7 @@ class ScopedDenseSumGroup(Sequential):
                          dropout_p=0.0, residual=True, block_module=ScopedResBlock,
                          group_depth=2, drop_p=0.0, dense_unit_module=ScopedConvUnit,
                          scalar_container=ScopedParameterList, weight_sum=False,
-                         mutation_p=0.01,
+                         mutation_p=0.2,
                          *_, **__):
         """Create a default DenseGroup blueprint
 

@@ -69,7 +69,7 @@ class ScopedDenseConcatGroup(Sequential):
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True, block_module=ScopedResBlock,
                          group_depth=2, drop_p=0.0, dense_unit_module=ScopedConvUnit,
-                         mutation_p=0.01, toggle_p=0.01,
+                         mutation_p=0.2, toggle_p=0.1,
                          *_, **__):
         """Create a default DenseGroup blueprint
 

@@ -42,7 +42,7 @@ class ScopedConv2d(Conv2d):
                          input_shape=None, in_channels=3, out_channels=3,
                          kernel_size=3, stride=1, padding=1,
                          dilation=1, groups=1, bias=True,
-                         mutation_p=0.01, toggle_p=0.01, *_, **__):
+                         mutation_p=0.2, toggle_p=0.1, *_, **__):
         """Create a default ScopedConv2d blueprint
 
         Args:
@@ -350,6 +350,30 @@ class ScopedBatchNorm2d(BatchNorm2d):
     def __init__(self, scope, *args, **kwargs):
         super(ScopedBatchNorm2d, self).__init__(*args, **kwargs)
         self.scope = scope
+
+    @staticmethod
+    def describe_default(prefix='', suffix='', parent=None,
+                         input_shape=None,
+                         mutation_p=0.2, kwargs=None, *_, **__):
+
+        bn_kwargs = {
+            'num_features': input_shape[1],
+            'eps': 1e-05,
+            'momentum': 0.1,
+            'affine': True
+        }
+        if kwargs is not None:
+            bn_kwargs.update(kwargs)
+        bp = Blueprint(f"{prefix}/bn" if prefix else "bn", suffix, parent, True,
+                       ScopedBatchNorm2d, kwargs=bn_kwargs)
+
+        assert (input_shape is not None)
+        bp['input_shape'] = input_shape
+        bp['output_shape'] = input_shape
+        bp['mutation_p'] = mutation_p
+        bp.refresh_name()
+        return bp
+
 
 
 @add_metaclass(ScopedMeta)

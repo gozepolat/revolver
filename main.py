@@ -31,6 +31,7 @@ def parse_args():
     parser.add_argument('--mode', default='single_train', type=str,
                         help="single, or population train mode")
     parser.add_argument('--depth', default=22, type=int)
+    parser.add_argument('--sample_size', default=2, type=int)
     parser.add_argument('--skeleton', default='[12,24,48]', type=str,
                         help='json list with epochs to drop lr on')
     parser.add_argument('--block_depth', default=2, type=int)
@@ -101,7 +102,7 @@ def set_default_options_for_population(options):
     options.epoch_per_generation = 1
 
     # number of updated individuals per generation
-    options.sample_size = 10
+    options.sample_size = options.sample_size
     options.update_score_weight = 0.4
     options.max_iteration = options.epochs
 

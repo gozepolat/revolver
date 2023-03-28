@@ -81,7 +81,7 @@ class ScopedFractalGroup(Sequential):
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True, block_module=ScopedResBlock,
-                         group_depth=1, drop_p=0.0, fractal_depth=1, mutation_p=0.01,
+                         group_depth=1, drop_p=0.0, fractal_depth=1, mutation_p=0.2,
                          *_, **__):
         """Create a default ResGroup blueprint
 
