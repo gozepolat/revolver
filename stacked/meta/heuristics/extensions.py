@@ -4,10 +4,11 @@ from stacked.models.blueprinted.resbottleneckblock import ScopedResBottleneckBlo
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.models.blueprinted.convdeconv import ScopedConv2dDeconv2d
 from stacked.models.blueprinted.separable import ScopedDepthwiseSeparable
-from stacked.modules.scoped_nn import ScopedConv3d2d, ScopedBatchNorm2d
+from stacked.modules.scoped_nn import ScopedConv3d2d, ScopedBatchNorm2d, ScopedConv2d
 from stacked.utils.domain import ClosedList, ClosedInterval
 from stacked.utils import common
 import numpy as np
+from torch.nn import Conv2d, BatchNorm2d
 
 
 def append_mutables(elements, mutables):
@@ -66,11 +67,14 @@ def extend_conv_mutables(blueprint, ensemble_size=5, block_depth=2):
     blueprint['mutables']['conv'] = ClosedList(mutables)
 
 
-def extend_conv_kernel_size_mutables(blueprint, min_kernel_size=1, max_kernel_size=7):
+def extend_conv_kernel_size_mutables(blueprint, min_kernel_size=1, max_kernel_size=6):
     """Create mutation options for the conv of the given blueprint
 
     Supports the existing convolution op, ensemble, and res_block
     """
+    if not issubclass(blueprint['type'], Conv2d):
+        return
+
     def new_kernel_size(value):
         new_kwargs = blueprint['kwargs'].copy()
         new_kwargs['kernel_size'] = value
@@ -89,11 +93,11 @@ def extend_depth_mutables(blueprint, min_depth=2):
     if max_depth < min_depth:
         min_depth = max_depth
 
-    blueprint['mutables']['depth'] = ClosedInterval(min_depth, max_depth)
+    blueprint['mutables']['depth'] = ClosedInterval(int(min_depth), int(max_depth), element_type=int)
 
 
 def extend_bn_mutables(bp, min_momentum=0.05, max_momentum=0.99):
-    if not issubclass(bp['type'], ScopedBatchNorm2d):
+    if not issubclass(bp['type'], BatchNorm2d):
         return
 
     def new_momentum(value):
@@ -106,7 +110,7 @@ def extend_bn_mutables(bp, min_momentum=0.05, max_momentum=0.99):
 
 
 def extend_mutation_mutables(blueprint, min_mutation_p=0.001, max_mutation_p=1.0,
-                             min_toggle_p=0.001, max_toggle_p=0.2):
+                             min_toggle_p=0.001, max_toggle_p=0.5):
     if 'mutation_p' in blueprint:
         blueprint['mutables']['mutation_p'] = ClosedInterval(min_mutation_p, max_mutation_p)
     if 'toggle_p' in blueprint:

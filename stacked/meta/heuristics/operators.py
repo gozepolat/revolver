@@ -8,7 +8,10 @@ import copy
 
 def log(log_func, msg):
     if common.DEBUG_HEURISTICS:
-        log_func("stacked.meta.heuristics.operators: %s" % msg)
+        if common.LAST_DEBUG_MESSAGE != msg:
+            log_func("stacked.meta.heuristics.operators: %s" % msg)
+            common.LAST_DEBUG_MESSAGE = msg
+
 
 
 def mutate_sub(blueprint, key, diameter, p, p_decay):
@@ -18,7 +21,7 @@ def mutate_sub(blueprint, key, diameter, p, p_decay):
     """
     element = blueprint[key]
     if issubclass(type(element), Blueprint):
-        random_key = np.random.choice(element.keys())
+        random_key = np.random.choice(list(element.keys()))
         if len(element['mutables']) > 0:
             random_key = np.random.choice(list(element['mutables'].keys()))
         return mutate(element, random_key, diameter, p, p_decay)
@@ -53,6 +56,9 @@ def mutate_current(blueprint, key, diameter, p):
     """Mutate the current blueprint, or change uniqueness"""
     domain = blueprint['mutables'][key]
 
+    if np.random.random() > blueprint.get('mutate_p', p):
+        return False
+
     def compare(bp1, bp2):
         return bp1 == bp2
 
@@ -67,6 +73,7 @@ def mutate_current(blueprint, key, diameter, p):
         blueprint['meta'] = {key: {}}
     if key not in blueprint['meta']:
         blueprint['meta'][key] = {}
+
     if 'mutation_history' not in blueprint['meta'][key]:
         blueprint['meta'][key]['mutation_history'] = []
 
@@ -102,14 +109,13 @@ def mutate(blueprint, key=None, diameter=1.0, p=0.05, p_decay=1.0,
     if key is None:
         if len(domains) == 0:
             log(warning, "Blueprint {} not mutable".format(blueprint['name']))
-            return False
 
         for i in range(3):
             key = choice_fn(blueprint)
             if key in domains:
                 break
-    print(key, domains, flush=True)
-    if key not in domains or np.random.random() < blueprint.get('mutation_p', p):
+
+    if key not in domains or np.random.random() > p:
         return mutate_sub(blueprint, key, diameter, p * p_decay, p_decay)
 
     return mutate_current(blueprint, key, diameter, p)
@@ -136,7 +142,7 @@ def children_in_parents(children, parents):
 
 def readjust_uniqueness(blueprint):
     if blueprint['unique']:
-        blueprint.make_unique()
+        blueprint.make_unique(refresh_unique_suffixes=False)
 
 
 def readjust_child(blueprint, parent):
@@ -234,7 +240,7 @@ def pick_random_cross_indices(shapes1, shapes2, keys):
     """Randomly pick indices, and matching key (shape) in shapes"""
     if len(keys) > 0:
         key = np.random.choice(list(keys))
-        assert(len(shapes1[key]) > 0 and len(shapes2[key]) > 0)
+        assert (len(shapes1[key]) > 0 and len(shapes2[key]) > 0)
         index1 = np.random.choice(shapes1[key])
         index2 = np.random.choice(shapes2[key])
         return index1, index2, key
@@ -381,5 +387,6 @@ def crossover(blueprint1, blueprint2, p_items=0.5, p_children=0.9):
 
 
 def copyover(blueprint1, blueprint2, p_items=0.5, p_children=0.9):
-    return op_over(blueprint1, blueprint2, p_items, p_children,
-                   fn1=override_child, fn2=copy_children)
+    successful = op_over(blueprint1, blueprint2, p_items, p_children,
+                         fn1=override_child, fn2=copy_children)
+    return successful

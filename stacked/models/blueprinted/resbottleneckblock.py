@@ -25,7 +25,7 @@ class ScopedResBottleneckBlock(Sequential):
         self.blueprint = blueprint
 
         self.depth = len(blueprint['children'])
-
+        self.bn = None
         if 'bn' in blueprint:
             self.bn = make_module(blueprint['bn'])
         if 'act' in blueprint:
@@ -84,10 +84,11 @@ class ScopedResBottleneckBlock(Sequential):
                     bias, conv_module, True)
         out_shape = default['convdim']['output_shape']
 
-        suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (out_shape[1], no, 1, stride,
-                                              0, dilation, groups, bias)
+        suffix = '_'.join([str(s) for s in (out_shape[1], no, 1, stride,
+                                            0, dilation, groups, bias)])
         set_batchnorm(default, prefix, suffix, out_shape, bn_module, bn_kwargs)
-        default['bn']['output_shape'] = out_shape
+        if 'bn' in default:
+            default['bn']['output_shape'] = out_shape
 
         set_activation(default, prefix, suffix, True, act_module, act_kwargs)
         default['act']['output_shape'] = out_shape
@@ -106,8 +107,8 @@ class ScopedResBottleneckBlock(Sequential):
             hidden = max(3, no // 4)
 
         unit_prefix = '%s/unit' % prefix
-        suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, hidden, 1, 1,
-                                              0, dilation, groups, bias)
+        suffix = '_'.join([str(s) for s in (ni, hidden, 1, 1,
+                                            0, dilation, groups, bias)])
         unit = unit_module.describe_default(unit_prefix, suffix, default, shape,
                                             ni, hidden, 1, 1, 0,
                                             dilation, groups, bias, act_module,
@@ -116,8 +117,8 @@ class ScopedResBottleneckBlock(Sequential):
                                             bn_kwargs, act_kwargs,
                                             module_order=('conv', 'bn', 'act'))
         children.append(unit)
-        suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (hidden, hidden, kernel_size, stride,
-                                              padding, dilation, groups, bias)
+        suffix = '_'.join([str(s) for s in (hidden, hidden, kernel_size, stride,
+                                            padding, dilation, groups, bias)])
         unit = unit_module.describe_default(unit_prefix, suffix, default, unit['output_shape'],
                                             hidden, hidden, kernel_size, stride, padding,
                                             dilation, groups, bias, act_module,
@@ -126,8 +127,8 @@ class ScopedResBottleneckBlock(Sequential):
                                             bn_kwargs, act_kwargs,
                                             module_order=('conv', 'bn', 'act'))
         children.append(unit)
-        suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (hidden, no, 1, 1,
-                                              0, dilation, groups, bias)
+        suffix = '_'.join([str(s) for s in (hidden, no, 1, 1,
+                                            0, dilation, groups, bias)])
         unit = unit_module.describe_default(unit_prefix, suffix, default, unit['output_shape'],
                                             hidden, no, 1, 1, 0,
                                             dilation, groups, bias, act_module,

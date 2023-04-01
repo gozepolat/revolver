@@ -18,6 +18,7 @@ class ScopedDependencyNet(Sequential):
         self.blueprint = blueprint
 
         super(ScopedDependencyNet, self).__init__(blueprint)
+
     def forward(self, x):
         pass
 
@@ -36,8 +37,8 @@ class ScopedDependencyNet(Sequential):
                          dropout_p=0.0, residual=True, block_module=ScopedDependencyConvUnit,
                          group_depth=2, drop_p=0.0, fractal_depth=1,
                          squeeze=False, *_, **__):
-
         pass
+
 
 # Vertical, Horizontal, None, Both, Probabilistic mix
 
@@ -67,6 +68,7 @@ class ScopedReusableGroup(Sequential):
 
     def forward(self, x):
         pass
+
     @staticmethod
     def function(container, callback, depth, scope,
                  training, drop_p, squeeze, module_id, x):
@@ -85,7 +87,6 @@ class ScopedReusableGroup(Sequential):
                          squeeze=False, *_, **__):
 
 
-
 # no blueprint
 class TreeGroup(Sequential):
     def __init__(self, head, input_shape, block_maker, num_blocks):
@@ -96,13 +97,13 @@ class TreeGroup(Sequential):
 
     @staticmethod
     def function():
-
         TreeGroup.function()
 
 
 @add_metaclass(ScopedMeta)
 class ScopedTreeGroup(Sequential):
     """Group of dense trees with the same number of output channels"""
+
     def __init__(self, scope, blueprint, *_, **__):
         self.scope = scope
         self.blueprint = blueprint
@@ -140,7 +141,7 @@ class ScopedTreeGroup(Sequential):
     @staticmethod
     def function(container, callback, depth, scope,
                  training, drop_p, squeeze, module_id, x):
-        assert(depth > 0)
+        assert (depth > 0)
         half = depth // 2
 
         if squeeze and time_to_drop(training, drop_p):
@@ -220,10 +221,10 @@ class ScopedTreeGroup(Sequential):
                              'groups': groups,
                              'bias': bias}
 
-        suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
-                                              kernel_size, stride,
-                                              padding, dilation, groups,
-                                              bias)
+        suffix = '_'.join([str(s) for s in (in_channels, out_channels,
+                                            kernel_size, stride,
+                                            padding, dilation, groups,
+                                            bias)])
 
         unit_fractal = block_module.describe_default('%s/unit' % prefix, suffix,
                                                      default, input_shape,
@@ -260,9 +261,9 @@ class ScopedTreeGroup(Sequential):
         for i in range(fractal_depth):
             input_shape = children[i]['output_shape']
             in_channels = input_shape[1]
-            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
-                                                  kernel_size, 1,
-                                                  padding, dilation, groups, bias)
+            suffix = '_'.join([str(s) for s in (in_channels, out_channels,
+                                                kernel_size, 1,
+                                                padding, dilation, groups, bias)])
             unit = block_module.describe_default('%s/unit' % block_prefix, suffix,
                                                  default, input_shape,
                                                  in_channels, out_channels,

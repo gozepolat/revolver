@@ -3,7 +3,7 @@ from six import string_types
 from six.moves import cPickle as pickle
 from stacked.meta.scope import generate_random_scope, get_common_scope_name_length, UNIQUE_SUFFIX_DELIMITER
 from stacked.utils.transformer import all_to_none
-from torch.nn import Module
+from torch.nn import Module, BatchNorm2d
 import tkinter as tk
 from stacked.utils import common
 from logging import warning, error
@@ -89,7 +89,7 @@ class Blueprint(dict):
         if 'output_shape' not in self:
             self['output_shape'] = output_shape
         if 'name' not in self:
-            self.refresh_name()
+            self.refresh_name(refresh_unique_suffixes=False)
 
         # gui related
         if with_gui():
@@ -108,10 +108,10 @@ class Blueprint(dict):
     def __ne__(self, other):
         return not (self == other)
 
-    def refresh_name(self):
-        self['name'] = '%s%s' % (self['prefix'], self['suffix'])
+    def refresh_name(self, refresh_unique_suffixes=True):
+        self.reset_name_without_unique_suffix()
         if self['unique']:
-            self.make_unique()
+            self.make_unique(refresh_unique_suffixes)
 
     def get_parents(self, id_set=None):
         """List of parents until root"""
@@ -126,13 +126,13 @@ class Blueprint(dict):
 
         p = self['parent']
         if p is not None:
-            parents = [p] + p.get_parents(id_set | set([id(self)]))
+            parents = [p] + p.get_parents(id_set | {id(self)})
         return parents
 
     @staticmethod
     def load_pickle(filename):
         """Return a blueprint loaded from a pickle file"""
-        with open(filename, 'r') as f:
+        with open(filename, 'rb') as f:
             blueprint = pickle.load(f)
         return blueprint
 
@@ -141,7 +141,7 @@ class Blueprint(dict):
         if filename is None:
             filename = "%s.pkl" % self['name']
 
-        with open(filename, 'w') as f:
+        with open(filename, 'wb') as f:
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     def dump_json(self, filename=None):
@@ -169,7 +169,7 @@ class Blueprint(dict):
                     v = common.replace_key(v, 'blueprint', 'self')
                     acyclic[k] = str(v)
                 elif k != 'parent':
-                    acyclic[k] = v.get_acyclic_dict(id_set | set([id(self)]))
+                    acyclic[k] = v.get_acyclic_dict(id_set | {id(self)})
 
         acyclic['parent'] = None
         if self['parent'] is not None:
@@ -177,13 +177,13 @@ class Blueprint(dict):
 
         children = []
         for c in self['children']:
-            children.append(c.get_acyclic_dict(id_set | set([id(self)])))
+            children.append(c.get_acyclic_dict(id_set | {id(self)}))
         acyclic['children'] = children
 
         if 'bns' in self:
             bns = []
             for bn in self['bns']:
-                bns.append(bn.get_acyclic_dict(id_set | set([id(self)])))
+                bns.append(bn.get_acyclic_dict(id_set | {id(self)}))
             acyclic['bns'] = bns
 
         return acyclic
@@ -199,6 +199,7 @@ class Blueprint(dict):
         return copy
 
     def __deepcopy__(self, memo=None):
+        # log(warning, f"Deep copying {self['name']}")
         if memo is None:
             memo = {}
 
@@ -231,8 +232,6 @@ class Blueprint(dict):
                 copied[k] = copy.deepcopy(v, memo)
 
             memo[k_id] = copied[k]
-
-        copied.refresh_name()
 
         return copied
 
@@ -283,13 +282,24 @@ class Blueprint(dict):
 
     def make_common(self):
         """Revert back from uniqueness"""
+        if issubclass(self['type'], BatchNorm2d):
+            log(warning, "Can't make batch norm common, %s must be kept unique."
+                % self['name'])
+            return
+
         self['unique'] = False
         log(warning, "Calling make common")
         if self.has_unique_elements():
-            log(warning, "Can't make common, %s has unique elements."
+            log(warning, "Can't make top level common, %s has unique elements."
                 % self['name'])
             self['unique'] = True
+            for child in self['children']:
+                child.make_common()
+            for key, value in self.items():
+                if isinstance(value, Blueprint) and value.has_unique_elements() and key != "parent":
+                    value.make_common()
             return
+
         log(warning,
             "Can make common, %s has no unique elements." % self['name'])
 
@@ -309,15 +319,40 @@ class Blueprint(dict):
             if self.button is not None:
                 self.button.configure(bg=self.button_text_color.get())
 
-    def make_unique(self):
-        """Make the blueprint and all parents unique"""
+    def reset_name_without_unique_suffix(self):
+        self['name'] = f"{self['prefix']}{self['suffix']}"
+
+    def refresh_unique_suffixes(self):
+        """Refresh unique suffixes of all under self"""
+        for child in self['children']:
+            if child.has_unique_elements():
+                child.refresh_unique_suffixes()
+                if child['unique']:
+                    child.make_unique_name()
+
+        for key, value in self.items():
+            if isinstance(value, Blueprint) and value.has_unique_elements() and key != "parent":
+                value.refresh_unique_suffixes()
+                value.make_unique_name()
+
+    def make_unique_name(self):
+        """Make the current blueprint name unique and refresh it if it was already unique"""
+        self.reset_name_without_unique_suffix()
         self['unique'] = True
         if UNIQUE_SUFFIX_DELIMITER not in self['name']:
             self['name'] = generate_random_scope(self['name'])
             self.make_button_unique()
 
+    def make_unique(self, refresh_unique_suffixes=True):
+        """Make the blueprint and all parents unique
+        Refresh the unique suffixes of all children"""
+        self.make_unique_name()
+
         if self['parent'] is not None:
-            self['parent'].make_unique()
+            self['parent'].make_unique(refresh_unique_suffixes)
+        elif refresh_unique_suffixes:
+            # from the top level as all under it will be refreshed
+            self.refresh_unique_suffixes()
 
     def get_element(self, index):
         if (isinstance(index, string_types)
@@ -329,6 +364,7 @@ class Blueprint(dict):
             if isinstance(i, string_types):
                 b = b[i]
                 continue
+
             # sugar for easier access to sub elements
             elif 'children' in b:
                 b = b['children']
@@ -432,7 +468,6 @@ def make_module(blueprint):
     except TypeError:
         log(warning, "make_module: Different typed objects, same scope!")
         blueprint.make_unique()
-        blueprint.refresh_name()
         module = blueprint['type'](blueprint['name'], *blueprint['args'],
                                    **blueprint['kwargs'])
     return module

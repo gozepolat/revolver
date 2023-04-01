@@ -114,10 +114,10 @@ class TestScopedMetaMasked(unittest.TestCase):
     def _run_and_save_engine(self, engine_blueprint, filename):
         engine = make_module(engine_blueprint)
         engine.start_epoch()
-        engine.train_n_samples(64)
+        engine.train_n_batches(64)
         engine.end_epoch()
         engine.start_epoch()
-        engine.train_n_samples(64)
+        engine.train_n_batches(64)
         engine.end_epoch()
         engine.dump_state(filename)
 
@@ -141,10 +141,10 @@ class TestScopedMetaMasked(unittest.TestCase):
         engine = make_module(engine_blueprint)
         engine.load_state_dict(name)
         engine.start_epoch()
-        engine.train_n_samples(64)
+        engine.train_n_batches(64)
         engine.end_epoch()
         engine.start_epoch()
-        engine.train_n_samples(64)
+        engine.train_n_batches(64)
         engine.end_epoch()
 
 

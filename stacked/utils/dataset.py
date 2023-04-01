@@ -59,9 +59,10 @@ def create_tiny_imagenet_dataset(dataset="tiny-imagenet-200",
 
 
 def create_dataset(dataset="CIFAR10", data_root=".",
-                   train_mode=True, crop_size=32, padding=4):
-
+                   train_mode=True, is_validation=False,
+                   crop_size=32, padding=4):
     if dataset == 'ILSVRC2012':
+        # TODO handle validation set as well
         return create_imagenet_dataset(dataset, data_root,
                                        train_mode, crop_size)
 
@@ -83,17 +84,17 @@ def create_dataset(dataset="CIFAR10", data_root=".",
         convert = T.Compose(ops)
 
     if dataset == 'SVHN':
-        ds = datasets.SVHN(data_root, split='train' if train_mode else 'test',
+        ds = datasets.SVHN(data_root, split='train' if train_mode or is_validation else 'test',
                            download=True, transform=convert)
     else:
         ds = getattr(datasets, dataset)(data_root,
-                                        train=train_mode,
+                                        train=train_mode or is_validation,
                                         download=True,
                                         transform=convert)
         if train_mode:
             if dataset != 'MNIST':
                 ds.data = np.pad(ds.data,
-                                       ((0, 0), (padding, padding),
-                                        (padding, padding), (0, 0)),
-                                       mode='reflect')
+                                 ((0, 0), (padding, padding),
+                                  (padding, padding), (0, 0)),
+                                 mode='reflect')
     return ds

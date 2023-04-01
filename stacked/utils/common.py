@@ -8,7 +8,6 @@ from logging import warning
 import math
 import subprocess
 
-
 DEBUG_DOMAIN = True
 DEBUG_SCOPE = True
 DEBUG_SCOPED_RESNET = True
@@ -22,6 +21,7 @@ DEBUG_MEANMODEL = True
 DEBUG_CONV = True
 DEBUG_CONVDECONV = True
 DEBUG_COMMON = True
+LAST_DEBUG_MESSAGE = ""
 
 BLUEPRINT_GUI = True
 GUI = None
@@ -39,9 +39,18 @@ CURRENT_LABEL = None
 TRAIN = False
 
 POPULATION_COST_ESTIMATION_SCALE = 0.25
-POPULATION_COST_NUM_PARAMETER_SCALE = 0.05
+POPULATION_COST_NUM_PARAMETER_SCALE = 0.0075
 POPULATION_COST_SEED_INDIVIDUAL_SCALE = 0.25
-POPULATION_GENOTYPE_COST_COEFFICIENT = 64.0
+POPULATION_GENOTYPE_COST_COEFFICIENT = 96.0
+POPULATION_MIN_GENOTYPE_COST_COEFFICIENT = 1e-3
+POPULATION_MUTATION_COEFFICIENT = 0.8
+POPULATION_CROSSOVER_COEFFICIENT = 0.9
+POPULATION_IMMIGRATION_P = 0.8
+POPULATION_CLEANUP_P = 0.4
+POPULATION_TOP_VALIDATION_SCORE = 1.e10
+POPULATION_RANDOM_SEARCH_ITERATIONS = 50
+YES_SET = {"y", "Y", "yes", "YES", "Yes", "true", "True", "TRUE", True}
+NO_SET = {"n", "N", "no", "NO", "No", "None", "false", "False", "FALSE", False}
 
 
 def log(log_func, msg):
@@ -97,7 +106,6 @@ def make_weights(num_input_filters,
                  num_out_filters,
                  kernel_width,
                  kernel_height, requires_grad=True):
-
     _type = Variable
     if requires_grad:
         _type = Parameter

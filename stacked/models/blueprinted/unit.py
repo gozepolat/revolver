@@ -17,7 +17,7 @@ def set_pooling(default, prefix, input_shape,
                   'padding': padding}
 
     default['pool'] = Blueprint("%s/pool" % prefix,
-                                "%d_%d_%d" % (kernel_size, stride, padding),
+                                "_".join([str(s) for s in (kernel_size, stride, padding)]),
                                 default, False, module,
                                 kwargs=kwargs)
 
@@ -56,8 +56,8 @@ def set_convdim(default, prefix, input_shape, ni, no,
                 stride, dilation, groups, bias,
                 conv_module=ScopedConv2d, residual=True):
     """Add a conv module blueprint for channel or resolution adjustment"""
-    suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, 1, stride,
-                                          0, dilation, groups, bias)
+    suffix = '_'.join([str(s) for s in (ni, no, 1, stride,
+                                        0, dilation, groups, bias)])
 
     default['convdim'] = conv_module.describe_default('%s/convdim' % prefix,
                                                       suffix, default,
@@ -70,14 +70,15 @@ def set_convdim(default, prefix, input_shape, ni, no,
 
 
 def set_batchnorm(default, prefix, suffix, input_shape,
-                  module=ScopedBatchNorm2d, kwargs=None, mutation_p=0.2):
+                  module=ScopedBatchNorm2d, kwargs=None, mutation_p=0.8):
     """Add a batch normalization module to the blueprint description"""
-    default['bn'] = module.describe_default(prefix=prefix,
-                                            suffix=suffix,
-                                            parent=default,
-                                            input_shape=input_shape,
-                                            mutation_p=mutation_p,
-                                            kwargs=kwargs)
+    if hasattr(module, 'describe_default'):
+        default['bn'] = module.describe_default(prefix=prefix,
+                                                suffix=suffix,
+                                                parent=default,
+                                                input_shape=input_shape,
+                                                mutation_p=mutation_p,
+                                                kwargs=kwargs)
 
 
 def set_conv(default, prefix, suffix, input_shape, ni, no,

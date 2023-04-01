@@ -20,6 +20,7 @@ from stacked.utils.visualize import plot_model
 from logging import warning, info
 import glob
 import pandas as pd
+import re
 
 
 def log(log_func, msg):
@@ -28,7 +29,7 @@ def log(log_func, msg):
 
 
 def make_net_blueprint(options, suffix=''):
-    prefix = str(options.net).split('.')[-1]
+    prefix = re.findall("[a-zA-Z0-9_]+", str(options.net).split('.')[-1])[0]
     net = options.net.describe_default(prefix=prefix, suffix=suffix,
                                        num_classes=options.num_classes,
                                        depth=options.depth,
@@ -57,7 +58,7 @@ def make_net_blueprint(options, suffix=''):
 
 
 def create_single_engine(net_blueprint, options):
-    if not hasattr(options, 'engine_pkl') or options.engine_pkl is None:
+    if not hasattr(options, 'engine_pkl') or options.engine_pkl is None or options.mode == "test":
         engine_blueprint = ScopedEpochEngine.describe_default(prefix='EpochEngine',
                                                               net_blueprint=net_blueprint,
                                                               max_epoch=options.epochs,
@@ -71,7 +72,8 @@ def create_single_engine(net_blueprint, options):
                                                               num_thread=options.num_thread,
                                                               use_tqdm=options.use_tqdm,
                                                               crop_size=options.crop_size,
-                                                              weight_decay=options.weight_decay)
+                                                              weight_decay=options.weight_decay,
+                                                              test_mode=options.mode == "test")
     else:
         log(warning, f'Loading the engine blueprint from {options.engine_pkl} and disregarding all the other options')
         engine_blueprint = pd.read_pickle(options.engine_pkl)
@@ -104,8 +106,9 @@ def remove_older_checkpoints(path, epoch, keep_last_n, oldest_kept):
 
 
 def train_with_single_engine(model, options):
+    print("=================", options.mode)
     if options.mode == 'test':
-        options.lr = 0.00001
+        options.lr = 0.000000001
 
     def get_epoch_number(path):
         return int(path.split('.')[-3].split('_')[-1])
@@ -123,17 +126,11 @@ def train_with_single_engine(model, options):
             options.load_path = latest_path
 
     engine = create_single_engine(model, options)
-    log(info, f"{engine.state['epoch']}")
 
-    name = '{}_model_dw_{}_{}_bs_{}_decay_{}_lr_{}_{}.pth.tar'.format(
-        engine.blueprint['name'],
-        type(engine.net),
-        options.depth,
-        options.width,
-        options.batch_size,
-        options.weight_decay,
-        options.lr,
-        options.dataset, )
+    net_type = re.findall("[a-zA-Z]+", str(type(engine.net)))[0]
+    name = f"e{engine.blueprint['name']}m{net_type}d{options.depth}" \
+           f"w{options.width}bs{options.batch_size}decay{options.weight_decay}" \
+           f"lr{options.lr}ds{options.dataset}"
 
     filename = os.path.join(options.save_folder, name)
 
@@ -144,12 +141,11 @@ def train_with_single_engine(model, options):
 
     if options.mode == 'test':
         log(warning, "Test mode is activated")
-        engine.start_epoch()
-        engine.train_n_samples(options.batch_size)
-        engine.end_epoch()
         engine.hook('on_end', engine.state)
         return
 
+    if 'epoch' in engine.state:
+        log(info, f"{engine.state['epoch']}")
     test_every_nth = options.test_every_nth
     keep_last_n = options.keep_last_n
     oldest_kept = 0
@@ -158,7 +154,7 @@ def train_with_single_engine(model, options):
     if test_every_nth > 0:
         for j in range(engine.state['epoch'], options.epochs, 1):
             engine.start_epoch()
-            engine.train_n_samples(options.num_samples)
+            engine.train_n_batches(options.num_samples)
             if j % test_every_nth == test_every_nth - 1:
                 engine.end_epoch()
                 ckpt_name = make_checkpoint_path(name, j)
@@ -177,8 +173,6 @@ def train_with_single_engine(model, options):
     if len(options.save_png_folder) > 0:
         filename = os.path.join(options.save_png_folder, name)
         plot_model(engine.state['network'].net.cpu(), filename)
-
-    engine.hook('on_end', engine.state)
 
 
 def get_default_resnet(options):
@@ -212,23 +206,23 @@ def get_default_densenet(options):
 def adjust_uniqueness(net, options):
     def make_unique(bp, _, __):
         if 'all' in options.unique:
-            bp.make_unique()
+            bp.make_unique(refresh_unique_suffixes=False)
             return
 
         if 'bn' in options.unique:
             if issubclass(bp['type'], ScopedBatchNorm2d):
-                bp.make_unique()
+                bp.make_unique(refresh_unique_suffixes=False)
                 bp['kwargs']['momentum'] = 0.1
 
         if 'convdim' in options.unique:
             if issubclass(bp['type'], ScopedConv2d):
                 if 'kernel_size' in bp['kwargs'] and bp['kwargs']['kernel_size'] == 1:
-                    bp.make_unique()
+                    bp.make_unique(refresh_unique_suffixes=False)
 
         if 'conv' in options.unique:
             if issubclass(bp['type'], ScopedConv2d):
                 if 'kernel_size' in bp['kwargs'] and bp['kwargs']['kernel_size'] == 3:
-                    bp.make_unique()
+                    bp.make_unique(refresh_unique_suffixes=False)
 
     visit_modules(net, None, None, make_unique)
 
@@ -272,19 +266,93 @@ def add_seed_individuals(population, options, resnet_shape, densenet_shape):
     options.width = default_width
 
 
+def increase_exploration(top_score_stuck_ctr):
+    if top_score_stuck_ctr < 15:
+        return increase_exploitation()
+
+    # getting stuck, make exploration less costly
+    if common.POPULATION_GENOTYPE_COST_COEFFICIENT >= 1. + common.POPULATION_MIN_GENOTYPE_COST_COEFFICIENT:
+        common.POPULATION_GENOTYPE_COST_COEFFICIENT -= 1
+    if common.POPULATION_CROSSOVER_COEFFICIENT < .95:
+        common.POPULATION_CROSSOVER_COEFFICIENT += .03
+    if common.POPULATION_MUTATION_COEFFICIENT < .95:
+        common.POPULATION_MUTATION_COEFFICIENT += .03
+
+
+def increase_exploitation():
+    """Gradually make exploration more costly"""
+    common.POPULATION_GENOTYPE_COST_COEFFICIENT *= 1.04
+    if common.POPULATION_CROSSOVER_COEFFICIENT > .35:
+        common.POPULATION_CROSSOVER_COEFFICIENT -= .001
+    if common.POPULATION_MUTATION_COEFFICIENT > .35:
+        common.POPULATION_MUTATION_COEFFICIENT -= .001
+
+
 def train_population(population, options, default_resnet_shape, default_densenet_shape):
-    add_seed_individuals(population, options, default_resnet_shape, default_densenet_shape)
+    if options.add_seed not in common.NO_SET:
+        add_seed_individuals(population, options, default_resnet_shape, default_densenet_shape)
 
     net_blueprint = None
+    prev_best_index = -1
+
+    explore_vs_exploit = True
+    if hasattr(options, 'explore_vs_exploit'):
+        explore_vs_exploit = options.explore_vs_exploit
+        explore_vs_exploit = explore_vs_exploit in common.YES_SET
+
+    if options.search_mode.startswith("random_warmup"):
+        log(warning, "Warming up the population with the random top genotypes")
+        for i in range(options.max_iteration // 20):
+            population.random_search()
+            bp = population.genotypes[population.get_the_best_index()]
+            log(warning, f"{i}: top {bp['meta']['score']} "
+                         f"mean {population.get_average_score()} "
+                         f"size {len(population.genotypes)} "
+                         f"name {bp['name']}")
+
+    if options.search_mode.startswith("evolve_warmup"):
+        log(warning, "Warming up the population by evolving the top genotypes")
+        for i in range(options.max_iteration // 10):
+            population.evolve_generation()
+            bp = population.genotypes[population.get_the_best_index()]
+            log(warning, f"{i}: top {bp['meta']['score']}"
+                         f" mean {population.get_average_score()} "
+                         f"size {len(population.genotypes)} "
+                         f"name {bp['name']}")
+
+    top_score_stuck_ctr = 0
     for i in range(options.max_iteration):
         log(warning, 'Population generation: %d' % i)
         if i in options.lr_drop_epochs:
             options.lr *= options.lr_decay_ratio
-        population.evolve_generation()
+        if options.search_mode in {"random", "random_warmup", "evolve_warmup_random"}:
+            population.update_scores()
+            population.random_search()
+        if options.search_mode in {"evolve", "evolve_warmup", "random_warmup_evolve"}:
+            population.update_scores()
+            population.evolve_generation()
+
         index = population.get_the_best_index()
+
+        if explore_vs_exploit:
+            if index != prev_best_index:
+                top_score_stuck_ctr = 0
+                increase_exploitation()
+                prev_best_index = index
+                log(warning, f"{population.get_all_scores()}")
+            else:
+                top_score_stuck_ctr += 1
+                increase_exploration(top_score_stuck_ctr)
+
         net_blueprint = population.genotypes[index]
         best_score = net_blueprint['meta']['score']
-        log(warning, "Current top score: {}, id: {}".format(best_score, id(net_blueprint)))
+        log(warning, "{} Current top score: {}, id: {}, name {}".format(i, best_score, id(net_blueprint),
+                                                                        net_blueprint['name']))
+        log(warning, f" mean {population.get_average_score()} "
+                     f"size {len(population.genotypes)}")
+        if i % 20 == 19:
+            net_blueprint.dump_pickle(f"../top_{i}_{net_blueprint['name']}"
+                                      f"{options.genotype_cost}_{options.search_mode}_{options.dataset}.pkl")
 
     return net_blueprint
 
@@ -419,8 +487,8 @@ def train_with_double_engine(model, options, epochs, crop, n_samples=50000):
 
         # train back and forth
         for i in range(repeat):
-            common_engine.train_n_samples(batch)
-            generator_engine.train_n_samples(batch)
+            common_engine.train_n_batches(batch)
+            generator_engine.train_n_batches(batch)
 
         # test every fourth epoch
         if j % 4 == 3:

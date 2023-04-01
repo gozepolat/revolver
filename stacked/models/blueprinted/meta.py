@@ -205,11 +205,11 @@ class ScopedMetaMasked(Module):
                   'padding': padding, 'dilation': dilation,
                   'groups': groups, 'bias': bias}
 
-        suffix = "%s_%d_%d_%d_%d_%d_%d_%d_%d" % (suffix, in_channels,
-                                                 out_channels,
-                                                 kernel_size, stride,
-                                                 kernel_size, dilation,
-                                                 groups, bias)
+        suffix = "_".join([str(s) for s in (suffix, in_channels,
+                                            out_channels,
+                                            kernel_size, stride,
+                                            kernel_size, dilation,
+                                            groups, bias)])
 
         # skip transition layers
         if kernel_size == 1:
@@ -337,6 +337,6 @@ class ScopedMetaMasked(Module):
                                                gen_bias=gen_bias,
                                                gen_pre_conv=gen_pre_conv,
                                                depthwise=depthwise,
-                                               skip_mask=skip_mask,)
+                                               skip_mask=skip_mask, )
 
         return bp

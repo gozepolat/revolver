@@ -26,7 +26,8 @@ class ScopedBottleneckBlock(Sequential):
         self.blueprint = blueprint
 
         self.depth = len(blueprint['children'])
-
+        self.bn = None
+        self.pool = None
         if 'bn' in blueprint:
             self.bn = make_module(blueprint['bn'])
         if 'act' in blueprint:
@@ -120,8 +121,8 @@ class ScopedBottleneckBlock(Sequential):
         for i in range(depth - 1):
             out, kernel, pad = (no, kernel_size, padding) if i == depth - 2 else (ni, 1, 0)
             unit_prefix = '%s/unit' % prefix
-            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, out, kernel, stride,
-                                                  pad, dilation, groups, bias)
+            suffix = '_'.join([str(s) for s in (ni, out, kernel, stride,
+                                                pad, dilation, groups, bias)])
             assert (shape[1] == ni)
             unit = unit_module.describe_default(unit_prefix, suffix, default, shape,
                                                 ni, out, kernel, stride, pad,
@@ -147,7 +148,7 @@ class ScopedBottleneckBlock(Sequential):
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True,
                          hidden_channels=0, hidden_scale=4,
-                         mutation_p=0.2, toggle_p=0.001, *_, **__):
+                         mutation_p=0.8, toggle_p=0.001, *_, **__):
         """Create a default ScopedBottleneckBlock blueprint
 
         Args:
@@ -248,4 +249,4 @@ class ScopedBottleneckBlock(Sequential):
                                                       groups=_groups,
                                                       bias=_bias,
                                                       callback=callback,
-                                                      hidden_channels=output_shape[1] * 4,)
+                                                      hidden_channels=output_shape[1] * 4, )

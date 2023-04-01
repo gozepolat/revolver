@@ -51,11 +51,11 @@ class ScopedDepthwiseSeparable(Module):
                   'padding': padding, 'dilation': dilation,
                   'groups': groups, 'bias': bias}
 
-        suffix = "%s_%d_%d_%d_%d_%d_%d_%d_%d" % (suffix, in_channels,
+        suffix = "_".join([str(s) for s in (suffix, in_channels,
                                                  out_channels,
                                                  kernel_size, stride,
                                                  kernel_size, dilation,
-                                                 groups, bias)
+                                                 groups, bias)])
 
         bp = Blueprint(prefix, suffix, parent, True,
                        ScopedDepthwiseSeparable, kwargs=kwargs)

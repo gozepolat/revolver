@@ -81,7 +81,7 @@ class ScopedFractalGroup(Sequential):
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True, block_module=ScopedResBlock,
-                         group_depth=1, drop_p=0.0, fractal_depth=1, mutation_p=0.2,
+                         group_depth=1, drop_p=0.0, fractal_depth=1, mutation_p=0.8,
                          *_, **__):
         """Create a default ResGroup blueprint
 
@@ -136,9 +136,9 @@ class ScopedFractalGroup(Sequential):
 
         block_prefix = '%s/block' % prefix
         for i in range(group_depth):
-            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
+            suffix = '_'.join([str(s) for s in (in_channels, out_channels,
                                                   kernel_size, stride,
-                                                  padding, dilation, groups, bias)
+                                                  padding, dilation, groups, bias)])
 
             block = module.describe_default(block_prefix, suffix,
                                             default, input_shape,

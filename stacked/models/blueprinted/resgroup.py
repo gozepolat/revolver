@@ -15,6 +15,7 @@ import numpy as np
 @add_metaclass(ScopedMeta)
 class ScopedResGroup(Sequential):
     """Group of residual blocks with the same number of output channels"""
+
     def __init__(self, scope, blueprint, *_, **__):
         self.scope = scope
         self.blueprint = blueprint
@@ -53,7 +54,7 @@ class ScopedResGroup(Sequential):
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True, block_module=ScopedResBlock,
-                         group_depth=2, drop_p=0.0, mutation_p=0.2, toggle_p=0.1,
+                         group_depth=2, drop_p=0.0, mutation_p=0.8, toggle_p=0.02,
                          *_, **__):
         """Create a default ResGroup blueprint
 
@@ -98,9 +99,9 @@ class ScopedResGroup(Sequential):
                              'bias': bias}
         for i in range(group_depth):
             block_prefix = '%s/block' % prefix
-            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
-                                                  kernel_size, stride,
-                                                  padding, dilation, groups, bias)
+            suffix = '_'.join([str(s) for s in (in_channels, out_channels,
+                                                kernel_size, stride,
+                                                padding, dilation, groups, bias)])
             block = block_module.describe_default(block_prefix, suffix,
                                                   default, input_shape,
                                                   in_channels, out_channels,

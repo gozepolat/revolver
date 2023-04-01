@@ -28,7 +28,7 @@ class TestMeanModel(unittest.TestCase):
         engine = make_module(blueprint)
 
         engine.start_epoch()
-        engine.train_n_samples(64)
+        engine.train_n_batches(64)
         engine.end_epoch()
 
         average_model(engine.net)

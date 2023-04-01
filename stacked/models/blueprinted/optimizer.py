@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import torch
+import torch.utils.data as data
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 from stacked.models.blueprinted.resnet import ScopedResNet
@@ -70,7 +71,14 @@ class ScopedDataLoader(DataLoader):
     def __init__(self, scope, blueprint, *_, **__):
         dataset = create_dataset(blueprint['dataset'],
                                  '.', blueprint['train_mode'],
+                                 blueprint['is_validation'],
                                  blueprint['crop_size'])
+
+        if blueprint['train_mode']:
+            dataset, _ = split_dataset(dataset, blueprint['validation_ratio'])
+        elif blueprint['is_validation']:
+            _, dataset = split_dataset(dataset, blueprint['validation_ratio'])
+
         super(ScopedDataLoader, self).__init__(dataset,
                                                batch_size=blueprint['batch_size'],
                                                shuffle=blueprint['train_mode'],
@@ -80,7 +88,8 @@ class ScopedDataLoader(DataLoader):
 
     @staticmethod
     def describe_default(prefix, suffix, parent,
-                         dataset, train_mode, batch_size, num_thread, crop_size):
+                         dataset, train_mode, batch_size, num_thread, crop_size,
+                         is_validation=False, validation_ratio=.1):
         default = Blueprint(prefix, suffix, parent, False, ScopedDataLoader)
 
         default['dataset'] = dataset
@@ -88,6 +97,8 @@ class ScopedDataLoader(DataLoader):
         default['train_mode'] = train_mode
         default['num_thread'] = num_thread
         default['crop_size'] = crop_size
+        default['is_validation'] = is_validation
+        default['validation_ratio'] = validation_ratio
 
         default['kwargs'] = {'blueprint': default}
         return default
@@ -143,6 +154,17 @@ class ScopedNetRunner:
         return default
 
 
+def split_dataset(train_set, validation_ratio=.1, seed=42):
+    valid_set_size = int(len(train_set) * validation_ratio)
+    train_set_size = len(train_set) - valid_set_size
+
+    seed = torch.Generator().manual_seed(seed)
+    train, validation = data.random_split(train_set,
+                                          [train_set_size, valid_set_size],
+                                          generator=seed)
+    return train, validation
+
+
 @add_metaclass(ScopedMeta)
 class ScopedEpochEngine(EpochEngine):
     """Training engine with blueprint"""
@@ -153,11 +175,14 @@ class ScopedEpochEngine(EpochEngine):
         self.blueprint = blueprint
 
         self.retain_graph = blueprint['retain_graph']
+        test_mode = blueprint["test_mode"]
         engine = self
 
+        test_loader = self.test_loader = make_module(blueprint['test_loader'])
         train_loader = self.train_loader = make_module(blueprint['train_loader'])
-        test_loader = make_module(blueprint['test_loader'])
+        validation_loader = make_module(blueprint['validation_loader'])
 
+        log(warning, f"Make module {blueprint['net']['name']}")
         net = make_module(blueprint['net'])
         if torch.cuda.is_available():
             net.cuda()
@@ -175,10 +200,10 @@ class ScopedEpochEngine(EpochEngine):
         lr_drop_epochs = blueprint['lr_drop_epochs']
 
         train_id = id(net.blueprint)
-        hooks = EngineEventHooks(engine, train_loader, test_loader, net,
-                                 net_runner, optimizer_maker, lr,
-                                 lr_decay_ratio, lr_drop_epochs,
-                                 logger, train_id,
+        hooks = EngineEventHooks(engine, train_loader, validation_loader=validation_loader, test_loader=test_loader,
+                                 net=net, net_runner=net_runner, make_optimizer=optimizer_maker, learning_rate=lr,
+                                 lr_decay_ratio=lr_decay_ratio, lr_drop_epochs=lr_drop_epochs, logger=logger,
+                                 train_id=train_id,
                                  use_tqdm=blueprint['use_tqdm'])
 
         self.hooks['on_sample'] = hooks.on_sample
@@ -186,6 +211,10 @@ class ScopedEpochEngine(EpochEngine):
         self.hooks['on_start_epoch'] = hooks.on_start_epoch
         self.hooks['on_end_epoch'] = hooks.on_end_epoch
         self.hooks['on_start'] = hooks.on_start
+        self.hooks['on_end'] = hooks.on_end
+
+        if test_mode:
+            return
 
         self.set_state(net_runner, train_loader,
                        blueprint['max_epoch'], optimizer_maker(self.net, lr),
@@ -261,7 +290,8 @@ class ScopedEpochEngine(EpochEngine):
                          crop_size=32, num_thread=4, net_runner=ScopedNetRunner,
                          criterion=ScopedCrossEntropyLoss,
                          loss_func=ScopedCriterion, callback=all_to_none,
-                         use_tqdm=False, momentum=0.9, weight_decay=0.0005):
+                         use_tqdm=False, momentum=0.9, weight_decay=0.0005,
+                         validation_ratio=.1, test_mode=False):
         """Create a default ResBlock blueprint
 
         Args:
@@ -326,13 +356,17 @@ class ScopedEpochEngine(EpochEngine):
             use_tqdm (bool): use progress bar for each epoch during training
             momentum (float, optional): momentum factor (default: 0.9)
             weight_decay (float, optional): weight decay (L2 penalty) (default: 0.0005)
+            validation_ratio (float, optional): ratio for the validation (default: .1)
+            test_mode (bool, optional): when True, ignore the train/val loader and test once
         """
+        suffix = f"{suffix}_test{test_mode}"
         default = Blueprint(prefix, suffix, parent, False, ScopedEpochEngine)
 
         default['learning_rate'] = learning_rate
         default['lr_decay_ratio'] = lr_decay_ratio
         default['lr_drop_epochs'] = lr_drop_epochs
         default['max_epoch'] = max_epoch
+        default['validation_ratio'] = validation_ratio
 
         default['net_runner'] = net_runner.describe_default("%s/net_runner" % prefix,
                                                             suffix, default, criterion,
@@ -341,12 +375,20 @@ class ScopedEpochEngine(EpochEngine):
         default['train_loader'] = data_loader.describe_default("%s/train_loader" % prefix,
                                                                suffix, default, dataset,
                                                                True, batch_size, num_thread,
-                                                               crop_size)
+                                                               crop_size, is_validation=False,
+                                                               validation_ratio=validation_ratio)
+
+        default['validation_loader'] = data_loader.describe_default("%s/validation_loader" % prefix,
+                                                                    suffix, default, dataset,
+                                                                    False, batch_size, num_thread,
+                                                                    crop_size, is_validation=True,
+                                                                    validation_ratio=validation_ratio)
 
         default['test_loader'] = data_loader.describe_default("%s/test_loader" % prefix,
                                                               suffix, default, dataset,
                                                               False, batch_size, num_thread,
-                                                              crop_size)
+                                                              crop_size, is_validation=False)
+        default['test_mode'] = test_mode
         default['use_tqdm'] = use_tqdm
         if logger is None:
             default['logger'] = Blueprint("%s/logger" % prefix, suffix, default)

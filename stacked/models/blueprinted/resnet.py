@@ -272,7 +272,7 @@ class ScopedResNet(Sequential):
                          head_kernel=7, head_stride=2, head_padding=3,
                          head_pool_kernel=3, head_pool_stride=2,
                          head_pool_padding=1, head_modules=('conv', 'bn', 'act', 'pool'),
-                         mutation_p=0.2,
+                         mutation_p=0.8,
                          *_, **__):
         """Create a default ResNet blueprint
 

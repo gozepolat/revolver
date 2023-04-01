@@ -26,8 +26,7 @@ class EpochEngine(object):
         if name in self.hooks:
             self.hooks[name](state)
 
-    def train_n_samples(self, n):
-        torch.autograd.set_detect_anomaly(True)
+    def train_n_batches(self, n):
         for i, sample in enumerate(self.state['iterator']):
             self.state['sample'] = sample
             self.hook('on_sample', self.state)
@@ -65,7 +64,7 @@ class EpochEngine(object):
 
     def train_one_epoch(self, n=np.inf):
         self.start_epoch()
-        self.train_n_samples(n)
+        self.train_n_batches(n)
         return self.end_epoch()
 
     def set_state(self, network, iterator, maxepoch, optimizer,
@@ -115,25 +114,22 @@ class EpochEngine(object):
 
             closure()
             state['t'] += 1
-        self.hook('on_end', state)
         return state
 
 
 class EngineEventHooks(object):
-    def __init__(self, engine=None, train_loader=None,
-                 test_loader=None, net=None, net_runner=None,
-                 make_optimizer=None, learning_rate=0.1,
-                 lr_decay_ratio=0.2, lr_drop_epochs=None,
-                 logger=None, train_id=None, epoch=0,
-                 average_loss_meter=None, accuracy_meter=None,
-                 train_timer=None, test_timer=None, use_tqdm=False):
+    def __init__(self, engine=None, train_loader=None, validation_loader=None, test_loader=None, net=None,
+                 net_runner=None, make_optimizer=None, learning_rate=0.1, lr_decay_ratio=0.2, lr_drop_epochs=None,
+                 logger=None, train_id=None, epoch=0, average_loss_meter=None, accuracy_meter=None, train_timer=None,
+                 test_timer=None, use_tqdm=False, validation_timer=None):
 
         assert(engine is not None)
-        assert (train_loader is not None)
-        assert (test_loader is not None)
+        # assert (train_loader is not None)
+        # assert (validation_loader is not None)
+        # assert (test_loader is not None)
         assert (net is not None)
         assert (net_runner is not None)
-        assert (make_optimizer is not None)
+        # assert (make_optimizer is not None)
 
         num_parameters = get_num_parameters(net)
 
@@ -153,14 +149,18 @@ class EngineEventHooks(object):
         if test_timer is None:
             test_timer = tnt.meter.TimeMeter('s')
 
+        if validation_timer is None:
+            validation_timer = tnt.meter.TimeMeter('s')
+
         if train_id is None:
             train_id = generate_random_scope()
 
         if logger is None:
             def print_log(_state, _stats):
-                log(warning, '==> id: %s (%d/%d), test_acc: \33[91m%.2f\033[0m' %
-                    (train_id, _state['epoch'], _state['maxepoch'],
-                     _stats['test_acc']))
+                k = 'test_acc' if 'test_acc' in _stats else 'validation_acc'
+                s = " \33[91m%.2f\033[0m" % _stats[k]
+                log(warning, f"==> params: {num_parameters}, id: {train_id} "
+                             f"({_state.get('epoch', 1)}/{_state.get('maxepoch', _state.get('epoch', 1))}), {k}: {s}")
                 log(warning, _stats)
 
             logger = print_log
@@ -201,6 +201,28 @@ class EngineEventHooks(object):
 
             average_loss_meter.reset()
             accuracy_meter.reset()
+            validation_timer.reset()
+
+            net.eval()
+            engine.test(net_runner, validation_loader)
+            net.train()
+
+            validation_acc = accuracy_meter.value()[0]
+            validation_loss = average_loss_meter.value()[0]
+            state['score'] = validation_loss
+            logger(state, {
+                "train_loss": train_loss[0],
+                "train_acc": train_acc[0],
+                "validation_loss": validation_loss,
+                "validation_acc": validation_acc,
+                "epoch": state['epoch'],
+                "train_time": train_time,
+                "validation_time": validation_timer.value(),
+            })
+
+        def on_end(state):
+            average_loss_meter.reset()
+            accuracy_meter.reset()
             test_timer.reset()
 
             net.eval()
@@ -211,12 +233,8 @@ class EngineEventHooks(object):
             test_loss = average_loss_meter.value()[0]
             state['score'] = test_loss
             logger(state, {
-                "train_loss": train_loss[0],
-                "train_acc": train_acc[0],
                 "test_loss": test_loss,
                 "test_acc": test_acc,
-                "epoch": state['epoch'],
-                "train_time": train_time,
                 "test_time": test_timer.value(),
             })
 
@@ -225,3 +243,4 @@ class EngineEventHooks(object):
         self.on_forward = on_forward
         self.on_start_epoch = on_start_epoch
         self.on_end_epoch = on_end_epoch
+        self.on_end = on_end

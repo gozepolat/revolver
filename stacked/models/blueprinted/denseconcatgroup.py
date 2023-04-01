@@ -14,6 +14,7 @@ from six import add_metaclass
 @add_metaclass(ScopedMeta)
 class ScopedDenseConcatGroup(Sequential):
     """Group of residual blocks with the same number of output channels"""
+
     def __init__(self, scope, blueprint, *_, **__):
         self.scope = scope
         self.blueprint = blueprint
@@ -46,9 +47,8 @@ class ScopedDenseConcatGroup(Sequential):
     @staticmethod
     def function(container, callback, depth,
                  transition, scope, module_id, x):
-        assert(depth > 1)
         i = 0
-        if transition:
+        if transition or depth == 1:
             x = container[0](x)
             i = 1
 
@@ -69,7 +69,7 @@ class ScopedDenseConcatGroup(Sequential):
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True, block_module=ScopedResBlock,
                          group_depth=2, drop_p=0.0, dense_unit_module=ScopedConvUnit,
-                         mutation_p=0.2, toggle_p=0.1,
+                         mutation_p=0.8, toggle_p=0.02,
                          *_, **__):
         """Create a default DenseGroup blueprint
 
@@ -118,9 +118,9 @@ class ScopedDenseConcatGroup(Sequential):
 
         if stride > 1:
             block_prefix = '%s/block' % prefix
-            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, in_channels // 2,
-                                                  kernel_size, stride, padding,
-                                                  dilation, groups, bias)
+            suffix = '_'.join([str(s) for s in (in_channels, in_channels // 2,
+                                                kernel_size, stride, padding,
+                                                dilation, groups, bias)])
             block = ScopedConvUnit.describe_default(block_prefix, suffix,
                                                     default, input_shape,
                                                     in_channels, in_channels // 2,
@@ -137,9 +137,9 @@ class ScopedDenseConcatGroup(Sequential):
 
         for i in range(group_depth):
             block_prefix = '%s/block' % prefix
-            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
-                                                  kernel_size, stride,
-                                                  padding, dilation, groups, bias)
+            suffix = '_'.join([str(s) for s in (in_channels, out_channels,
+                                                kernel_size, stride,
+                                                padding, dilation, groups, bias)])
 
             block = block_module.describe_default(block_prefix, suffix,
                                                   default, input_shape,

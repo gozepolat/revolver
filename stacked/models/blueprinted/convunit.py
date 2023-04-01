@@ -20,6 +20,7 @@ class ScopedConvUnit(Module):
         blueprint: Description of bn, act, and conv
         Ignores the rest of the args
     """
+
     def __init__(self, scope, blueprint, *_, **__):
         super(ScopedConvUnit, self).__init__()
         self.scope = scope
@@ -43,6 +44,9 @@ class ScopedConvUnit(Module):
         self.sequence = Sequential()
 
         for key in module_order:
+            if key not in blueprint:
+                continue
+
             module = make_module(blueprint[key])
             if module is not None:
                 self.sequence.add_module(key, module)
@@ -70,8 +74,8 @@ class ScopedConvUnit(Module):
                              pool_stride=-1, pool_padding=0, pool_kwargs=None):
         """Set descriptions for act, bn, and conv"""
 
-        suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
-                                              padding, dilation, groups, bias)
+        suffix = "_".join([str(s) for s in (ni, no, kernel_size, stride,
+                                            padding, dilation, groups, bias)])
         if module_order is None:
             module_order = ['bn', 'act', 'conv']
 
@@ -82,11 +86,12 @@ class ScopedConvUnit(Module):
         for key in module_order:
             if key == 'bn':
                 ni = input_shape[1]
-                suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
-                                                      padding, dilation, groups, bias)
+                suffix = '_'.join([str(s) for s in (ni, ni, kernel_size, stride,
+                                                    padding, dilation, groups, bias)])
                 set_batchnorm(default, prefix, suffix, input_shape, bn_module, bn_kwargs)
-                default['bn']['input_shape'] = input_shape
-                default['bn']['output_shape'] = input_shape
+                if 'bn' in default:
+                    default['bn']['input_shape'] = input_shape
+                    default['bn']['output_shape'] = input_shape
 
             elif key == 'act':
                 set_activation(default, prefix, suffix, True, act_module, act_kwargs)
@@ -94,8 +99,8 @@ class ScopedConvUnit(Module):
 
             elif key == 'conv':
                 ni = input_shape[1]
-                suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
-                                                      padding, dilation, groups, bias)
+                suffix = '_'.join([str(s) for s in (ni, no, kernel_size, stride,
+                                                    padding, dilation, groups, bias)])
                 set_conv(default, prefix, suffix, input_shape, ni, no, kernel_size,
                          stride, padding, dilation, groups, bias, conv_module,
                          conv_kwargs)
@@ -125,7 +130,7 @@ class ScopedConvUnit(Module):
                          drop_kwargs=None, module_order=None,
                          pool_module=ScopedAvgPool2d, pool_kernel_size=2,
                          pool_stride=-1, pool_padding=0, pool_kwargs=None,
-                         mutation_p=0.2, toggle_p=0.1,
+                         mutation_p=0.8, toggle_p=0.02,
                          *_, **__):
         """Create a default ScopedConvUnit blueprint
 
@@ -175,7 +180,10 @@ class ScopedConvUnit(Module):
                                             pool_kernel_size, pool_stride,
                                             pool_padding, pool_kwargs)
 
-        last_module = default['module_order'][-1]
+        for last_module in reversed(default['module_order']):
+            if last_module in default:
+                break
+
         default['output_shape'] = default[last_module]['output_shape']
 
         default['kwargs'] = {'blueprint': default, 'kernel_size': kernel_size,

@@ -35,14 +35,14 @@ class ScopedEnsembleMean(Sequential):
         output_shape = blueprint['output_shape']
         kwargs = blueprint['kwargs']
 
-        suffix = "%s_%d_%d_%d_%d_%d_%d_%d_%d" % (suffix, input_shape[1],
-                                                 output_shape[1],
-                                                 kwargs['kernel_size'],
-                                                 kwargs['stride'],
-                                                 kwargs['padding'],
-                                                 kwargs['dilation'],
-                                                 kwargs['groups'],
-                                                 kwargs['bias'],)
+        suffix = '_'.join([str(s) for s in (suffix, input_shape[1],
+                                            output_shape[1],
+                                            kwargs['kernel_size'],
+                                            kwargs['stride'],
+                                            kwargs['padding'],
+                                            kwargs['dilation'],
+                                            kwargs['groups'],
+                                            kwargs['bias'],)])
         if parent is None:
             parent = blueprint['parent']
         blueprint = copy.deepcopy(blueprint)
@@ -64,6 +64,7 @@ class ScopedEnsembleMean(Sequential):
                               'bias': kwargs['bias']}
         ensemble['input_shape'] = input_shape
         ensemble['output_shape'] = output_shape
+        ensemble.refresh_unique_suffixes()
         return ensemble
 
     @staticmethod
@@ -92,6 +93,7 @@ class ScopedEnsembleMean(Sequential):
 @add_metaclass(ScopedMeta)
 class ScopedEnsembleConcat(Sequential):
     """Concat ensemble of modules with the same input / output shape"""
+
     def __init__(self, scope, blueprint, *_, **__):
         super(ScopedEnsembleConcat, self).__init__(blueprint)
         self.scope = scope
@@ -110,7 +112,7 @@ class ScopedEnsembleConcat(Sequential):
 
     @staticmethod
     def describe_default(prefix='conv', suffix='', parent=None, children=None):
-        assert(children is not None and len(children) > 0)
+        assert (children is not None and len(children) > 0)
         size = len(children)
         block = children[0]
         input_shape = block['input_shape']

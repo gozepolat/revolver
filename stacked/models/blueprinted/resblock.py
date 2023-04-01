@@ -125,8 +125,8 @@ class ScopedResBlock(Sequential):
         children = []
         for i in range(depth - 1):
             unit_prefix = '%s/unit' % prefix
-            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (ni, no, kernel_size, stride,
-                                                  padding, dilation, groups, bias)
+            suffix = '_'.join([str(s) for s in (ni, no, kernel_size, stride,
+                                                  padding, dilation, groups, bias)])
             assert(shape[1] == ni)
             unit = unit_module.describe_default(unit_prefix, suffix, default, shape,
                                                 ni, no, kernel_size, stride, padding,
@@ -149,8 +149,8 @@ class ScopedResBlock(Sequential):
                          conv_module=ScopedConv2d, callback=all_to_none,
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,
-                         dropout_p=0.0, residual=True, mutation_p=0.2,
-                         toggle_p=0.1, *_, **__):
+                         dropout_p=0.0, residual=True, mutation_p=0.8,
+                         toggle_p=0.02, *_, **__):
         """Create a default ScopedResBlock blueprint
 
         Args:
@@ -214,7 +214,7 @@ class ScopedResBlock(Sequential):
                                 bn_kwargs=None, act_kwargs=None,
                                 unit_module=ScopedConvUnit,
                                 dropout_p=0.0, residual=True,
-                                mutation_p=0.2, toggle_p=0.1):
+                                mutation_p=0.8, toggle_p=0.02):
 
         kwargs = blueprint['kwargs']
         input_shape = blueprint['input_shape']

@@ -79,11 +79,11 @@ class ScopedDenseNet(Sequential):
         if module_order is None:
             module_order = ('conv', 'bn', 'act', 'pool')
 
-        suffix = '%d_%d_%d_%d_%d_%d_%d_%d_%d_%d_%d' % (input_shape[1], out_features,
+        suffix = '_'.join([str(s) for s in (input_shape[1], out_features,
                                                        kernel_size, stride, padding,
                                                        dilation, groups, bias,
                                                        pool_kernel_size, pool_stride,
-                                                       pool_padding)
+                                                       pool_padding)])
         head = unit_module.describe_default("%s/conv" % prefix,
                                             suffix, default, input_shape,
                                             input_shape[1], out_features,
@@ -216,7 +216,7 @@ class ScopedDenseNet(Sequential):
                          head_kernel=7, head_stride=2, head_padding=3,
                          head_pool_kernel=3, head_pool_stride=2,
                          head_pool_padding=1, head_modules=('conv', 'bn', 'act', 'pool'),
-                         mutation_p=0.2,
+                         mutation_p=0.8,
                          *_, **__):
         """Create a default DenseNet blueprint
 

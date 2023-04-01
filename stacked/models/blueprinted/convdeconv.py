@@ -108,7 +108,7 @@ class ScopedConv2dDeconv2dSum(SequentialUnit):
                          input_shape=None, in_channels=3, out_channels=3,
                          kernel_size=3, stride=1, padding=1,
                          dilation=1, groups=1, bias=True, separable=True,
-                         mutation_p=0.2, toggle_p=0.1, *_, **__):
+                         mutation_p=0.8, toggle_p=0.02, *_, **__):
         """Create a default ScopedConv2dDeconv2dSum blueprint
 
         Args:

@@ -32,18 +32,28 @@ def parse_args():
                         help="single, or population train mode")
     parser.add_argument('--depth', default=22, type=int)
     parser.add_argument('--sample_size', default=2, type=int)
+    parser.add_argument('--population_size', default=100, type=int)
+    parser.add_argument('--max_skeleton_width', default=64, type=int)
+    parser.add_argument('--max_skeleton_depth', default=5, type=int)
+    parser.add_argument('--warmup_x', default=10, type=int)
     parser.add_argument('--skeleton', default='[12,24,48]', type=str,
                         help='json list with epochs to drop lr on')
     parser.add_argument('--block_depth', default=2, type=int)
     parser.add_argument('--width', default=1, type=int)
     parser.add_argument('--dataset', default='CIFAR10', type=str)
     parser.add_argument('--num_thread', default=0, type=int)
-
+    parser.add_argument('--add_seed', default="n", type=str)
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--lr', default=0.1, type=float)
     parser.add_argument('--epochs', default=300, type=int, metavar='N',
                         help='number of total epochs to run')
+    parser.add_argument('--finetune_epochs', default=10, type=int, metavar='N',
+                        help='number of fine tuning epochs to run after evolving')
+    parser.add_argument('--finetune_after_evolving', default="y", type=str)
     parser.add_argument('--weight_decay', default=0.0001, type=float)
+    parser.add_argument('--genotype_cost', default=72, type=float,
+                        help='Coefficient to increase genotype cost.'
+                             ' Low test loss reduces the overall cost.')
     parser.add_argument('--lr_drop_epochs', default='[150,225]', type=str,
                         help='json list with epochs to drop lr on')
     parser.add_argument('--lr_decay_ratio', default=0.1, type=float)
@@ -54,8 +64,15 @@ def parse_args():
                         help="path to save the blueprint and engine state")
     parser.add_argument('--load_path', default='', type=str,
                         help="path to load the blueprint and engine state")
+    parser.add_argument('--explore_vs_exploit', default='n', type=str,
+                        help="Adjust during model search for train_population")
     parser.add_argument('--save_png_folder', default='', type=str,
                         help="path to save weight visualization output")
+    parser.add_argument('--search_mode', default='evolve', type=str,
+                        help="evolve: one time population init and genetic operators for search (default)"
+                             "random: population init and then randomly generate genotypes to replace the worst"
+                             "random_warmup: first random search on genotypes, then continue with evolution"
+                             "evolve_warmup: first evolve genotypes without training then with training")
 
     parsed_args = parser.parse_args()
     return parsed_args
@@ -98,11 +115,9 @@ def set_default_options_for_population(options):
     # log base for the number of parameters
     options.params_favor_rate = 100
 
-    options.population_size = 100
     options.epoch_per_generation = 1
 
     # number of updated individuals per generation
-    options.sample_size = options.sample_size
     options.update_score_weight = 0.4
     options.max_iteration = options.epochs
 
@@ -135,19 +150,34 @@ if __name__ == '__main__':
     if parsed.mode == 'population_train':
         assert (used * 10 < total)  # only run with a relatively empty gpu
         set_default_options_for_population(parsed)
+        common.POPULATION_GENOTYPE_COST_COEFFICIENT = parsed.genotype_cost
+
+        # population generates new genotypes and estimates their scores with get_genotype_cost
         p = Population(parsed)
+
         net_blueprint = train_population(p, parsed,
                                          default_resnet_shape=(40, 9),
                                          default_densenet_shape=(190, 40))
 
-        # fine tune
-        set_default_options_for_single_network(parsed)
-        parsed.lr = 0.005
-        parsed.lr_decay_ratio = 0.5
-        parsed.epochs = 10
-        parsed.lr_drop_epochs = (5, 8)
-        print("Best model blueprint: %s" % net_blueprint)
-        train_with_single_engine(net_blueprint, parsed)
+        print("Best model blueprint: %s" % net_blueprint['name'])
+        print(parsed)
+        if parsed.finetune_after_evolving in common.YES_SET:
+            set_default_options_for_single_network(parsed)
+            parsed.lr = 0.0005
+            parsed.lr_decay_ratio = 0.5
+            parsed.weight_decay = 0.0
+            parsed.epochs = parsed.finetune_epochs
+            parsed.lr_drop_epochs = (5, 8)
+            parsed.mode = "single_train"
+            train_with_single_engine(net_blueprint, parsed)
+
+            parsed.mode = "test"
+            print("Best model blueprint: %s" % net_blueprint['name'])
+            train_with_single_engine(net_blueprint, parsed)
+            print("Best model blueprint: %s" % net_blueprint['name'])
+
+        net_blueprint.dump_pickle(f"../best_{net_blueprint['name']}_"
+                                  f"{parsed.genotype_cost}_{parsed.search_mode}_{parsed.dataset}.pkl")
     else:
         set_default_options_for_single_network(parsed)
         train_single_network(parsed)

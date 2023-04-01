@@ -107,7 +107,8 @@ class TestMetaOperators(unittest.TestCase):
         self.model_run(blueprint3)
         self.model_run(blueprint4)
 
-        visualize(blueprint3)
+        visualize(ScopedResNet.describe_default('ResNet_d4_w1_c2', depth=4,
+                                                width=1, num_classes=2))
         common.GUI = None
         common.BLUEPRINT_GUI = False
 
@@ -118,7 +119,6 @@ class TestMetaOperators(unittest.TestCase):
         blueprint1_bk = copy.deepcopy(blueprint1)
         blueprint2 = ScopedResNet.describe_default('ResNet46x', depth=46,
                                                    width=1, num_classes=100)
-
         # visit all module blueprints and mark them unique
         visit_modules(blueprint2, None, [], make_unique)
 

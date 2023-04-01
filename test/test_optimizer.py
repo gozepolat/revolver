@@ -26,7 +26,7 @@ class TestTrainer(unittest.TestCase):
 
         engine = make_module(blueprint)
         engine.start_epoch()
-        engine.train_n_samples(16)
+        engine.train_n_batches(16)
         engine.state['epoch'] += 1
 
     @unittest.skip("Requires retain_graph option enabled")
@@ -40,7 +40,7 @@ class TestTrainer(unittest.TestCase):
                                                        weight_decay=0.0005)
         engine = make_module(blueprint)
         engine.start_epoch()
-        engine.train_n_samples(16)
+        engine.train_n_batches(16)
         engine.state['epoch'] += 1
 
     def test_densenet(self):
@@ -67,5 +67,5 @@ class TestTrainer(unittest.TestCase):
 
         engine = make_module(engine_blueprint)
         engine.start_epoch()
-        engine.train_n_samples(16)
+        engine.train_n_batches(16)
         engine.state['epoch'] += 1

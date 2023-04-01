@@ -42,7 +42,7 @@ class ScopedConv2d(Conv2d):
                          input_shape=None, in_channels=3, out_channels=3,
                          kernel_size=3, stride=1, padding=1,
                          dilation=1, groups=1, bias=True,
-                         mutation_p=0.2, toggle_p=0.1, *_, **__):
+                         mutation_p=0.8, toggle_p=0.02, *_, **__):
         """Create a default ScopedConv2d blueprint
 
         Args:
@@ -161,6 +161,7 @@ class ScopedConvTranspose2d(ConvTranspose2d):
         assert(bp['output_shape'] == output_shape)
         bp['kwargs']['blueprint'] = bp
         bp.refresh_name()
+        bp.refresh_unique_suffixes()
         return bp
 
 
@@ -197,6 +198,7 @@ class ScopedConv2dDeconv2dConcat(Conv2dDeconv2dConcat):
         bp['suffix'] = suffix
         bp['parent'] = parent
         bp.refresh_name()
+        bp.refresh_unique_suffixes()
         return bp
 
 
@@ -354,7 +356,7 @@ class ScopedBatchNorm2d(BatchNorm2d):
     @staticmethod
     def describe_default(prefix='', suffix='', parent=None,
                          input_shape=None,
-                         mutation_p=0.2, kwargs=None, *_, **__):
+                         mutation_p=0.8, kwargs=None, *_, **__):
 
         bn_kwargs = {
             'num_features': input_shape[1],

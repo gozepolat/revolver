@@ -14,6 +14,7 @@ import torch
 @add_metaclass(ScopedMeta)
 class ScopedDenseFractalGroup(Sequential):
     """Group of dense fractals with the same number of output channels"""
+
     def __init__(self, scope, blueprint, *_, **__):
         self.scope = scope
         self.blueprint = blueprint
@@ -51,7 +52,7 @@ class ScopedDenseFractalGroup(Sequential):
     @staticmethod
     def function(container, callback, depth, scope,
                  training, drop_p, squeeze, module_id, x):
-        assert(depth > 0)
+        assert (depth > 0)
         half = depth // 2
 
         if squeeze and time_to_drop(training, drop_p):
@@ -131,10 +132,10 @@ class ScopedDenseFractalGroup(Sequential):
                              'groups': groups,
                              'bias': bias}
 
-        suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
-                                              kernel_size, stride,
-                                              padding, dilation, groups,
-                                              bias)
+        suffix = '_'.join([str(s) for s in (in_channels, out_channels,
+                                            kernel_size, stride,
+                                            padding, dilation, groups,
+                                            bias)])
 
         unit_fractal = block_module.describe_default('%s/unit' % prefix, suffix,
                                                      default, input_shape,
@@ -171,9 +172,9 @@ class ScopedDenseFractalGroup(Sequential):
         for i in range(fractal_depth):
             input_shape = children[i]['output_shape']
             in_channels = input_shape[1]
-            suffix = '%d_%d_%d_%d_%d_%d_%d_%d' % (in_channels, out_channels,
-                                                  kernel_size, 1,
-                                                  padding, dilation, groups, bias)
+            suffix = '_'.join([str(s) for s in (in_channels, out_channels,
+                                                kernel_size, 1,
+                                                padding, dilation, groups, bias)])
             unit = block_module.describe_default('%s/unit' % block_prefix, suffix,
                                                  default, input_shape,
                                                  in_channels, out_channels,
