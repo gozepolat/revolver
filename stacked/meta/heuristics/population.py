@@ -27,6 +27,7 @@ from logging import warning, exception
 import numpy as np
 import copy
 import math
+import inspect
 
 
 def log(log_func, msg):
@@ -69,6 +70,8 @@ def estimate_rough_contexts(blueprint):
     name_set = set()
     for module in module_list:
         _type = module['type']
+        if not inspect.isclass(_type):
+            continue
         if (issubclass(_type, Conv2d) or
                 issubclass(_type, Linear) or
                 issubclass(_type, Conv3d2d)):
@@ -203,7 +206,7 @@ def generate_net_blueprints(options, num_individuals=None, conv_extend=None, ske
 
     conv_module = ClosedList(conv_list)
     residual = ClosedList([True, False])
-    skeleton_list = [(3, 6, 12), (6, 6, 6), (6, 9, 12)]
+    skeleton_list = [(6, 6, 6), (6, 9, 12), (6, 12, 24)]
     if skeleton_extend:
         skeleton_list.extend(skeleton_extend)
 
@@ -241,7 +244,7 @@ def generate_net_blueprints(options, num_individuals=None, conv_extend=None, ske
 
 class Population(object):
     def __init__(self, options):
-        assert (options.population_size > 3)
+        assert options.population_size > 7, "Minimum population size must be 8"
         self.options = options
         self.genotypes = []
         self.ids = []
@@ -251,13 +254,21 @@ class Population(object):
         if hasattr(self.options, 'max_skeleton_width'):
             w = self.options.max_skeleton_width
         else:
-            w = 32
+            w = 64
         if hasattr(self.options, 'max_skeleton_depth'):
             d = self.options.max_skeleton_depth
         else:
             d = 6
 
-        self.skeletons = [[np.random.randint(low, low * 2) for _ in range(np.random.randint(3, d))] for low in range(8, w)]
+        self.skeletons = self.make_skeletons(w, d)
+
+    @staticmethod
+    def make_skeletons(width, depth):
+        skeletons = []
+        for low_w in range(8, width, 4):
+            for d in range(3, depth):
+                skeletons.append([low_w * pow(2, d_i) for d_i in range(d)])
+        return skeletons
 
     def replace_individual(self, index, blueprint):
         """Replace the individual at the given index with a new one"""
@@ -305,45 +316,42 @@ class Population(object):
             warmup_x = self.options.warmup_x
 
         sorted_genotypes = self.generate_sorted_with_scores(self.options.population_size * warmup_x)
-        for score, blueprint in sorted_genotypes[0:self.options.population_size]:
+        for score, blueprint in sorted_genotypes[:self.options.population_size]:
             blueprint['meta']['score'] = score
             self.add_individual(blueprint)
 
     def random_pick(self, sample_size=0):
-        return np.random.choice(range(len(self.genotypes)),
-                                sample_size, replace=False)
+        return np.random.choice(len(self.genotypes), sample_size, replace=False)
 
-    def pick_indices(self, sample_size=0):
+    def pick_indices(self, sample_size=0, exclude_set=None):
         """Randomly pick genotype indices, sometimes favor lower scores"""
         if sample_size == 0:
             sample_size = self.options.sample_size
 
-        p = 0.3
-        if np.random.random() < p:
-            return self.random_pick(sample_size)
+        if np.random.random() < common.POPULATION_RANDOM_PICK_P:
+            return self.random_pick_n_others(exclude_set=exclude_set, n=sample_size)
 
-        distribution = np.array([bp['meta']['score'] for bp in self.genotypes])
-        transformed = np.max(distribution) - distribution * 0.5
+        if exclude_set is None:
+            exclude_set = set()
+
+        scores = [bp['meta']['score'] for i, bp in enumerate(self.genotypes) if i not in exclude_set]
+        indices = [i for i,_ in enumerate(self.genotypes) if i not in exclude_set]
+        distribution = np.array(scores)
+
+        # lower score (i.e. fitness) is better and should be selected more often
+        transformed = np.max(distribution) - distribution
 
         distribution = transformed / np.sum(transformed)
-        # distribution = softmax()
-
-        if np.count_nonzero(distribution) <= sample_size:
-            log(warning, "Population.pick_indices: Scores are not diverse enough")
-            return np.random.choice(len(self.genotypes),
-                                    sample_size, replace=False)
 
         try:
-            choice = np.random.choice(len(self.genotypes),
-                                      sample_size, p=distribution, replace=False)
+            choice = np.random.choice(indices, sample_size, p=distribution, replace=False)
             return choice
 
         except ValueError:
             exception("Population.pick_indices: Caught exception with weighted choice")
-            return np.random.choice(len(self.genotypes),
-                                    sample_size, replace=False)
+            return np.random.choice(indices, sample_size, replace=False)
 
-    def update_scores(self, calculate_phenotype_score=True, additional_indices=None):
+    def update_scores(self, calculate_phenotype_fitness=True, additional_indices=None):
         """Evaluate and improve a portion of the population, according to the scores"""
         weight = self.options.update_score_weight
         indices = self.pick_indices()
@@ -355,26 +363,28 @@ class Population(object):
             if 'score' not in bp['meta']:
                 bp['meta']['score'] = get_genotype_fitness(bp)
 
-            if not calculate_phenotype_score:
+            if not calculate_phenotype_fitness:
                 continue
 
             # potentially train and test the model for bp
             # remove it if it causes exception
-            new_score = 1e15
             try:
                 new_score = self.options.utility(bp, self.options)
+                update_score(bp, new_score, weight=weight)
             except (RuntimeError, ValueError):
                 exception("Population.update_scores: Caught exception when scoring the model")
                 log(warning, "This individual caused exception: %s" % bp['name'])
-
-            update_score(bp, new_score, weight=weight)
-
-            if bp["meta"]["score"] > 1e8:
                 log(warning, f"Removing individual{bp['name']}")
                 bp.dump_pickle(f"errored_{bp['name']}.pkl")
+
                 # time to kill it
+                clone = self.maybe_pick_from_randomly_generated(score=bp['meta']['score'] * 1.5)
+                if clone is not None:
+                    self.replace_individual(i, clone)
+                    continue
+
                 # mutate another individual and replace it
-                new_index = np.random.choice([j for j in self.pick_indices(3) if j != i])
+                new_index = np.random.choice([j for j in self.pick_indices(4) if j != i])
                 clone = copy.deepcopy(self.genotypes[new_index])
 
                 mutate_counter = 0
@@ -388,62 +398,40 @@ class Population(object):
 
     def get_average_score(self):
         """Get average score for the population"""
-        total_score = 0.0
-        n = 1
-
-        for bp in self.genotypes:
-            if 'score' in bp['meta']:
-                score = bp['meta']['score']
-                if score < np.inf:
-                    total_score += score
-                    n += 1
-
-        if total_score == 0:
-            return np.inf
-
-        return total_score / n
+        return np.mean(self.get_all_scores())
 
     def get_the_best_index(self):
-        """Get the best scoring individual in the population"""
-        best_score = np.inf
-        index = 0
+        """Get the best scoring individual index in the population"""
+        return np.argmin(self.get_all_scores())
 
-        assert (len(self.genotypes) > 0)
-        for i, bp in enumerate(self.genotypes):
-            if 'score' in bp['meta']:
-                score = bp['meta']['score']
-                if score < best_score:
-                    index = i
-                    best_score = score
-        return index
+    def get_sorted_indices(self):
+        """Get the indices of individuals sorted from the best to worst"""
+        return np.argsort(self.get_all_scores())
 
-    def get_max_indices(self):
-        """Get the indices of the worst two individuals"""
-        score2 = score1 = -np.inf
-        r1 = r2 = 0
+    def get_all_sorted_scores_dict(self):
+        sorted_indices = self.get_sorted_indices()
+        return {self.genotypes[i]['name']: self.genotypes[i]['meta']['score'] for i in sorted_indices}
 
-        for i, bp in enumerate(self.genotypes):
-            if 'score' in bp['meta']:
-                score = bp['meta']['score']
+    def get_all_scores(self):
+        return [bp['meta']['score'] for bp in self.genotypes]
 
-                if score1 < score:
-                    score2 = score1
-                    r2 = r1
-                    score1 = score
-                    r1 = i
-                elif score2 < score:
-                    score2 = score
-                    r2 = i
+    def sort_based_on_score(self, indices):
+        """Sort based on the score s.t. first individual is the best
 
-        return r1, r2
+        e.g. for indices = (2,    6,   3)
+                 scores  = (12.4, 0.5, 4.4)
+        sort_based_on_score((2,6,3)) would return 6, 3, 2"""
+        scores = [(self.genotypes[index]['meta']['score'], index) for index in indices]
+        return [index for score, index in sorted(scores)]
 
-    def random_pick_n_others(self, picked, n):
-        selected_indices = [i for i in range(self.population_size)
-                            if i not in picked]
+    def random_pick_n_others(self, exclude_set, n):
+        if exclude_set is None:
+            exclude_set = set()
+        selected_indices = [i for i,_ in enumerate(self.genotypes)
+                            if i not in exclude_set]
         return np.random.choice(selected_indices, n, replace=False)
 
-    def maybe_pick_better_random(self, score):
-        selected_bp = None
+    def maybe_pick_from_randomly_generated(self, score):
         for i in range(common.POPULATION_RANDOM_SEARCH_ITERATIONS):
             bp = generate_net_blueprints(self.options, num_individuals=1,
                                          skeleton_extend=self.skeletons)[0]
@@ -451,147 +439,113 @@ class Population(object):
             if bp_score < score:
                 log(warning, f"Search successful. "
                              f" Genotype cost coefficient was {common.POPULATION_GENOTYPE_COST_COEFFICIENT}")
-                selected_bp = bp
-                break
-        return selected_bp
+                return bp
 
-    def get_all_scores(self):
-        return {bp['name']: bp['meta']['score'] for bp in self.genotypes}
-
-    def random_search(self, options=None):
-        if options is not None:
-            self.options = options
-        gpu_usage_dict = common.get_gpu_memory_info()
-        log(warning, "Overall gpu info: {}".format(gpu_usage_dict))
-
-        if np.random.random() < common.POPULATION_CLEANUP_P:
-            # clean up population
-            # bad scored indices will be replaced with new individuals
-            r1, r2 = self.get_max_indices()
-        else:
-            # competition
-            # random indices will be pitted against each other
-            r1, r2 = self.random_pick_n_others([], 2)
-
-        replace_count = 0
-        for index in (r1, r2):
-            score = self.genotypes[index]['meta']['score']
-            bp = self.maybe_pick_better_random(score)
-
-            if bp is not None:
-                common.POPULATION_GENOTYPE_COST_COEFFICIENT *= 1.002
-                self.replace_individual(index, bp)
-                replace_count += 1
-            else:
-                log(warning, f"Could not find a random genotype with score < {score}")
-
-        if replace_count != 0:
-            return [r1, r2]
-
-        worst_ix, _ = self.sort_based_on_score([r1, r2])
-
-        score = score * 1.5
-        bp = self.maybe_pick_better_random(score)
-        if bp is not None:
-            log(warning, f"Replacing as if the score was instead {score}")
-            self.replace_individual(worst_ix, bp)
-            return [worst_ix]
-
-        log(warning, f"Could not find a random genotype even when score < {score}")
-        common.POPULATION_GENOTYPE_COST_COEFFICIENT *= .995
-        common.POPULATION_GENOTYPE_COST_COEFFICIENT = max(common.POPULATION_MIN_GENOTYPE_COST_COEFFICIENT,
-                                                          common.POPULATION_GENOTYPE_COST_COEFFICIENT)
         return None
 
-    def sort_based_on_score(self, indices):
-        """Sort reversed based on the score s.t. first individual is the worst
-
-        e.g. for indices = (2,    6,   3)
-                 scores  = (12.4, 0.5, 4.4)
-        sort_based_on_score((2,6,3)) would return 2, 3, 6"""
-        scores = [(self.genotypes[index]['meta']['score'], index) for index in indices]
-        return [index for score, index in sorted(scores, reverse=True)]
-
-    def evolve_generation(self, options=None):
-        """A single step of evolution"""
-        if options is not None:
-            self.options = options
-
-        if len(self.genotypes) == 0:
-            self.populate_with_random()
-
-        # favor weighted pick eventually
-        index1, index2 = self.pick_indices(2)
-
-        if np.random.random() < common.POPULATION_CLEANUP_P:
-            # clean up population
-            # bad scored indices will be replaced with new individuals
-            r1, r2 = self.get_max_indices()
-        else:
-            # competition
-            # random indices will be pitted against each other
-            r1, r2 = self.random_pick_n_others((index1, index2), 2)
-
-        if index1 in {r1, r2} or index2 in {r1, r2}:
-            index1, index2 = self.random_pick_n_others((r1, r2), 2)
-
-        # make sure that the discarded r1, r2 have the worst scores
-        r1, r2, index1, index2 = self.sort_based_on_score((r1, r2, index1, index2))
-
-        clones = []
+    def maybe_pick_from_genetic_algorithm(self, score, exclude_set=None):
         if np.random.random() < common.POPULATION_IMMIGRATION_P:
-            for _ in range(2):
-                bp = self.maybe_pick_better_random(self.genotypes[index1]['meta']['score'])
-                if bp is None:
-                    clones.append(copy.deepcopy(self.genotypes[index1]))
-                else:
-                    clones.append(bp)
-            clone1, clone2 = clones
-        else:
-            clone1 = copy.deepcopy(self.genotypes[index1])
-            clone2 = copy.deepcopy(self.genotypes[index2])
+            bp = self.maybe_pick_from_randomly_generated(score)
+            if bp is not None:
+                return bp
 
-        # restrict gpu memory usage
-        gpu_usage_dict = common.get_gpu_memory_info()
-        (used, total) = gpu_usage_dict[self.options.gpu_id]
+        # favor better models sometimes
+        index1, index2 = self.pick_indices(2, exclude_set=exclude_set)
 
-        log(warning, "Overall gpu info: {}".format(gpu_usage_dict))
+        clone1 = copy.deepcopy(self.genotypes[index1])
+        clone2 = copy.deepcopy(self.genotypes[index2])
 
-        # adjust mutation settings and uniqueness
-        p_unique = (common.POPULATION_MUTATION_COEFFICIENT - used / total) * 0.2
+        p_unique = common.POPULATION_MUTATION_COEFFICIENT * 0.1
         visit_modules(clone1, (p_unique, False), [],
                       make_mutable_and_randomly_unique)
 
         visit_modules(clone2, (p_unique, False), [],
                       make_mutable_and_randomly_unique)
 
-        if np.random.random() < common.POPULATION_MUTATION_COEFFICIENT - used / total:
-            for i in range(10):
+        if np.random.random() < common.POPULATION_MUTATION_COEFFICIENT:
+            for i in range(15):
                 mutated = mutate(clone1, p=0.5)
                 if mutated:
+                    log(warning, f"Mutated {mutated} after {i} tries")
                     break
-            for i in range(10):
+            for i in range(15):
                 mutated = mutate(clone2, p=0.5)
                 if mutated:
+                    log(warning, f"Mutated {mutated} after {i} tries")
                     break
 
         if np.random.random() < common.POPULATION_CROSSOVER_COEFFICIENT:
-            for i in range(50):
-                successful = crossover(clone1, clone2)
-                if successful:
-                    break
-            clone1.refresh_name()
-            log(warning, f"Crossed {successful}. "
-                         f"Removing {self.genotypes[r2]['name']} which had cost {self.genotypes[r2]['meta']['score']} "
-                         f"in favor of {clone1['name']} "
-                         f"with cost {clone1['meta']['score']}.")
-
-            self.replace_individual(r2, clone1)
+            op = crossover
         else:
-            copyover(clone1, clone2)
+            op = copyover
 
-        clone2.refresh_name()
-        log(warning, f"Removing {self.genotypes[r1]['name']} which had cost {self.genotypes[r1]['meta']['score']} "
-                     f"in favor of {clone2['name']} "
-                     f"with cost {clone2['meta']['score']}.")
-        self.replace_individual(r1, clone2)
+        op_type = "Cloned"
+        for i in range(50):
+            successful = crossover(clone1, clone2)
+            if successful:
+                op_type = f"{op} {successful}"
+                break
+
+        log(warning, f"{op_type} after {i} tries")
+        clone1['meta']['score'] = get_genotype_fitness(clone1)
+        clone2['meta']['score'] = get_genotype_fitness(clone2)
+
+        if clone1['meta']['score'] > clone2['meta']['score']:
+            clone1, clone2 = clone2, clone1
+
+        if clone1['meta']['score'] < score:
+            return clone1
+
+        return None
+
+    def add_next_gen(self, search_mode="random", adjust_coefficient=True,
+                     exclude_set=None, options=None, num_offsprings=2):
+        """Search step for replacing a number of individuals (<=2) with the next generation"""
+        if options is not None:
+            self.options = options
+
+        if len(self.genotypes) == 0:
+            self.populate_with_random()
+
+        if exclude_set is None:
+            exclude_set = set()
+
+        assert self.population_size >= num_offsprings * 3 + len(exclude_set) > 0
+
+        gpu_usage_dict = common.get_gpu_memory_info()
+        log(warning, "Overall gpu info: {}".format(gpu_usage_dict))
+
+        sorted_indices = self.get_sorted_indices()
+        if np.random.random() < common.POPULATION_CLEANUP_P:
+            # clean up population
+            # worst indices will be replaced with new individuals
+            old_gen_ix = [i for i in sorted_indices if i not in exclude_set][-3 * num_offsprings:]
+            old_gen_ix = np.random.choice(old_gen_ix, num_offsprings, replace=False)
+        else:
+            # competition
+            # mid range indices will be pitted against each other
+            old_gen_ix = self.random_pick_n_others(exclude_set=exclude_set | set(sorted_indices[:2 * num_offsprings]),
+                                                   n=num_offsprings)
+
+        replaced_indices = []
+        for index in old_gen_ix:
+            score = self.genotypes[index]['meta']['score']
+            if search_mode == "random":
+                bp = self.maybe_pick_from_randomly_generated(score)
+            else:
+                bp = self.maybe_pick_from_genetic_algorithm(score, exclude_set=set(old_gen_ix))
+
+            if bp is not None:
+                self.replace_individual(index, bp)
+                replaced_indices.append(index)
+                if adjust_coefficient:
+                    common.POPULATION_GENOTYPE_COST_COEFFICIENT *= 1.005
+            else:
+                log(warning, f"Could not find a genotype with score < {score}")
+                if not adjust_coefficient:
+                    continue
+                common.POPULATION_GENOTYPE_COST_COEFFICIENT *= .985
+                common.POPULATION_GENOTYPE_COST_COEFFICIENT = max(common.POPULATION_MIN_GENOTYPE_COST_COEFFICIENT,
+                                                                  common.POPULATION_GENOTYPE_COST_COEFFICIENT)
+
+        return replaced_indices

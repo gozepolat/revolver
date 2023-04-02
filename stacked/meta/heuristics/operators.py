@@ -4,6 +4,7 @@ from stacked.utils import common
 from logging import warning, info
 import numpy as np
 import copy
+import inspect
 
 
 def log(log_func, msg):
@@ -20,7 +21,7 @@ def mutate_sub(blueprint, key, diameter, p, p_decay):
      Mutate in blueprint[key], where the sub-element is randomly picked
     """
     element = blueprint[key]
-    if issubclass(type(element), Blueprint):
+    if inspect.isclass(type(element)) and issubclass(type(element), Blueprint):
         random_key = np.random.choice(list(element.keys()))
         if len(element['mutables']) > 0:
             random_key = np.random.choice(list(element['mutables'].keys()))
@@ -38,8 +39,10 @@ def adjust_mutation(blueprint, key):
         new_depth = blueprint[key]
         remove_count = len(children) - new_depth
 
-        io_indices = get_io_shape_indices(children)
-        duplicates = get_duplicates(io_indices)
+        io_indices_dict = get_io_shape_indices(children)
+
+        # fair game for removal
+        duplicates = get_duplicates(io_indices_dict)
         np.random.shuffle(duplicates)
         remove_set = set(duplicates[:remove_count])
 
@@ -47,9 +50,11 @@ def adjust_mutation(blueprint, key):
             if i not in remove_set:
                 new_children.append(c)
 
+        log(warning, f"Adjusted mutation, length of children reduced from {len(blueprint['children'])} "
+                     f"to {len(new_children)}")
+
         blueprint['children'] = new_children
-        log(info, 'Adjusted mutation: %s'
-            % blueprint['children'])
+        blueprint['depth'] = len(new_children)
 
 
 def mutate_current(blueprint, key, diameter, p):

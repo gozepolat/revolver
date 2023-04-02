@@ -9,6 +9,7 @@ from stacked.utils.domain import ClosedList, ClosedInterval
 from stacked.utils import common
 import numpy as np
 from torch.nn import Conv2d, BatchNorm2d
+import inspect
 
 
 def append_mutables(elements, mutables):
@@ -72,7 +73,7 @@ def extend_conv_kernel_size_mutables(blueprint, min_kernel_size=1, max_kernel_si
 
     Supports the existing convolution op, ensemble, and res_block
     """
-    if not issubclass(blueprint['type'], Conv2d):
+    if not (inspect.isclass(blueprint['type']) and issubclass(blueprint['type'], Conv2d)):
         return
 
     def new_kernel_size(value):
@@ -97,7 +98,7 @@ def extend_depth_mutables(blueprint, min_depth=2):
 
 
 def extend_bn_mutables(bp, min_momentum=0.05, max_momentum=0.99):
-    if not issubclass(bp['type'], BatchNorm2d):
+    if not (inspect.isclass(bp['type']) and issubclass(bp['type'], BatchNorm2d)):
         return
 
     def new_momentum(value):

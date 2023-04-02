@@ -12,6 +12,7 @@ from stacked.modules.loss import FeatureSimilarityLoss, \
 import copy
 from stacked.utils import common
 from logging import warning
+import inspect
 
 
 def log(log_func, msg):
@@ -323,7 +324,7 @@ class ScopedConv3d2d(Conv3d2d):
             conv_kwargs = conv_kwargs.copy()
 
         def need_to_set(key):
-            if key not in conv_kwargs or issubclass(conv_module, ScopedConv2d):
+            if key not in conv_kwargs or (inspect.isclass(conv_module) and issubclass(conv_module, ScopedConv2d)):
                 return True
             return False
 

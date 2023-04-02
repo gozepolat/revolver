@@ -64,8 +64,8 @@ def parse_args():
                         help="path to save the blueprint and engine state")
     parser.add_argument('--load_path', default='', type=str,
                         help="path to load the blueprint and engine state")
-    parser.add_argument('--explore_vs_exploit', default='n', type=str,
-                        help="Adjust during model search for train_population")
+    parser.add_argument('--warmup_epoch', default=20, type=int,
+                        help="Update population with higher quality genotypes based on genotype fitness")
     parser.add_argument('--save_png_folder', default='', type=str,
                         help="path to save weight visualization output")
     parser.add_argument('--search_mode', default='evolve', type=str,

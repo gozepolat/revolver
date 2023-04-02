@@ -8,9 +8,11 @@ import tkinter as tk
 from stacked.utils import common
 from logging import warning, error
 from collections.abc import Iterable
+from collections import defaultdict
 import numpy as np
 import json
 import copy
+import inspect
 
 
 def log(log_func, msg):
@@ -296,7 +298,7 @@ class Blueprint(dict):
 
     def make_common(self):
         """Revert back from uniqueness"""
-        if issubclass(self['type'], BatchNorm2d):
+        if inspect.isclass(self['type']) and issubclass(self['type'], BatchNorm2d):
             log(warning, "Can't make batch norm common, %s must be kept unique."
                 % self['name'])
             return
@@ -443,24 +445,23 @@ def get_duplicates(io_indices, one_out=1):
     for k, v in io_indices.items():
         size = len(v)
         if size > one_out:
-            cs = np.random.choice(v, size - one_out)
+            cs = np.random.choice(v, size - one_out, replace=False)
             duplicates.extend(cs)
 
     return duplicates
 
 
 def get_io_shape_indices(children):
-    """Return the indices of children with the same io shapes"""
+    """Return the indices dict of children with the same io shapes"""
 
     def get_key(child):
         return str(child['input_shape']) + str(child['output_shape'])
 
-    indices = {get_key(c): []
-               for c in children if c['input_shape'] is not None
-               and c['output_shape'] is not None}
+    indices = defaultdict(list)
 
     for i, c in enumerate(children):
-        indices[get_key(c)].append(i)
+        if c['input_shape'] is not None and c['output_shape'] is not None:
+            indices[get_key(c)].append(i)
 
     return indices
 
@@ -533,7 +534,7 @@ def visit_modules(blueprint, main_input, outputs=None,
     if outputs is None:
         outputs = []
 
-    if issubclass(blueprint['type'], Module):
+    if inspect.isclass(blueprint['type']) and issubclass(blueprint['type'], Module):
         fn(blueprint, main_input, outputs)
 
     for k, v in blueprint.items():

@@ -13,6 +13,7 @@ from stacked.models.blueprinted.densesumgroup import ScopedDenseSumGroup
 from stacked.models.blueprinted.convunit import ScopedConvUnit
 from stacked.utils.transformer import all_to_none
 from six import add_metaclass
+import inspect
 
 
 @add_metaclass(ScopedMeta)
@@ -189,7 +190,7 @@ class ScopedDenseNet(Sequential):
                                   bn_module, kwargs={'num_features': w})
 
         if act_kwargs is None:
-            if issubclass(act_module, ScopedReLU):
+            if inspect.isclass(act_module) and issubclass(act_module, ScopedReLU):
                 act_kwargs = {'inplace': True}
         default['act'] = Blueprint('%s/act' % prefix, '%d' % w, default, False,
                                    act_module, kwargs=act_kwargs)

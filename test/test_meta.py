@@ -13,6 +13,7 @@ from stacked.meta.blueprint import visit_modules
 from PIL import Image
 import glob
 from six.moves import cPickle as pickle
+import inspect
 
 
 class TestScopedMetaMasked(unittest.TestCase):
@@ -44,7 +45,7 @@ class TestScopedMetaMasked(unittest.TestCase):
         if common.BLUEPRINT_GUI:
 
             def make_conv2d_unique(bp, _, __):
-                if issubclass(bp['type'], ScopedConv2d):
+                if inspect.isclass(bp['type']) and issubclass(bp['type'], ScopedConv2d):
                     bp.make_unique()
 
             visit_modules(bp, None, None, make_conv2d_unique)

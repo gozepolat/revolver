@@ -21,6 +21,7 @@ from logging import warning, info
 import glob
 import pandas as pd
 import re
+import inspect
 
 
 def log(log_func, msg):
@@ -210,17 +211,17 @@ def adjust_uniqueness(net, options):
             return
 
         if 'bn' in options.unique:
-            if issubclass(bp['type'], ScopedBatchNorm2d):
+            if inspect.isclass(bp['type']) and issubclass(bp['type'], ScopedBatchNorm2d):
                 bp.make_unique(refresh_unique_suffixes=False)
                 bp['kwargs']['momentum'] = 0.1
 
         if 'convdim' in options.unique:
-            if issubclass(bp['type'], ScopedConv2d):
+            if inspect.isclass(bp['type']) and issubclass(bp['type'], ScopedConv2d):
                 if 'kernel_size' in bp['kwargs'] and bp['kwargs']['kernel_size'] == 1:
                     bp.make_unique(refresh_unique_suffixes=False)
 
         if 'conv' in options.unique:
-            if issubclass(bp['type'], ScopedConv2d):
+            if inspect.isclass(bp['type']) and issubclass(bp['type'], ScopedConv2d):
                 if 'kernel_size' in bp['kwargs'] and bp['kwargs']['kernel_size'] == 3:
                     bp.make_unique(refresh_unique_suffixes=False)
 
@@ -293,67 +294,50 @@ def train_population(population, options, default_resnet_shape, default_densenet
         add_seed_individuals(population, options, default_resnet_shape, default_densenet_shape)
 
     net_blueprint = None
-    prev_best_index = -1
 
-    explore_vs_exploit = True
-    if hasattr(options, 'explore_vs_exploit'):
-        explore_vs_exploit = options.explore_vs_exploit
-        explore_vs_exploit = explore_vs_exploit in common.YES_SET
-
-    if options.search_mode.startswith("random_warmup"):
-        log(warning, "Warming up the population with the random top genotypes")
-        for i in range(options.max_iteration // 20):
-            population.random_search()
+    # for options such as: evolve_warmup_random, evolve_warmup, random_warmup, random_warmup_evolve
+    if "warmup" in options.search_mode:
+        search_mode = options.search_mode.split("_warmup")[0]
+        log(warning, f"Warming up the population with improved genotypes. Search mode {search_mode}")
+        for i in range(options.warmup_epoch):
+            population.add_next_gen(search_mode=search_mode, adjust_coefficient=False)
             bp = population.genotypes[population.get_the_best_index()]
             log(warning, f"{i}: top {bp['meta']['score']} "
                          f"mean {population.get_average_score()} "
                          f"size {len(population.genotypes)} "
                          f"name {bp['name']}")
 
-    if options.search_mode.startswith("evolve_warmup"):
-        log(warning, "Warming up the population by evolving the top genotypes")
-        for i in range(options.max_iteration // 10):
-            population.evolve_generation()
-            bp = population.genotypes[population.get_the_best_index()]
-            log(warning, f"{i}: top {bp['meta']['score']}"
-                         f" mean {population.get_average_score()} "
-                         f"size {len(population.genotypes)} "
-                         f"name {bp['name']}")
-
-    top_score_stuck_ctr = 0
     population.update_scores()
+    search_mode = "random" if options.search_mode in {"random", "random_warmup", "evolve_warmup_random"} else "evolve"
+    prev_top_index = -1
     for i in range(options.max_iteration):
         log(warning, 'Population generation: %d' % i)
         if i in options.lr_drop_epochs:
             options.lr *= options.lr_decay_ratio
-        if options.search_mode in {"random", "random_warmup", "evolve_warmup_random"}:
-            indices = population.random_search()
-            population.update_scores(additional_indices=indices)
-        if options.search_mode in {"evolve", "evolve_warmup", "random_warmup_evolve"}:
-            indices = population.evolve_generation()
-            population.update_scores(additional_indices=indices)
 
+        # attempt search 3 times
+        indices = set()
+        for _ in range(3):
+            new_indices = population.add_next_gen(search_mode=search_mode, exclude_set=indices)
+            indices = indices | set(new_indices)
+            # new individuals to be added
+            if len(indices) > 1:
+                break
+
+        population.update_scores(additional_indices=list(indices))
         index = population.get_the_best_index()
-
-        if explore_vs_exploit:
-            if index != prev_best_index:
-                top_score_stuck_ctr = 0
-                increase_exploitation()
-                prev_best_index = index
-                log(warning, f"{population.get_all_scores()}")
-            else:
-                top_score_stuck_ctr += 1
-                increase_exploration(top_score_stuck_ctr)
 
         net_blueprint = population.genotypes[index]
         best_score = net_blueprint['meta']['score']
         log(warning, "{} Current top score: {}, id: {}, name {}".format(i, best_score, id(net_blueprint),
                                                                         net_blueprint['name']))
-        log(warning, f" mean {population.get_average_score()} "
-                     f"size {len(population.genotypes)}")
-        if i % 20 == 19:
+        log(warning, f"Current mean score {population.get_average_score()}, size {len(population.genotypes)}")
+
+        if prev_top_index != index:
+            log(warning, f"New top individual detected. Updated ranking: \n{population.get_all_sorted_scores_dict()}")
             net_blueprint.dump_pickle(f"../top_{i}_{net_blueprint['name']}"
                                       f"{options.genotype_cost}_{options.search_mode}_{options.dataset}.pkl")
+            prev_top_index = index
 
     return net_blueprint
 

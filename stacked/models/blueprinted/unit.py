@@ -5,6 +5,7 @@ from stacked.modules.scoped_nn import ScopedReLU, \
     ScopedDropout2d
 from stacked.meta.blueprint import Blueprint
 from stacked.utils.transformer import all_to_none
+import inspect
 
 
 def set_pooling(default, prefix, input_shape,
@@ -31,7 +32,7 @@ def set_activation(default, prefix, suffix, inplace=False,
                    module=ScopedReLU, kwargs=None):
     """Add an activation module to the blueprint description"""
     if kwargs is None:
-        if issubclass(module, ScopedReLU):
+        if inspect.isclass(module) and issubclass(module, ScopedReLU):
             kwargs = {'inplace': inplace}
 
     default['act'] = Blueprint('%s/act' % prefix, suffix, default,

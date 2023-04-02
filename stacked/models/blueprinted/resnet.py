@@ -12,6 +12,7 @@ from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.models.blueprinted.convunit import ScopedConvUnit
 from stacked.utils.transformer import all_to_none
 from six import add_metaclass
+import inspect
 
 
 @add_metaclass(ScopedMeta)
@@ -93,7 +94,7 @@ class ScopedResNet(Sequential):
         default['callback'] = callback
 
         if act_kwargs is None:
-            if issubclass(act_module, ScopedReLU):
+            if inspect.isclass(act_module) and issubclass(act_module, ScopedReLU):
                 act_kwargs = {'inplace': True}
         default['act'] = Blueprint('%s/act' % prefix, '%d' % no, default, False,
                                    act_module, kwargs=act_kwargs)
