@@ -108,6 +108,20 @@ class Blueprint(dict):
     def __ne__(self, other):
         return not (self == other)
 
+    def add_gui_elements(self):
+        self.button_text = tk.StringVar()
+        self.button_text_color = tk.StringVar()
+        self.button_text.set(self['name'])
+        self.button = None
+        if self['unique']:
+            self.button_text_color.set('#FFAAAA')
+        else:
+            self.button_text_color.set('#BBDDBB')
+
+        for bp in collect_modules(self):
+            if bp['name'] != self['name']:
+                bp.add_gui_elements()
+
     def refresh_name(self, refresh_unique_suffixes=True):
         self.reset_name_without_unique_suffix()
         if self['unique']:

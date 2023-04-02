@@ -321,16 +321,17 @@ def train_population(population, options, default_resnet_shape, default_densenet
                          f"name {bp['name']}")
 
     top_score_stuck_ctr = 0
+    population.update_scores()
     for i in range(options.max_iteration):
         log(warning, 'Population generation: %d' % i)
         if i in options.lr_drop_epochs:
             options.lr *= options.lr_decay_ratio
         if options.search_mode in {"random", "random_warmup", "evolve_warmup_random"}:
-            population.update_scores()
-            population.random_search()
+            indices = population.random_search()
+            population.update_scores(additional_indices=indices)
         if options.search_mode in {"evolve", "evolve_warmup", "random_warmup_evolve"}:
-            population.update_scores()
-            population.evolve_generation()
+            indices = population.evolve_generation()
+            population.update_scores(additional_indices=indices)
 
         index = population.get_the_best_index()
 

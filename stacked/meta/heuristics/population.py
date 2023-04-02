@@ -255,9 +255,9 @@ class Population(object):
         if hasattr(self.options, 'max_skeleton_depth'):
             d = self.options.max_skeleton_depth
         else:
-            d = 3
+            d = 6
 
-        self.skeletons = [[np.random.randint(low, low * 2) for _ in range(d)] for low in range(3, w)]
+        self.skeletons = [[np.random.randint(low, low * 2) for _ in range(np.random.randint(3, d))] for low in range(8, w)]
 
     def replace_individual(self, index, blueprint):
         """Replace the individual at the given index with a new one"""
@@ -343,10 +343,12 @@ class Population(object):
             return np.random.choice(len(self.genotypes),
                                     sample_size, replace=False)
 
-    def update_scores(self, calculate_phenotype_score=True):
-        """Evaluate and improve a portion of the population according to the scores"""
+    def update_scores(self, calculate_phenotype_score=True, additional_indices=None):
+        """Evaluate and improve a portion of the population, according to the scores"""
         weight = self.options.update_score_weight
         indices = self.pick_indices()
+        if additional_indices is not None:
+            np.append(indices, additional_indices)
         for i in indices:
             bp = self.genotypes[i]
 
@@ -363,7 +365,7 @@ class Population(object):
                 new_score = self.options.utility(bp, self.options)
             except (RuntimeError, ValueError):
                 exception("Population.update_scores: Caught exception when scoring the model")
-                log(warning, "This individual caused exception: %s" % bp)
+                log(warning, "This individual caused exception: %s" % bp['name'])
 
             update_score(bp, new_score, weight=weight)
 
@@ -477,29 +479,29 @@ class Population(object):
             bp = self.maybe_pick_better_random(score)
 
             if bp is not None:
-                common.POPULATION_GENOTYPE_COST_COEFFICIENT *= 1.01
+                common.POPULATION_GENOTYPE_COST_COEFFICIENT *= 1.002
                 self.replace_individual(index, bp)
                 replace_count += 1
             else:
                 log(warning, f"Could not find a random genotype with score < {score}")
 
         if replace_count != 0:
-            return
+            return [r1, r2]
 
         worst_ix, _ = self.sort_based_on_score([r1, r2])
 
-        for i in range(2):
-            score = score * 1.5
-            bp = self.maybe_pick_better_random(score)
-            if bp is not None:
-                log(warning, f"Replacing as if the score was instead {score}")
-                self.replace_individual(worst_ix, bp)
-                return
+        score = score * 1.5
+        bp = self.maybe_pick_better_random(score)
+        if bp is not None:
+            log(warning, f"Replacing as if the score was instead {score}")
+            self.replace_individual(worst_ix, bp)
+            return [worst_ix]
 
         log(warning, f"Could not find a random genotype even when score < {score}")
-        common.POPULATION_GENOTYPE_COST_COEFFICIENT *= .99
+        common.POPULATION_GENOTYPE_COST_COEFFICIENT *= .995
         common.POPULATION_GENOTYPE_COST_COEFFICIENT = max(common.POPULATION_MIN_GENOTYPE_COST_COEFFICIENT,
                                                           common.POPULATION_GENOTYPE_COST_COEFFICIENT)
+        return None
 
     def sort_based_on_score(self, indices):
         """Sort reversed based on the score s.t. first individual is the worst
