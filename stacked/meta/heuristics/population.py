@@ -21,7 +21,6 @@ from stacked.utils.engine import get_num_parameters
 from stacked.utils import common
 from stacked.utils.transformer import softmax
 from stacked.utils.usage_helpers import make_net_blueprint
-from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.models.blueprinted.separable import ScopedDepthwiseSeparable
 from logging import warning, exception
 import numpy as np
@@ -173,7 +172,7 @@ def update_score(blueprint, new_score, weight=0.2):
         bp['meta']['score'] = get_genotype_fitness(bp)
 
     print(f"Previous score {bp['meta']['score']}")
-    bp['meta']['score'] = new_score * weight + bp['meta']['score'] * (1.0 - weight)
+    bp['meta']['score'] = new_score * weight *.8 + average_score * weight *.2 + bp['meta']['score'] * (1.0 - weight)
     print(f"New score {bp['meta']['score']}, updated with {new_score}")
 
     return average_score
@@ -206,11 +205,11 @@ def generate_net_blueprints(options, num_individuals=None, conv_extend=None, ske
 
     conv_module = ClosedList(conv_list)
     residual = ClosedList([True, False])
-    skeleton_list = [(8, 8, 8), (8, 12, 24), (8, 12, 24), (16, 32, 64)]
+    skeleton_list = [(8, 8, 8), (6, 12, 24), (8, 16, 32), (8, 16, 32, 32), (12, 24, 48), (16, 32, 64), (16, 32, 64, 64)]
     if skeleton_extend:
         skeleton_list.extend(skeleton_extend)
 
-    skeleton = list(set(skeleton_list))
+    skeleton_list = list(set(skeleton_list))
 
     skeleton = ClosedList(skeleton_list)
     block_module = ClosedList([ScopedBottleneckBlock, ScopedResBlock, ScopedResBottleneckBlock])
@@ -236,7 +235,7 @@ def generate_net_blueprints(options, num_individuals=None, conv_extend=None, ske
         options.block_depth = block_depth.pick_random()[1]
 
         blueprint = make_net_blueprint(options, str(i))
-        visit_modules(blueprint, (0.01, False), [],
+        visit_modules(blueprint, (0.001, False), [],
                       make_mutable_and_randomly_unique)
         blueprint.make_unique(refresh_unique_suffixes=False)
         blueprints.append(blueprint)
@@ -267,9 +266,9 @@ class Population(object):
     @staticmethod
     def make_skeletons(width, depth):
         skeletons = []
-        for low_w in range(8, width, 4):
+        for low_w in range(8, width, 8):
             for d in range(3, depth):
-                skeletons.append(tuple([low_w * pow(2, d_i) for d_i in range(d)]))
+                skeletons.append(tuple([low_w * min(pow(2, d_i), 4) for d_i in range(d)]))
         return skeletons
 
     def replace_individual(self, index, blueprint):
@@ -373,7 +372,7 @@ class Population(object):
             try:
                 new_score = self.options.utility(bp, self.options)
                 update_score(bp, new_score, weight=weight)
-            except (RuntimeError, ValueError):
+            except (RuntimeError, ValueError, RecursionError):
                 exception("Population.update_scores: Caught exception when scoring the model")
                 log(warning, "This individual caused exception: %s" % bp['name'])
                 log(warning, f"Removing individual{bp['name']}")
@@ -513,9 +512,6 @@ class Population(object):
             exclude_set = set()
 
         assert self.population_size >= num_offsprings * 3 + len(exclude_set) > 0
-
-        gpu_usage_dict = common.get_gpu_memory_info()
-        log(warning, "Overall gpu info: {}".format(gpu_usage_dict))
 
         sorted_indices = self.get_sorted_indices()
         if np.random.random() < common.POPULATION_CLEANUP_P:

@@ -315,6 +315,12 @@ def train_population(population, options, default_resnet_shape, default_densenet
         if i in options.lr_drop_epochs:
             options.lr *= options.lr_decay_ratio
 
+        gpu_usage_dict = common.get_gpu_memory_info()
+        log(warning, "Overall gpu info: {}".format(gpu_usage_dict))
+        (used, total) = gpu_usage_dict[options.gpu_id]
+
+        common.POPULATION_RANDOM_PICK_P = (total - used) / total * .5 + .1
+
         # attempt search 3 times
         indices = set()
         for _ in range(3):

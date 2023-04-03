@@ -317,12 +317,20 @@ class Blueprint(dict):
             if self.button is not None:
                 self.button.configure(bg=self.button_text_color.get())
 
-    def make_common(self):
+    def make_common(self, id_set=None):
         """Revert back from uniqueness"""
         if inspect.isclass(self['type']) and issubclass(self['type'], BatchNorm2d):
             log(warning, "Can't make batch norm common, %s must be kept unique."
                 % self['name'])
             return
+
+        if id_set is None:
+            id_set = set()
+
+        if id(self) in id_set:
+            return
+
+        id_set.add(id(self))
 
         self['unique'] = False
         log(warning, "Calling make common")
@@ -331,10 +339,10 @@ class Blueprint(dict):
                 % self['name'])
             self['unique'] = True
             for child in self['children']:
-                child.make_common()
+                child.make_common(id_set)
             for key, value in self.items():
-                if isinstance(value, Blueprint) and value.has_unique_elements() and key != "parent":
-                    value.make_common()
+                if isinstance(value, Blueprint) and key not in {"parent", "blueprint"} and value.has_unique_elements():
+                    value.make_common(id_set)
             return
 
         log(warning,
@@ -347,7 +355,7 @@ class Blueprint(dict):
             self.make_button_common()
 
         if self['parent'] is not None:
-            self['parent'].make_common()
+            self['parent'].make_common(id_set)
 
     def make_button_unique(self):
         if with_gui() and hasattr(self, 'button_text'):

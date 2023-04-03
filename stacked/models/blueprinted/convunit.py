@@ -79,7 +79,7 @@ class ScopedConvUnit(Module):
         if module_order is None:
             module_order = ['bn', 'act', 'conv']
 
-        default['module_order'] = module_order
+        default['module_order'] = []
 
         default['callback'] = callback
 
@@ -92,10 +92,12 @@ class ScopedConvUnit(Module):
                 if 'bn' in default:
                     default['bn']['input_shape'] = input_shape
                     default['bn']['output_shape'] = input_shape
+                    default['module_order'].append(key)
 
             elif key == 'act':
                 set_activation(default, prefix, suffix, True, act_module, act_kwargs)
                 default['act']['output_shape'] = input_shape
+                default['module_order'].append(key)
 
             elif key == 'conv':
                 ni = input_shape[1]
@@ -105,6 +107,7 @@ class ScopedConvUnit(Module):
                          stride, padding, dilation, groups, bias, conv_module,
                          conv_kwargs)
                 input_shape = default['conv']['output_shape']
+                default['module_order'].append(key)
 
             elif key == 'pool' and pool_module is not None:
                 if pool_stride == -1:
@@ -113,10 +116,12 @@ class ScopedConvUnit(Module):
                 set_pooling(default, prefix, input_shape, pool_kernel_size,
                             pool_stride, pool_padding, pool_module, pool_kwargs)
                 input_shape = default['pool']['output_shape']
+                default['module_order'].append(key)
 
             elif key == 'drop':
                 set_dropout(default, prefix, dropout_p, drop_module, drop_kwargs)
                 default['drop']['output_shape'] = input_shape
+                default['module_order'].append(key)
 
     @staticmethod
     def describe_default(prefix, suffix, parent, input_shape,

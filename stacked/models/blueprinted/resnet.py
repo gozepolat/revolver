@@ -207,6 +207,8 @@ class ScopedResNet(Sequential):
             # do not allow resolution smaller than 4
             if block['output_shape'][-2] > 8:
                 stride = 2
+            else:
+                stride = 1
             ni = shape[1]
 
         default['children'] = children
