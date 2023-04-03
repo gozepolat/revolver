@@ -204,7 +204,9 @@ class ScopedResNet(Sequential):
                                                   weight_sum=weight_sum)
             shape = block['output_shape']
             children.append(block)
-            stride = 2
+            # do not allow resolution smaller than 4
+            if block['output_shape'][-2] > 8:
+                stride = 2
             ni = shape[1]
 
         default['children'] = children
@@ -270,7 +272,7 @@ class ScopedResNet(Sequential):
                          unit_module=ScopedConvUnit, group_module=ScopedResGroup,
                          fractal_depth=1, shortcut_index=-1,
                          dense_unit_module=ScopedConvUnit, weight_sum=False,
-                         head_kernel=7, head_stride=2, head_padding=3,
+                         head_kernel=3, head_stride=1, head_padding=1,
                          head_pool_kernel=3, head_pool_stride=2,
                          head_pool_padding=1, head_modules=('conv', 'bn', 'act', 'pool'),
                          mutation_p=0.8,
@@ -335,7 +337,7 @@ class ScopedResNet(Sequential):
             for _ in widths:
                 group_depths.append(group_depth)
 
-        ni = skeleton[0]
+        ni = widths[0]
         no = widths[-1]
 
         default = ScopedResNet.__get_default(prefix, suffix, parent,

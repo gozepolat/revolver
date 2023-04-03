@@ -70,7 +70,7 @@ class ScopedDenseNet(Sequential):
 
     @staticmethod
     def __set_head(prefix, default, input_shape, out_features,
-                   kernel_size=7, stride=2, padding=3, dilation=1,
+                   kernel_size=3, stride=1, padding=1, dilation=1,
                    pool_kernel_size=3, pool_stride=2, pool_padding=1,
                    groups=1, bias=False, unit_module=ScopedConvUnit,
                    act_module=ScopedReLU, conv_module=ScopedConv2d,
@@ -81,10 +81,11 @@ class ScopedDenseNet(Sequential):
             module_order = ('conv', 'bn', 'act', 'pool')
 
         suffix = '_'.join([str(s) for s in (input_shape[1], out_features,
-                                                       kernel_size, stride, padding,
-                                                       dilation, groups, bias,
-                                                       pool_kernel_size, pool_stride,
-                                                       pool_padding)])
+                                            kernel_size, stride, padding,
+                                            dilation, groups, bias,
+                                            pool_kernel_size, pool_stride,
+                                            pool_padding)])
+
         head = unit_module.describe_default("%s/conv" % prefix,
                                             suffix, default, input_shape,
                                             input_shape[1], out_features,
@@ -123,6 +124,7 @@ class ScopedDenseNet(Sequential):
 
         block = default['conv']
         children = []
+        pool_module_type = ScopedAvgPool2d
         for i, (w, d) in enumerate(zip(widths, group_depths)):
             input_shape = block['output_shape']
             ni = input_shape[1]
@@ -171,9 +173,13 @@ class ScopedDenseNet(Sequential):
                                                      bn_kwargs=bn_kwargs, act_kwargs=act_kwargs,
                                                      dropout_p=dropout_p, drop_kwargs=None,
                                                      module_order=('bn', 'act', 'conv', 'pool'),
-                                                     pool_module=ScopedAvgPool2d,
+                                                     pool_module=pool_module_type,
                                                      pool_kernel_size=2, pool_stride=2)
                 children.append(block)
+                # do not allow resolution smaller than 4
+                if block['output_shape'][-2] < 9:
+                    pool_module_type = None
+
         default['children'] = children
         default['depth'] = len(children)
 
@@ -205,7 +211,7 @@ class ScopedDenseNet(Sequential):
     def describe_default(prefix='DenseNet', suffix='', parent=None,
                          skeleton=(16, 16, 16), group_depths=None,
                          num_classes=10, depth=28, width=1, block_depth=2,
-                         block_module=ScopedResBlock, conv_module=ScopedConv2d,
+                         block_module=ScopedBottleneckBlock, conv_module=ScopedConv2d,
                          bn_module=ScopedBatchNorm2d, linear_module=ScopedLinear,
                          act_module=ScopedReLU, kernel_size=3, padding=1,
                          input_shape=None, dilation=1, groups=1, bias=False,
@@ -214,7 +220,7 @@ class ScopedDenseNet(Sequential):
                          act_kwargs=None, unit_module=ScopedConvUnit,
                          group_module=ScopedResGroup, fractal_depth=1,
                          dense_unit_module=ScopedConvUnit, weight_sum=False,
-                         head_kernel=7, head_stride=2, head_padding=3,
+                         head_kernel=3, head_stride=1, head_padding=1,
                          head_pool_kernel=3, head_pool_stride=2,
                          head_pool_padding=1, head_modules=('conv', 'bn', 'act', 'pool'),
                          mutation_p=0.8,

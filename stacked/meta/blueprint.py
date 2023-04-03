@@ -73,7 +73,7 @@ class Blueprint(dict):
         if 'suffix' not in self:
             self['suffix'] = suffix
         if 'parent' not in self:
-            self['parent'] = parent
+            self['parent'] = parent if id(parent) != id(self) else None
         if 'children' not in self:
             if children is None:
                 children = []
@@ -168,6 +168,21 @@ class Blueprint(dict):
         with open(filename, 'w') as f:
             json.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
 
+    def detect_cycles(self, id_set):
+        """After mixing many blueprints """
+        if id_set is None:
+            id_set = set()
+
+        if id(self) in id_set:
+            raise ValueError("Blueprint has cycles")
+
+        for k, v in self.items():
+            if k != "parent" and hasattr(v, 'detect_cycles'):
+                v.detect_cycles(id_set | {id(self)})
+
+        for c in self['children']:
+            c.detect_cycles(id_set | {id(self)})
+
     def get_acyclic_dict(self, id_set=None):
         """Dictionary representation without cycles"""
         if id_set is None:
@@ -235,17 +250,23 @@ class Blueprint(dict):
             if k == 'mutables':
                 copied[k] = {}
             elif k == 'kwargs':
-                copied[k] = self[k].copy()
+                copied[k] = {key: value for key, value in self[k].items() if key != 'blueprint'}
                 if 'blueprint' in self[k]:
                     copied[k]['blueprint'] = copied
             elif k == 'parent':
-                copied[k] = self[k]
+                # Handle it outside, e.g. deepcopy children, and assign the higher level obj as parent
+                copied[k] = None
             elif k == 'children':
                 copied[k] = [None] * len(self[k])
                 for i, c in enumerate(self[k]):
                     copied[k][i] = copy.deepcopy(c, memo)
+                    # Handled here
+                    copied[k][i]["parent"] = copied
             else:
                 copied[k] = copy.deepcopy(v, memo)
+                if isinstance(copied[k], Blueprint):
+                    # Handle here
+                    copied[k]["parent"] = copied
 
             memo[k_id] = copied[k]
 

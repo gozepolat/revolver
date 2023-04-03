@@ -106,7 +106,7 @@ class ScopedConvUnit(Module):
                          conv_kwargs)
                 input_shape = default['conv']['output_shape']
 
-            elif key == 'pool':
+            elif key == 'pool' and pool_module is not None:
                 if pool_stride == -1:
                     pool_stride = stride
 

@@ -206,9 +206,11 @@ def generate_net_blueprints(options, num_individuals=None, conv_extend=None, ske
 
     conv_module = ClosedList(conv_list)
     residual = ClosedList([True, False])
-    skeleton_list = [(6, 6, 6), (6, 9, 12), (6, 12, 24)]
+    skeleton_list = [(8, 8, 8), (8, 12, 24), (8, 12, 24), (16, 32, 64)]
     if skeleton_extend:
         skeleton_list.extend(skeleton_extend)
+
+    skeleton = list(set(skeleton_list))
 
     skeleton = ClosedList(skeleton_list)
     block_module = ClosedList([ScopedBottleneckBlock, ScopedResBlock, ScopedResBottleneckBlock])
@@ -267,7 +269,7 @@ class Population(object):
         skeletons = []
         for low_w in range(8, width, 4):
             for d in range(3, depth):
-                skeletons.append([low_w * pow(2, d_i) for d_i in range(d)])
+                skeletons.append(tuple([low_w * pow(2, d_i) for d_i in range(d)]))
         return skeletons
 
     def replace_individual(self, index, blueprint):
