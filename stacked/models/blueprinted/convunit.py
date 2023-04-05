@@ -1,7 +1,12 @@
 # -*- coding: utf-8 -*-
+import inspect
+
 from torch.nn import Module, Sequential
 from stacked.meta.scope import ScopedMeta
 from stacked.meta.blueprint import Blueprint, make_module
+from stacked.models.blueprinted.convdeconv import ScopedConv2dDeconv2d
+from stacked.models.blueprinted.ensemble import ScopedEnsembleMean
+from stacked.models.blueprinted.separable import ScopedDepthwiseSeparable
 from stacked.modules.scoped_nn import ScopedReLU, \
     ScopedConv2d, ScopedBatchNorm2d, ScopedAvgPool2d, \
     ScopedDropout2d
@@ -9,6 +14,14 @@ from stacked.models.blueprinted.unit import set_conv, \
     set_batchnorm, set_pooling, set_activation, set_dropout
 from stacked.utils.transformer import all_to_none
 from six import add_metaclass
+
+
+def is_conv_simple(conv_module):
+    return (inspect.isclass(conv_module) and
+            (issubclass(conv_module, ScopedConv2d) or
+             issubclass(conv_module, ScopedConv2dDeconv2d) or
+             issubclass(conv_module, ScopedDepthwiseSeparable) or
+             issubclass(conv_module, ScopedEnsembleMean)))
 
 
 @add_metaclass(ScopedMeta)
@@ -76,8 +89,7 @@ class ScopedConvUnit(Module):
 
         suffix = "_".join([str(s) for s in (ni, no, kernel_size, stride,
                                             padding, dilation, groups, bias)])
-        if module_order is None:
-            module_order = ['bn', 'act', 'conv']
+        assert module_order is not None
 
         default['module_order'] = []
 
@@ -172,6 +184,12 @@ class ScopedConvUnit(Module):
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedConvUnit)
         default['input_shape'] = input_shape
+
+        if module_order is None:
+            if is_conv_simple(conv_module):
+                module_order = ['bn', 'act', 'conv']
+            else:
+                module_order = ['conv']
 
         ScopedConvUnit.set_unit_description(default, prefix, input_shape,
                                             in_channels, out_channels,

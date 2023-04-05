@@ -3,7 +3,6 @@ from stacked.modules.scoped_nn import ScopedFeatureSimilarityLoss, \
     ScopedParameterSimilarityLoss
 from stacked.models.blueprinted.densesumgroup import ScopedDenseSumGroup
 from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
-from stacked.models.blueprinted.resbottleneckblock import ScopedResBottleneckBlock
 from stacked.models.blueprinted.densenet import ScopedDenseNet
 from stacked.modules.loss import collect_features
 from stacked.models.blueprinted.optimizer import ScopedEpochEngine
@@ -19,7 +18,7 @@ class TestTrainer(unittest.TestCase):
         common.BLUEPRINT_GUI = False
         blueprint = ScopedEpochEngine.describe_default(prefix='OptimizerEpochEngineWithLoss',
                                                        depth=10,
-                                                       block_module=ScopedResBottleneckBlock,
+                                                       block_module=ScopedBottleneckBlock,
                                                        #criterion=ScopedFeatureSimilarityLoss,
                                                        #callback=collect_features,
                                                        batch_size=16)

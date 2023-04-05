@@ -136,7 +136,7 @@ class ScopedDenseFractalGroup(Sequential):
                                             kernel_size, stride,
                                             padding, dilation, groups,
                                             bias)])
-
+        module_order = ["bn", "act", "conv"]
         unit_fractal = block_module.describe_default('%s/unit' % prefix, suffix,
                                                      default, input_shape,
                                                      in_channels, out_channels,
@@ -146,7 +146,8 @@ class ScopedDenseFractalGroup(Sequential):
                                                      callback, conv_kwargs,
                                                      bn_kwargs, act_kwargs,
                                                      dropout_p=dropout_p,
-                                                     residual=residual)
+                                                     residual=residual,
+                                                     module_order=module_order)
         children.append(unit_fractal)
 
         block_prefix = '%s/block' % prefix
@@ -184,7 +185,8 @@ class ScopedDenseFractalGroup(Sequential):
                                                  conv_module, callback,
                                                  conv_kwargs, bn_kwargs,
                                                  act_kwargs, dropout_p=dropout_p,
-                                                 residual=residual)
+                                                 residual=residual,
+                                                 module_order=module_order)
             children.append(unit)
 
         out_channels = out_channels * (fractal_depth + 1) if fractal_depth > 0 and not squeeze else out_channels

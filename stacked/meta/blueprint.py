@@ -166,7 +166,7 @@ class Blueprint(dict):
             filename = "%s.json" % self['name']
 
         with open(filename, 'w') as f:
-            json.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
+            json.dump(self, f)
 
     def detect_cycles(self, id_set):
         """After mixing many blueprints """

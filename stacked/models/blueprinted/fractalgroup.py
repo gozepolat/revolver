@@ -119,7 +119,7 @@ class ScopedFractalGroup(Sequential):
         default = Blueprint(prefix, suffix, parent, False, ScopedFractalGroup)
         children = []
         default['input_shape'] = input_shape
-
+        module_order = ["bn", "act", "conv"]
         module = ScopedFractalGroup
         if fractal_depth < 2:
             module = block_module
@@ -132,7 +132,8 @@ class ScopedFractalGroup(Sequential):
                                                        act_module, bn_module, conv_module,
                                                        callback, conv_kwargs,
                                                        bn_kwargs, act_kwargs,
-                                                       dropout_p=dropout_p)
+                                                       dropout_p=dropout_p,
+                                                       module_order=module_order)
 
         block_prefix = '%s/block' % prefix
         for i in range(group_depth):

@@ -67,7 +67,11 @@ class ScopedConv2d(Conv2d):
                   'padding': padding, 'dilation': dilation,
                   'groups': groups, 'bias': bias}
 
-        bp = Blueprint(prefix, suffix, parent, False,
+        suffix = f"{suffix}, {input_shape[1]}, {out_channels},{kwargs['kernel_size']},{kwargs['stride']}, " \
+                 f"{kwargs['padding']}, {kwargs['dilation']},{kwargs['groups']},{kwargs['bias']},"
+
+        # prefix is conv for aggressive parameter sharing
+        bp = Blueprint("conv", suffix, parent, False,
                        ScopedConv2d, kwargs=kwargs)
 
         assert (input_shape is not None)
@@ -136,30 +140,27 @@ class ScopedConvTranspose2d(ConvTranspose2d):
         input_shape = blueprint['input_shape']
         output_shape = blueprint['output_shape']
         kwargs = blueprint['kwargs']
-        suffix = "%s_%d_%d_%d_%d_%d_%d_%d_%d" % (suffix, input_shape[1],
-                                                 output_shape[1],
-                                                 kwargs['kernel_size'],
-                                                 kwargs['stride'],
-                                                 kwargs['padding'],
-                                                 kwargs['dilation'],
-                                                 kwargs['groups'],
-                                                 kwargs['bias'],)
+        suffix = f"{suffix}_{input_shape[1]}_{output_shape[1]}_{kwargs['kernel_size']}_{kwargs['stride']}_" \
+                 f"{kwargs['padding']}_{kwargs['dilation']}_{kwargs['groups']}_{kwargs['bias']},"
         if parent is None:
             parent = blueprint['parent']
 
         bp = copy.deepcopy(blueprint)
 
-        if bp['input_shape'] != bp['output_shape']:
-            return bp
+        # if bp['input_shape'] != bp['output_shape']:
+        #    bp.refresh_name()
+        #    bp.refresh_unique_suffixes()
+        #    return bp
 
         bp['type'] = ScopedConvTranspose2d
-        bp['prefix'] = '%s/deconv' % prefix
+
+        # aggressive parameter sharing where prefix has no scope
+        bp['prefix'] = 'deconv'
         bp['suffix'] = suffix
         bp['parent'] = parent
         bp['output_shape'] = get_deconv_out_shape(input_shape, output_shape[1],
                                                   kwargs['kernel_size'], kwargs['stride'],
                                                   kwargs['padding'], kwargs['dilation'])
-        assert(bp['output_shape'] == output_shape)
         bp['kwargs']['blueprint'] = bp
         bp.refresh_name()
         bp.refresh_unique_suffixes()
@@ -289,13 +290,13 @@ class ScopedConv3d2d(Conv3d2d):
         output_shape = blueprint['output_shape']
         kwargs = blueprint['kwargs']
         suffix = "{}_{}_{}_{}_{}_{}_{}_{}_{}".format(suffix, input_shape[1],
-                                                 output_shape[1],
-                                                 kwargs['kernel_size'],
-                                                 kwargs['stride'],
-                                                 kwargs['padding'],
-                                                 kwargs['dilation'],
-                                                 kwargs['groups'],
-                                                 kwargs['bias'],)
+                                                     output_shape[1],
+                                                     kwargs['kernel_size'],
+                                                     kwargs['stride'],
+                                                     kwargs['padding'],
+                                                     kwargs['dilation'],
+                                                     kwargs['groups'],
+                                                     kwargs['bias'], )
         if parent is None:
             parent = blueprint['parent']
 
@@ -358,13 +359,14 @@ class ScopedBatchNorm2d(BatchNorm2d):
     def describe_default(prefix='', suffix='', parent=None,
                          input_shape=None,
                          mutation_p=0.8, kwargs=None, *_, **__):
-
         bn_kwargs = {
             'num_features': input_shape[1],
             'eps': 1e-05,
             'momentum': 0.1,
             'affine': True
         }
+
+        suffix = f"{suffix}_{input_shape[1]}"
         if kwargs is not None:
             bn_kwargs.update(kwargs)
         bp = Blueprint(f"{prefix}/bn" if prefix else "bn", suffix, parent, True,
@@ -376,7 +378,6 @@ class ScopedBatchNorm2d(BatchNorm2d):
         bp['mutation_p'] = mutation_p
         bp.refresh_name()
         return bp
-
 
 
 @add_metaclass(ScopedMeta)

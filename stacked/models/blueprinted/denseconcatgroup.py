@@ -121,6 +121,7 @@ class ScopedDenseConcatGroup(Sequential):
             suffix = '_'.join([str(s) for s in (in_channels, in_channels // 2,
                                                 kernel_size, stride, padding,
                                                 dilation, groups, bias)])
+            module_order = ["bn", "act", "conv"]
             block = ScopedConvUnit.describe_default(block_prefix, suffix,
                                                     default, input_shape,
                                                     in_channels, in_channels // 2,
@@ -128,7 +129,8 @@ class ScopedDenseConcatGroup(Sequential):
                                                     groups, bias, act_module,
                                                     bn_module, conv_module,
                                                     callback, conv_kwargs,
-                                                    bn_kwargs, act_kwargs)
+                                                    bn_kwargs, act_kwargs,
+                                                    module_order=module_order)
 
             input_shape = block['output_shape']
             children.append(block)

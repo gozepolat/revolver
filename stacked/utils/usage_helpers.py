@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import numpy as np
+
 from stacked.models.blueprinted.optimizer import ScopedEpochEngine
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.densenet import ScopedDenseNet
@@ -22,6 +24,7 @@ import glob
 import pandas as pd
 import re
 import inspect
+
 
 
 def log(log_func, msg):
@@ -294,7 +297,6 @@ def train_population(population, options, default_resnet_shape, default_densenet
         add_seed_individuals(population, options, default_resnet_shape, default_densenet_shape)
 
     net_blueprint = None
-
     # for options such as: evolve_warmup_random, evolve_warmup, random_warmup, random_warmup_evolve
     if "warmup" in options.search_mode:
         search_mode = options.search_mode.split("_warmup")[0]
@@ -310,16 +312,32 @@ def train_population(population, options, default_resnet_shape, default_densenet
     population.update_scores()
     search_mode = "random" if options.search_mode in {"random", "random_warmup", "evolve_warmup_random"} else "evolve"
     prev_top_index = -1
+    stagnated_ctr = 0
+    prev_score = np.inf
     for i in range(options.max_iteration):
         log(warning, 'Population generation: %d' % i)
-        if i in options.lr_drop_epochs:
-            options.lr *= options.lr_decay_ratio
+
+        if prev_score == common.POPULATION_TOP_VALIDATION_SCORE:
+            stagnated_ctr += 1
+        else:
+            stagnated_ctr = 0
+            prev_score = common.POPULATION_TOP_VALIDATION_SCORE
 
         gpu_usage_dict = common.get_gpu_memory_info()
         log(warning, "Overall gpu info: {}".format(gpu_usage_dict))
         (used, total) = gpu_usage_dict[options.gpu_id]
 
         common.POPULATION_RANDOM_PICK_P = (total - used) / total * .5 + .1
+
+        if options.lr_drop_at_stagnate > 0:
+            if stagnated_ctr > options.lr_drop_at_stagnate:
+                options.lr *= .8
+                stagnated_ctr = 0
+            if i > options.max_iteration * .9:
+                common.POPULATION_FOCUS_PICK_RATIO = 1. - float(i) / options.max_iteration
+                common.POPULATION_RANDOM_PICK_P = .0
+        elif i in options.lr_drop_epochs:
+            options.lr *= options.lr_decay_ratio
 
         # attempt search 3 times
         indices = set()
@@ -341,9 +359,13 @@ def train_population(population, options, default_resnet_shape, default_densenet
 
         if prev_top_index != index:
             log(warning, f"New top individual detected. Updated ranking: \n{population.get_all_sorted_scores_dict()}")
-            net_blueprint.dump_pickle(f"../top_{i}_{net_blueprint['name']}"
+            test_acc = net_blueprint['meta'].get('_test_acc', 'unk')
+            net_blueprint.dump_pickle(f"../top_{i}_{net_blueprint['name']}_test_acc_{test_acc}"
                                       f"{options.genotype_cost}_{options.search_mode}_{options.dataset}.pkl")
             prev_top_index = index
+            with open(f"../state_{i}_population_component_scores_dict_test_acc_"
+                      f"{test_acc}_{options.genotype_cost}_{options.search_mode}_{options.dataset}.json", "w") as f:
+                json.dump(common.POPULATION_COMPONENT_SCORES_DICT, f)
 
     return net_blueprint
 

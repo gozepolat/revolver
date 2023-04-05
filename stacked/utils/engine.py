@@ -68,7 +68,8 @@ class EpochEngine(object):
         return self.end_epoch()
 
     def set_state(self, network, iterator, maxepoch, optimizer,
-                  epoch=0, t=0, train=True, score=np.inf):
+                  epoch=0, t=0, train=True, score=np.inf,
+                  train_acc=None, test_acc=None, validation_acc=None):
         self.state = {
                 'network': network,
                 'iterator': iterator,
@@ -77,7 +78,10 @@ class EpochEngine(object):
                 'epoch': epoch,
                 't': t,
                 'train': train,
-                'score': score
+                'score': score,
+                'train_acc': train_acc,
+                'validation_acc': validation_acc,
+                'test_acc': test_acc
                 }
 
     def train(self, network, iterator, maxepoch, optimizer):
@@ -210,6 +214,8 @@ class EngineEventHooks(object):
             validation_acc = accuracy_meter.value()[0]
             validation_loss = average_loss_meter.value()[0]
             state['score'] = validation_loss
+            state['validation_acc'] = validation_acc
+            state['train_acc'] = train_acc[0]
             logger(state, {
                 "train_loss": train_loss[0],
                 "train_acc": train_acc[0],
@@ -232,6 +238,7 @@ class EngineEventHooks(object):
             test_acc = accuracy_meter.value()[0]
             test_loss = average_loss_meter.value()[0]
             state['score'] = test_loss
+            state['test_acc'] = test_acc
             logger(state, {
                 "test_loss": test_loss,
                 "test_acc": test_acc,

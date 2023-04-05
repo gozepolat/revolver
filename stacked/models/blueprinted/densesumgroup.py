@@ -175,6 +175,7 @@ class ScopedDenseSumGroup(Sequential):
         if group_depth <= 1:
             group_depth = 2
 
+        module_order = ["bn", "act", "conv"]
         concat_out_channels = in_channels
         if stride > 1:
             block_prefix = '%s/block' % prefix
@@ -188,7 +189,8 @@ class ScopedDenseSumGroup(Sequential):
                                                     groups, bias, act_module,
                                                     bn_module, conv_module,
                                                     callback, conv_kwargs,
-                                                    bn_kwargs, act_kwargs)
+                                                    bn_kwargs, act_kwargs,
+                                                    module_order=module_order)
 
             input_shape = block['output_shape']
             children.append(block)
@@ -212,7 +214,8 @@ class ScopedDenseSumGroup(Sequential):
                                                   bn_kwargs, act_kwargs,
                                                   unit_module=unit_module,
                                                   block_depth=block_depth,
-                                                  dropout_p=dropout_p, residual=residual)
+                                                  dropout_p=dropout_p, residual=residual,
+                                                  module_order=module_order)
             input_shape = block['output_shape']
             concat_out_channels += input_shape[1]
             children.append(block)

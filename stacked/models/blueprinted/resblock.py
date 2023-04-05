@@ -5,7 +5,7 @@ from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.utils.transformer import all_to_none
-from stacked.models.blueprinted.convunit import ScopedConvUnit
+from stacked.models.blueprinted.convunit import ScopedConvUnit, is_conv_simple
 from stacked.models.blueprinted.unit import set_convdim
 from six import add_metaclass
 from torch.nn.functional import dropout
@@ -72,7 +72,8 @@ class ScopedResBlock(Sequential):
         if bn is not None:
             o = bn(o)
 
-        o = act(o)
+        if act is not None:
+            o = act(o)
 
         if dropout_p > 0:
             o = dropout(o, training=training, p=dropout_p)
@@ -103,13 +104,19 @@ class ScopedResBlock(Sequential):
         default['dropout_p'] = dropout_p
         assert(ni == input_shape[1])
 
-        # bn, act, conv
+        if is_conv_simple(conv_module):
+            module_order = ["bn", "act", "conv"]
+        else:
+            # conv corresponds to a complex component where bn, act are inside
+            module_order = ["conv"]
+
         ScopedConvUnit.set_unit_description(default, prefix, input_shape, ni, no,
                                             kernel_size, stride, padding,
                                             conv_module, act_module, bn_module,
                                             dilation, groups, bias,
                                             callback, conv_kwargs,
-                                            bn_kwargs, act_kwargs, dropout_p)
+                                            bn_kwargs, act_kwargs, dropout_p,
+                                            module_order=module_order)
 
         set_convdim(default, prefix, input_shape, ni, no, stride, dilation, groups,
                     bias, conv_module, residual)
@@ -126,16 +133,18 @@ class ScopedResBlock(Sequential):
         for i in range(depth - 1):
             unit_prefix = '%s/unit' % prefix
             suffix = '_'.join([str(s) for s in (ni, no, kernel_size, stride,
-                                                  padding, dilation, groups, bias)])
+                                                padding, dilation, groups, bias)])
             assert(shape[1] == ni)
             unit = unit_module.describe_default(unit_prefix, suffix, default, shape,
                                                 ni, no, kernel_size, stride, padding,
                                                 dilation, groups, bias, act_module,
                                                 bn_module, conv_module,
                                                 callback, conv_kwargs,
-                                                bn_kwargs, act_kwargs, dropout_p)
+                                                bn_kwargs, act_kwargs, dropout_p,
+                                                module_order=["bn", "act", "conv"])
             shape = unit['output_shape']
             children.append(unit)
+            stride = 1
 
         default['children'] = children
         default['depth'] = len(children)
@@ -145,7 +154,7 @@ class ScopedResBlock(Sequential):
     def describe_default(prefix, suffix, parent, input_shape, in_channels,
                          out_channels, kernel_size, stride, padding,
                          dilation=1, groups=1, bias=True,
-                         act_module=ScopedReLU, bn_module=all_to_none,
+                         act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
                          conv_module=ScopedConv2d, callback=all_to_none,
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,
@@ -179,6 +188,9 @@ class ScopedResBlock(Sequential):
             block_depth: Number of (bn, act, conv) units in the block
         """
         default = Blueprint(prefix, suffix, parent, False, ScopedResBlock)
+
+        if conv_module == ScopedResBlock:
+            conv_module = ScopedConv2d
 
         input_shape = ScopedResBlock.__set_default_items(prefix, default, input_shape,
                                                          in_channels, out_channels,

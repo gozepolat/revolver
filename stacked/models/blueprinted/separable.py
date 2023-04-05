@@ -52,13 +52,16 @@ class ScopedDepthwiseSeparable(Module):
                   'groups': groups, 'bias': bias}
 
         suffix = "_".join([str(s) for s in (suffix, in_channels,
-                                                 out_channels,
-                                                 kernel_size, stride,
-                                                 kernel_size, dilation,
-                                                 groups, bias)])
+                                            out_channels,
+                                            kernel_size, stride,
+                                            kernel_size, dilation,
+                                            groups, bias)])
 
         bp = Blueprint(prefix, suffix, parent, True,
                        ScopedDepthwiseSeparable, kwargs=kwargs)
+
+        if conv_module == ScopedDepthwiseSeparable:
+            conv_module = ScopedConv2d
 
         # depthwise kxk conv
         bp['conv'] = conv_module.describe_default('%s/conv' % prefix, suffix,

@@ -5,7 +5,7 @@ from stacked.meta.scope import ScopedMeta
 from stacked.meta.sequential import Sequential
 from stacked.meta.blueprint import Blueprint, make_module
 from stacked.utils.transformer import all_to_none
-from stacked.models.blueprinted.convunit import ScopedConvUnit
+from stacked.models.blueprinted.convunit import ScopedConvUnit, is_conv_simple
 from stacked.models.blueprinted.unit import set_pooling, set_convdim
 from six import add_metaclass
 from torch.nn.functional import dropout
@@ -28,6 +28,7 @@ class ScopedBottleneckBlock(Sequential):
         self.depth = len(blueprint['children'])
         self.bn = None
         self.pool = None
+        self.act = None
         if 'bn' in blueprint:
             self.bn = make_module(blueprint['bn'])
         if 'act' in blueprint:
@@ -62,7 +63,8 @@ class ScopedBottleneckBlock(Sequential):
         if bn is not None:
             o = bn(o)
 
-        o = act(o)
+        if act is not None:
+            o = act(o)
 
         if dropout_p > 0:
             o = dropout(o, training=training, p=dropout_p)
@@ -95,12 +97,18 @@ class ScopedBottleneckBlock(Sequential):
         default['callback'] = callback
         default['dropout_p'] = dropout_p
 
-        # bn, act, conv
+        if is_conv_simple(conv_module):
+            module_order = ["bn", "act", "conv"]
+        else:
+            # conv corresponds to a complex component where bn, act are inside
+            module_order = ["conv"]
+
         ScopedConvUnit.set_unit_description(default, prefix, input_shape, ni, no,
                                             1, 1, 0, conv_module, act_module,
                                             bn_module, dilation, groups, bias,
                                             callback, conv_kwargs,
-                                            bn_kwargs, act_kwargs)
+                                            bn_kwargs, act_kwargs,
+                                            module_order=module_order)
         pool_kernel = 2
         pool_module = ScopedAvgPool2d
         if stride == 1:
@@ -124,12 +132,18 @@ class ScopedBottleneckBlock(Sequential):
             suffix = '_'.join([str(s) for s in (ni, out, kernel, stride,
                                                 pad, dilation, groups, bias)])
             assert (shape[1] == ni)
+            if is_conv_simple(conv_module):
+                module_order = ["bn", "act", "conv"]
+            else:
+                # conv corresponds to a complex component where bn, act are inside
+                module_order = ["conv"]
             unit = unit_module.describe_default(unit_prefix, suffix, default, shape,
                                                 ni, out, kernel, stride, pad,
                                                 dilation, groups, bias, act_module,
                                                 bn_module, conv_module,
                                                 callback, conv_kwargs,
-                                                bn_kwargs, act_kwargs)
+                                                bn_kwargs, act_kwargs,
+                                                module_order=module_order)
 
             shape = unit['output_shape']
             children.append(unit)
@@ -142,7 +156,7 @@ class ScopedBottleneckBlock(Sequential):
     def describe_default(prefix, suffix, parent, input_shape, in_channels,
                          out_channels, kernel_size, stride, padding,
                          dilation=1, groups=1, bias=True,
-                         act_module=ScopedReLU, bn_module=all_to_none,
+                         act_module=ScopedReLU, bn_module=ScopedBatchNorm2d,
                          conv_module=ScopedConv2d, callback=all_to_none,
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,

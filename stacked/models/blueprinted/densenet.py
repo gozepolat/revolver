@@ -10,7 +10,7 @@ from stacked.models.blueprinted.resgroup import ScopedResGroup
 from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
 from stacked.models.blueprinted.densesumgroup import ScopedDenseSumGroup
-from stacked.models.blueprinted.convunit import ScopedConvUnit
+from stacked.models.blueprinted.convunit import ScopedConvUnit, is_conv_simple
 from stacked.utils.transformer import all_to_none
 from six import add_metaclass
 import inspect
@@ -21,7 +21,7 @@ class ScopedDenseNet(Sequential):
     """DenseNet with blueprint
 
     Args:
-        scope (string): Scope for the self (ScopedResBlock instance)
+        scope (string): Scope for the self
         blueprint: Description of the scopes and member module types
     """
 
@@ -41,6 +41,7 @@ class ScopedDenseNet(Sequential):
             super(ScopedDenseNet, self).update()
         blueprint = self.blueprint
         self.conv = make_module(blueprint['conv'])
+        # if is_conv_simple(blueprint['conv']['type']):
         self.bn = make_module(blueprint['bn'])
         self.act = make_module(blueprint['act'])
         self.linear = make_module(blueprint['linear'])

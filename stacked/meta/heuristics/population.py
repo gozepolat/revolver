@@ -1,5 +1,6 @@
 from stacked.meta.blueprint import visit_modules, \
     collect_keys, collect_modules, make_module
+from stacked.models.blueprinted.ensemble import ScopedEnsembleMean
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.densenet import ScopedDenseNet
 from stacked.models.blueprinted.convdeconv import ScopedConv2dDeconv2d
@@ -7,7 +8,6 @@ from stacked.modules.scoped_nn import ScopedConv2d
 from stacked.modules.conv import Conv3d2d
 from stacked.meta.scope import unregister
 from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
-from stacked.models.blueprinted.resbottleneckblock import ScopedResBottleneckBlock
 from stacked.models.blueprinted.resblock import ScopedResBlock
 from stacked.models.blueprinted.resgroup import ScopedResGroup
 from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
@@ -22,6 +22,7 @@ from stacked.utils import common
 from stacked.utils.transformer import softmax
 from stacked.utils.usage_helpers import make_net_blueprint
 from stacked.models.blueprinted.separable import ScopedDepthwiseSeparable
+from stacked.meta.blueprint import Blueprint
 from logging import warning, exception
 import numpy as np
 import copy
@@ -84,6 +85,10 @@ def estimate_rough_contexts(blueprint):
     if total_weights <= 0:
         # print(f"Zero : {blueprint[]}")
         return 0.01
+
+    if total_weights > 16000000:
+        return 0.01
+
     return math.log2(total_params * cost / total_weights)
 
 
@@ -133,6 +138,8 @@ def get_phenotype_score(genotype, options):
         common.POPULATION_TOP_VALIDATION_SCORE = score
         # Also show the test_acc
         engine.hook('on_end', engine.state)
+        genotype['meta']['_test_loss'] = engine.state['score']
+        genotype['meta']['_test_acc'] = engine.state['test_acc']
 
     # favor lower number of parameters
     num_parameters = get_num_parameters(engine.state['network'].net)
@@ -150,32 +157,76 @@ def get_phenotype_score(genotype, options):
     return score
 
 
+def get_mean_score(bp, new_score, weight, id_set=None):
+    if id_set is None:
+        id_set = set()
+
+    self_id = id(bp)
+    if self_id in id_set:
+        return bp['meta']['mean_score']
+
+    id_set.add(self_id)
+    n = 0.
+    total = 0.
+    if 'children' in bp:
+        for child in bp['children']:
+            total += update_fitness(child, new_score, weight, id_set)
+            n += 1
+
+    for k, v in bp.items():
+        if isinstance(v, Blueprint) and k != 'parent':
+            total += update_fitness(v, new_score, weight, id_set)
+            n += 1
+
+    if n == 0:
+        return None
+
+    return total / n
+
+
+def update_fitness(bp, new_score, weight, id_set=None):
+    if 'meta' not in bp:
+        bp['meta'] = {}
+
+    mean_score = get_mean_score(bp, new_score, weight, id_set)
+    bp['meta']['mean_score'] = mean_score
+
+    module_score = common.POPULATION_COMPONENT_SCORES_DICT.get(bp['name'], 0)
+
+    if 'score' not in bp['meta']:
+        bp['meta']['score'] = module_score if module_score != 0 else get_genotype_fitness(bp)
+
+    score = bp['meta']['score']
+    if mean_score is None:
+        mean_score = score
+    if score < np.inf:
+        global_score = mean_score if module_score == 0 else module_score
+        score = weight * (new_score * .7 + mean_score * .2 + global_score * .1) + score * (1.0 - weight)
+    else:
+        log(warning, "Score was infinity?!!")
+        score = new_score
+
+    if bp['meta']['mean_score'] is None:
+        bp['meta']['mean_score'] = score
+    bp['meta']['score'] = score
+
+    if not bp['unique']:
+        weight *= .1
+        if module_score == 0:
+            module_score = score
+        common.POPULATION_COMPONENT_SCORES_DICT[bp['name']] = score * weight + module_score * (1 - weight)
+
+    return score
+
+
 def update_score(blueprint, new_score, weight=0.2):
     """Update the score of blueprint components, and get the avg"""
-    modules = collect_modules(blueprint)
-    average_score = 0.0
 
-    for bp in modules:
-        if 'score' not in bp['meta']:
-            bp['meta']['score'] = get_genotype_fitness(bp)
-        score = bp['meta']['score']
-        if score < np.inf:
-            score = new_score * weight + score * (1.0 - weight)
-        else:
-            score = new_score
-        bp['meta']['score'] = score
-        average_score += score
+    log(warning, f"Previous score {blueprint['meta']['score']}")
+    score = update_fitness(blueprint, new_score, weight)
+    log(warning, f"New score {blueprint['meta']['score']} {score}, updated with {new_score}")
 
-    # the full hierarchy
-    bp = blueprint
-    if 'score' not in bp['meta']:
-        bp['meta']['score'] = get_genotype_fitness(bp)
-
-    print(f"Previous score {bp['meta']['score']}")
-    bp['meta']['score'] = new_score * weight *.8 + average_score * weight *.2 + bp['meta']['score'] * (1.0 - weight)
-    print(f"New score {bp['meta']['score']}, updated with {new_score}")
-
-    return average_score
+    return score
 
 
 def make_mutable_and_randomly_unique(bp, inp, *_, **__):
@@ -199,20 +250,23 @@ def generate_net_blueprints(options, num_individuals=None, conv_extend=None, ske
 
     depths = ClosedList(list(range(22, max_depth + 1, 6)))
     widths = ClosedList(list(range(1, max_width + 1)))
-    conv_list = [ScopedDepthwiseSeparable, ScopedConv2d, ScopedConv2dDeconv2d]
+    conv_list = [ScopedConv2d, ScopedConv2dDeconv2d, ScopedEnsembleMean, ScopedBottleneckBlock,
+                 ScopedResBlock, ScopedDepthwiseSeparable]
+    conv_list.extend([ScopedConv2d] * 20)
+
     if conv_extend:
         conv_list.extend(conv_extend)
 
     conv_module = ClosedList(conv_list)
     residual = ClosedList([True, False])
-    skeleton_list = [(8, 8, 8), (6, 12, 24), (8, 16, 32), (8, 16, 32, 32), (12, 24, 48), (16, 32, 64), (16, 32, 64, 64)]
+    skeleton_list = [(8, 8, 8), (8, 8, 16), (8, 16, 32), (8, 16, 32, 32), (16, 16, 32), (16, 32, 64), (16, 32, 64, 64)]
     if skeleton_extend:
         skeleton_list.extend(skeleton_extend)
 
     skeleton_list = list(set(skeleton_list))
 
     skeleton = ClosedList(skeleton_list)
-    block_module = ClosedList([ScopedBottleneckBlock, ScopedResBlock, ScopedResBottleneckBlock])
+    block_module = ClosedList([ScopedBottleneckBlock, ScopedResBlock])
     group_module = ClosedList([ScopedDenseConcatGroup, ScopedDenseSumGroup, ScopedResGroup])
     drop_p = ClosedList([0, 0.1, 0.25, 0.5])
     block_depth = ClosedList([1, 2])
@@ -335,8 +389,17 @@ class Population(object):
         if exclude_set is None:
             exclude_set = set()
 
+        # by the end of population training, focus on training the top individuals only
+        if common.POPULATION_FOCUS_PICK_RATIO < 1.:
+            indices = self.get_sorted_indices()
+            cut_index = int(common.POPULATION_FOCUS_PICK_RATIO * self.population_size)
+            cut_index = max(sample_size + 2, cut_index)
+
+            for i in range(self.population_size - 1, cut_index, -1):
+                exclude_set.add(indices[i])
+
         scores = [bp['meta']['score'] for i, bp in enumerate(self.genotypes) if i not in exclude_set]
-        indices = [i for i,_ in enumerate(self.genotypes) if i not in exclude_set]
+        indices = [i for i, _ in enumerate(self.genotypes) if i not in exclude_set]
         distribution = np.array(scores)
 
         # lower score (i.e. fitness) is better and should be selected more often
@@ -376,7 +439,7 @@ class Population(object):
                 exception("Population.update_scores: Caught exception when scoring the model")
                 log(warning, "This individual caused exception: %s" % bp['name'])
                 log(warning, f"Removing individual{bp['name']}")
-                bp.dump_pickle(f"errored_{bp['name']}.pkl")
+                bp.dump_pickle(f"../errored_{bp['name']}.pkl")
 
                 # time to kill it
                 clone = self.maybe_pick_from_randomly_generated(score=bp['meta']['score'] * 1.5)
@@ -428,7 +491,7 @@ class Population(object):
     def random_pick_n_others(self, exclude_set, n):
         if exclude_set is None:
             exclude_set = set()
-        selected_indices = [i for i,_ in enumerate(self.genotypes)
+        selected_indices = [i for i, _ in enumerate(self.genotypes)
                             if i not in exclude_set]
         return np.random.choice(selected_indices, n, replace=False)
 

@@ -1,6 +1,7 @@
 from stacked.meta.blueprint import Blueprint, \
     get_io_shape_indices, toggle_uniqueness, get_duplicates
 from stacked.utils import common
+from stacked.meta.scope import unregister
 from logging import warning, info
 import numpy as np
 import copy

@@ -39,6 +39,7 @@ def get_options():
     options.num_thread = 2
     options.width = 1
     options.depth = 22
+    options.warmup_x = 1
     options.mode = 'population_train'
     options.net = ScopedResNet
     options.conv_module = ScopedConv2d
@@ -67,7 +68,7 @@ def get_options():
 
     # number of updated individuals per generation
     options.sample_size = 2
-    options.update_score_weight = 0.2
+    options.update_score_weight = 0.4
     options.max_iteration = 3
 
     # default heuristics
@@ -129,9 +130,21 @@ class TestPopulation(unittest.TestCase):
 
     def test_pick_indices(self):
         common.BLUEPRINT_GUI = False
-        self.options.population_size = 500
+        self.options.population_size = 9
         p = population.Population(self.options)
-        p.pick_indices(100)
+        indices = p.pick_indices(7, exclude_set={0})
+        self.assertTrue(len(set(indices)) == 7)
+
+    def test_update_score(self):
+        common.BLUEPRINT_GUI = False
+        self.options.population_size = 8
+
+        weight = self.options.update_score_weight
+        p = population.Population(self.options)
+        prev_score = p.genotypes[0]['meta']['score']
+        for i in range(10):
+            population.update_score(p.genotypes[0], .001, weight)
+        self.assertTrue(prev_score > p.genotypes[0]['meta']['score'])
 
     @unittest.skip("Slow")
     def test_population_convergence(self):

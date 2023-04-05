@@ -186,7 +186,8 @@ class ScopedEpochEngine(EpochEngine):
         net = make_module(blueprint['net'])
         if torch.cuda.is_available():
             net.cuda()
-
+        # TODO remove
+        torch.autograd.set_detect_anomaly(True)
         self.net = net
         net_runner = make_module(blueprint['net_runner'])
         net_runner.set_model(engine, net)

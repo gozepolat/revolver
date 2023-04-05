@@ -4,7 +4,6 @@ from stacked.models.blueprinted.densenet import ScopedDenseNet
 from stacked.models.blueprinted.resgroup import ScopedResGroup
 # from stacked.models.blueprinted.tree import ScopedTreeGroup
 from stacked.models.blueprinted.resblock import ScopedResBlock
-from stacked.models.blueprinted.resbottleneckblock import ScopedResBottleneckBlock
 from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
 from stacked.models.blueprinted.convdeconv import ScopedConv2dDeconv2d
 from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
@@ -56,6 +55,8 @@ def parse_args():
                              ' Low test loss reduces the overall cost.')
     parser.add_argument('--lr_drop_epochs', default='[150,225]', type=str,
                         help='json list with epochs to drop lr on')
+    parser.add_argument('--lr_drop_at_stagnate', default=15, type=int,
+                        help='Drop learning rate when no new top individual is emerged for a while')
     parser.add_argument('--lr_decay_ratio', default=0.1, type=float)
     parser.add_argument('--single_engine', default=True, type=bool)
     parser.add_argument('--gpu_id', default='0', type=str,
@@ -89,7 +90,7 @@ def set_default_options_for_single_network(options):
     options.criterion = ScopedCrossEntropyLoss
     options.residual = True
     options.group_module = ScopedResGroup
-    options.block_module = ScopedResBottleneckBlock
+    options.block_module = ScopedResBlock
     options.dense_unit_module = ScopedBottleneckBlock
     options.head_kernel = 3
     options.head_stride = 1
@@ -117,7 +118,6 @@ def set_default_options_for_population(options):
 
     options.epoch_per_generation = 1
 
-    # number of updated individuals per generation
     options.update_score_weight = 0.4
     options.max_iteration = options.epochs
 

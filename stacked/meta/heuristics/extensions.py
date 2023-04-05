@@ -1,6 +1,6 @@
+from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
 from stacked.models.blueprinted.ensemble import ScopedEnsembleMean
 from stacked.models.blueprinted.resblock import ScopedResBlock
-from stacked.models.blueprinted.resbottleneckblock import ScopedResBottleneckBlock
 from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.models.blueprinted.convdeconv import ScopedConv2dDeconv2d
 from stacked.models.blueprinted.separable import ScopedDepthwiseSeparable
@@ -42,14 +42,14 @@ def extend_conv_mutables(blueprint, ensemble_size=5, block_depth=2):
     separable = ScopedDepthwiseSeparable.describe_from_blueprint(prefix, '_separable',
                                                                  conv, parent)
 
-    res_bottleneck = ScopedResBottleneckBlock.describe_from_blueprint(prefix, "_block", conv,
+    bottleneck = ScopedBottleneckBlock.describe_from_blueprint(prefix, "_block", conv,
                                                                       parent, block_depth)
 
     meta = ScopedMetaMasked.describe_from_blueprint(prefix, '_meta', conv, parent)
 
     deconv = ScopedConv2dDeconv2d.describe_from_blueprint(prefix, '_deconv', conv, parent)
 
-    mutables = [conv, res_block, ensemble, meta, separable, res_bottleneck, deconv]
+    mutables = [conv, res_block, ensemble, meta, separable, bottleneck, deconv]
 
     in_channels = blueprint['conv']['input_shape'][1]
     out_channels = blueprint['conv']['output_shape'][1]
@@ -68,12 +68,19 @@ def extend_conv_mutables(blueprint, ensemble_size=5, block_depth=2):
     blueprint['mutables']['conv'] = ClosedList(mutables)
 
 
-def extend_conv_kernel_size_mutables(blueprint, min_kernel_size=1, max_kernel_size=6):
+def extend_conv_kernel_size_mutables(blueprint, min_kernel_size=1, max_kernel_size=4):
     """Create mutation options for the conv of the given blueprint
 
     Supports the existing convolution op, ensemble, and res_block
     """
-    if not (inspect.isclass(blueprint['type']) and issubclass(blueprint['type'], Conv2d)):
+
+    if not inspect.isclass(blueprint['type']):
+        return
+
+    classes = [ScopedConv2d, ScopedConv2dDeconv2d, ScopedEnsembleMean,
+               ScopedResBlock, ScopedDepthwiseSeparable, ScopedBottleneckBlock]
+
+    if not np.any([issubclass(blueprint['type'], classType) for classType in classes]):
         return
 
     def new_kernel_size(value):
@@ -88,6 +95,8 @@ def extend_conv_kernel_size_mutables(blueprint, min_kernel_size=1, max_kernel_si
 def extend_depth_mutables(blueprint, min_depth=2):
     if 'depth' not in blueprint or len(blueprint['children']) == 0:
         return
+
+    # if 'bns' in blueprint and not issubclass()
 
     max_depth = len(blueprint['children'])
 
