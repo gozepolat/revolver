@@ -297,6 +297,14 @@ def generate_net_blueprints(options, num_individuals=None, conv_extend=None, ske
     return blueprints
 
 
+def model_diagnostics(blueprint):
+    flattened = collect_modules(blueprint)
+    for bp in flattened:
+        kwargs = {k:v for k,v in bp.get('kwargs', {}).items() if k != 'parent'}
+        log(warning, f"{bp['name']}, in: {bp.get('input_shape', None)}, "
+                     f"out: {bp.get('output_shape', None)}, kwargs: {kwargs}, {make_module()}")
+
+
 class Population(object):
     def __init__(self, options):
         assert options.population_size > 7, "Minimum population size must be 8"
@@ -415,6 +423,17 @@ class Population(object):
             exception("Population.pick_indices: Caught exception with weighted choice")
             return np.random.choice(indices, sample_size, replace=False)
 
+    def handle_bad_individual(self, i):
+        bp = self.genotypes[i]
+        log(warning, "This individual caused exception: %s" % bp['name'])
+        log(warning, f"Removing individual{bp['name']}")
+        bp.dump_pickle(f"../errored_{bp['name']}.pkl")
+
+        # time to kill it
+        clone = self.maybe_pick_from_randomly_generated(score=bp['meta']['score'] * 1.5)
+        if clone is not None:
+            self.replace_individual(i, clone)
+
     def update_scores(self, calculate_phenotype_fitness=True, additional_indices=None):
         """Evaluate and improve a portion of the population, according to the scores"""
         weight = self.options.update_score_weight
@@ -435,30 +454,21 @@ class Population(object):
             try:
                 new_score = self.options.utility(bp, self.options)
                 update_score(bp, new_score, weight=weight)
+                continue
             except (RuntimeError, ValueError, RecursionError):
                 exception("Population.update_scores: Caught exception when scoring the model")
-                log(warning, "This individual caused exception: %s" % bp['name'])
-                log(warning, f"Removing individual{bp['name']}")
-                bp.dump_pickle(f"../errored_{bp['name']}.pkl")
+                model_diagnostics(bp)
+                self.handle_bad_individual(i)
 
-                # time to kill it
-                clone = self.maybe_pick_from_randomly_generated(score=bp['meta']['score'] * 1.5)
-                if clone is not None:
-                    self.replace_individual(i, clone)
-                    continue
-
-                # mutate another individual and replace it
-                new_index = np.random.choice([j for j in self.pick_indices(4) if j != i])
-                clone = copy.deepcopy(self.genotypes[new_index])
-
-                mutate_counter = 0
-                for _ in range(20):
-                    mutate_counter += mutate(clone, p=0.5)
-                    if mutate_counter > 2:
-                        break
-
-                clone.refresh_name()
-                self.replace_individual(i, clone)
+            # second try in case training failed
+            bp = self.genotypes[i]
+            try:
+                new_score = self.options.utility(bp, self.options)
+                update_score(bp, new_score, weight=weight)
+            except (RuntimeError, ValueError, RecursionError):
+                exception("Population.update_scores: Caught exception again when scoring new model")
+                model_diagnostics(bp)
+                self.handle_bad_individual(i)
 
     def get_average_score(self):
         """Get average score for the population"""

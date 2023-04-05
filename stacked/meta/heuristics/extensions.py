@@ -45,11 +45,11 @@ def extend_conv_mutables(blueprint, ensemble_size=5, block_depth=2):
     bottleneck = ScopedBottleneckBlock.describe_from_blueprint(prefix, "_block", conv,
                                                                       parent, block_depth)
 
-    meta = ScopedMetaMasked.describe_from_blueprint(prefix, '_meta', conv, parent)
+    # meta = ScopedMetaMasked.describe_from_blueprint(prefix, '_meta', conv, parent)
 
     deconv = ScopedConv2dDeconv2d.describe_from_blueprint(prefix, '_deconv', conv, parent)
 
-    mutables = [conv, res_block, ensemble, meta, separable, bottleneck, deconv]
+    mutables = [conv, res_block, ensemble, separable, bottleneck, deconv]
 
     in_channels = blueprint['conv']['input_shape'][1]
     out_channels = blueprint['conv']['output_shape'][1]

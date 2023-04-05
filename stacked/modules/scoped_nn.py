@@ -71,7 +71,10 @@ class ScopedConv2d(Conv2d):
                  f"{kwargs['padding']}, {kwargs['dilation']},{kwargs['groups']},{kwargs['bias']},"
 
         # prefix is conv for aggressive parameter sharing
-        bp = Blueprint("conv", suffix, parent, False,
+        if common.AGGRESSIVELY_SHARE:
+            prefix = "conv"
+
+        bp = Blueprint(prefix, suffix, parent, False,
                        ScopedConv2d, kwargs=kwargs)
 
         assert (input_shape is not None)
@@ -155,7 +158,10 @@ class ScopedConvTranspose2d(ConvTranspose2d):
         bp['type'] = ScopedConvTranspose2d
 
         # aggressive parameter sharing where prefix has no scope
-        bp['prefix'] = 'deconv'
+        prefix = f"{prefix}/deconv"
+        if common.AGGRESSIVELY_SHARE:
+            prefix = 'deconv'
+        bp['prefix'] = prefix
         bp['suffix'] = suffix
         bp['parent'] = parent
         bp['output_shape'] = get_deconv_out_shape(input_shape, output_shape[1],

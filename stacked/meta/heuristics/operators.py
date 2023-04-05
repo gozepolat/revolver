@@ -1,5 +1,7 @@
 from stacked.meta.blueprint import Blueprint, \
     get_io_shape_indices, toggle_uniqueness, get_duplicates
+from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
+from stacked.models.blueprinted.densesumgroup import ScopedDenseSumGroup
 from stacked.utils import common
 from stacked.meta.scope import unregister
 from logging import warning, info
@@ -13,7 +15,6 @@ def log(log_func, msg):
         if common.LAST_DEBUG_MESSAGE != msg:
             log_func("stacked.meta.heuristics.operators: %s" % msg)
             common.LAST_DEBUG_MESSAGE = msg
-
 
 
 def mutate_sub(blueprint, key, diameter, p, p_decay):
@@ -61,6 +62,8 @@ def adjust_mutation(blueprint, key):
 def mutate_current(blueprint, key, diameter, p):
     """Mutate the current blueprint, or change uniqueness"""
     domain = blueprint['mutables'][key]
+    if key == 'depth' and has_children_concat(blueprint):
+        return False
 
     if np.random.random() > blueprint.get('mutate_p', p):
         return False
@@ -338,6 +341,10 @@ def copy_children(children1, children2):
 def op_over_children(blueprint1, blueprint2, p_items, p_children,
                      fn_over, fn1=swap_child, fn=crossover_children):
     """Crossover or copy over children (fn_over)"""
+    if has_children_concat(blueprint1) or has_children_concat(blueprint2):
+        log(warning, "Skipping crossover for densesum or denseconcat")
+        return False
+
     if 'children' in blueprint1 and 'children' in blueprint2:
         children1 = blueprint1['children']
         children2 = blueprint2['children']
@@ -356,6 +363,13 @@ def op_over_children(blueprint1, blueprint2, p_items, p_children,
             if fn_over(bp1, bp2, p_items, p_children, fn1, fn):
                 return True
 
+    return False
+
+
+def has_children_concat(blueprint):
+    if (inspect.isclass(blueprint['type']) and (issubclass(blueprint['type'], ScopedDenseSumGroup)
+                                                or issubclass(blueprint['type'], ScopedDenseConcatGroup))):
+        return True
     return False
 
 
