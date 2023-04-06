@@ -167,6 +167,7 @@ class ScopedResNet(Sequential):
                                       default, True, linear_module, kwargs=kwargs)
         default['linear']['input_shape'] = (batch_size, in_features)
         default['linear']['output_shape'] = (batch_size, num_classes)
+        default['output_shape'] = (batch_size, num_classes)
         return shortcut_index
 
     @staticmethod
@@ -361,6 +362,8 @@ class ScopedResNet(Sequential):
                                              head_pool_stride=head_pool_stride,
                                              head_pool_padding=head_pool_padding,
                                              head_modules=head_modules)
+
+        default['input_shape'] = input_shape
 
         ScopedResNet.__readjust_tail(prefix, default,
                                      shortcut_index=shortcut_index,

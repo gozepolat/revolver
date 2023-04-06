@@ -207,6 +207,7 @@ class ScopedDenseNet(Sequential):
                                       default, True, linear_module, kwargs=kwargs)
         default['linear']['input_shape'] = (batch_size, w)
         default['linear']['output_shape'] = (batch_size, num_classes)
+        default['output_shape'] = (batch_size, num_classes)
 
     @staticmethod
     def describe_default(prefix='DenseNet', suffix='', parent=None,
@@ -278,6 +279,7 @@ class ScopedDenseNet(Sequential):
         widths = [i * width for i in skeleton]
 
         default = Blueprint(prefix, suffix, parent, False, ScopedDenseNet)
+        default['input_shape'] = input_shape
         default['callback'] = callback
 
         ScopedDenseNet.__set_head(prefix, default, input_shape, 2 * widths[0],

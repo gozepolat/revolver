@@ -1,5 +1,5 @@
 from stacked.meta.blueprint import visit_modules, \
-    collect_keys, collect_modules, make_module
+    collect_keys, collect_modules, make_module, model_diagnostics
 from stacked.models.blueprinted.ensemble import ScopedEnsembleMean
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.densenet import ScopedDenseNet
@@ -28,6 +28,7 @@ import numpy as np
 import copy
 import math
 import inspect
+import torch
 
 
 def log(log_func, msg):
@@ -295,14 +296,6 @@ def generate_net_blueprints(options, num_individuals=None, conv_extend=None, ske
         blueprints.append(blueprint)
 
     return blueprints
-
-
-def model_diagnostics(blueprint):
-    flattened = collect_modules(blueprint)
-    for bp in flattened:
-        kwargs = {k:v for k,v in bp.get('kwargs', {}).items() if k != 'parent'}
-        log(warning, f"{bp['name']}, in: {bp.get('input_shape', None)}, "
-                     f"out: {bp.get('output_shape', None)}, kwargs: {kwargs}, {make_module()}")
 
 
 class Population(object):

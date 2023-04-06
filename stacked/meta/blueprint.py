@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import torch
 from six import string_types
 from six.moves import cPickle as pickle
 from stacked.meta.scope import generate_random_scope, get_common_scope_name_length, UNIQUE_SUFFIX_DELIMITER
@@ -6,7 +7,7 @@ from stacked.utils.transformer import all_to_none
 from torch.nn import Module, BatchNorm2d
 import tkinter as tk
 from stacked.utils import common
-from logging import warning, error
+from logging import warning, error, exception
 from collections.abc import Iterable
 from collections import defaultdict
 import numpy as np
@@ -293,7 +294,7 @@ class Blueprint(dict):
 
         indices = self['parent'].get_index_from_root()
         index = self['parent'].get_element_index(self)
-        assert(index is not None)
+        assert (index is not None)
         indices += index
 
         return indices
@@ -505,7 +506,7 @@ def toggle_uniqueness(blueprint, key, favor_common=0.5):
 
 def make_module(blueprint):
     """Construct named (or scoped) object given the blueprint"""
-    assert(blueprint is not None)
+    assert (blueprint is not None)
     try:
         module = blueprint['type'](blueprint['name'], *blueprint['args'],
                                    **blueprint['kwargs'])
@@ -514,6 +515,9 @@ def make_module(blueprint):
         blueprint.make_unique()
         module = blueprint['type'](blueprint['name'], *blueprint['args'],
                                    **blueprint['kwargs'])
+    if module is not None:
+        module.blueprint = blueprint
+
     return module
 
 
@@ -589,3 +593,33 @@ def collect_keys(blueprint, key,
     out = []
     visit_modules(blueprint, key, out, collect)
     return out
+
+
+def model_diagnostics(blueprint, input_tensor=None):
+    if not common.DEBUG_MODEL_DIAGNOSTIC:
+        return
+
+    flattened = collect_modules(blueprint)
+    for bp in flattened:
+        kwargs = {k: v for k, v in bp.get('kwargs', {}).items() if k != 'parent'}
+        print(f"{bp['name']}, in: {bp.get('input_shape', None)}, "
+              f"out: {bp.get('output_shape', None)}, kwargs: {kwargs}")
+
+    def hook(module, inp, outp):
+        print(inp.shape if not isinstance(inp, tuple) else [i.shape for i in inp],
+              "\33[91m%s\033[0m" % str(outp.shape),
+              f"{type(module)}: {module.blueprint['name']}" if hasattr(module, "blueprint") else f"{type(module)}",
+              flush=True)
+
+    net = make_module(blueprint)
+    for m in net.modules():
+        m.register_forward_hook(hook)
+    try:
+        print("==== model shapes")
+        if input_tensor is None:
+            input_tensor = torch.rand(*blueprint['input_shape'])
+
+        net(input_tensor)
+        print("end of diagnostics")
+    except:
+        exception("Could not run the full thing due to exception")

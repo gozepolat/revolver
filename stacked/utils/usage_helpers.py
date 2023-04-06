@@ -5,17 +5,12 @@ from stacked.models.blueprinted.optimizer import ScopedEpochEngine
 from stacked.models.blueprinted.resnet import ScopedResNet
 from stacked.models.blueprinted.densenet import ScopedDenseNet
 from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
-from stacked.models.blueprinted.densefractalgroup import ScopedDenseFractalGroup
 from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
-from stacked.models.blueprinted.densesumgroup import ScopedDenseSumGroup
-from stacked.models.blueprinted.meta import ScopedMetaMasked
 from stacked.modules.scoped_nn import ScopedConv2d, ScopedBatchNorm2d, \
-    ScopedFeatureSimilarityLoss, ScopedFeatureConvergenceLoss
-from stacked.modules.loss import collect_features, collect_depthwise_features
-from stacked.meta.blueprint import make_module, visit_modules, make_blueprint
-from stacked.utils.transformer import all_to_none
+    ScopedFeatureSimilarityLoss
+from stacked.modules.loss import collect_features
+from stacked.meta.blueprint import make_module, visit_modules
 from stacked.utils import common
-import argparse
 import json
 import os
 from stacked.utils.visualize import plot_model
@@ -24,7 +19,6 @@ import glob
 import pandas as pd
 import re
 import inspect
-
 
 
 def log(log_func, msg):
