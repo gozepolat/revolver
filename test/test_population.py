@@ -1,14 +1,14 @@
 import unittest
-from stacked.meta.heuristics import population
-from stacked.utils import transformer, common, usage_helpers
-from stacked.meta.blueprint import make_module
+from revolver.meta.heuristics import population
+from revolver.utils import transformer, common, usage_helpers
+from revolver.meta.blueprint import make_module
 from PIL import Image
 import glob
-from stacked.models.blueprinted.resnet import ScopedResNet
-from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
-from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
-from stacked.modules.scoped_nn import ScopedCrossEntropyLoss, ScopedConv2d
-from stacked.utils.transformer import all_to_none
+from revolver.models.blueprinted.resnet import ScopedResNet
+from revolver.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
+from revolver.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
+from revolver.modules.scoped_nn import ScopedCrossEntropyLoss, ScopedConv2d
+from revolver.utils.transformer import all_to_none
 import argparse
 
 

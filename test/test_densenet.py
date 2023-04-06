@@ -2,14 +2,14 @@ import unittest
 
 import torch.cuda
 
-from stacked.models.blueprinted.meta import ScopedMetaMasked
-from stacked.models.blueprinted.separable import ScopedDepthwiseSeparable
-from stacked.models.blueprinted.densenet import ScopedDenseNet
-from stacked.models.blueprinted.densesumgroup import ScopedDenseSumGroup
-from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
-from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
-from stacked.utils import transformer, common
-from stacked.meta.blueprint import visualize
+from revolver.models.blueprinted.meta import ScopedMetaMasked
+from revolver.models.blueprinted.separable import ScopedDepthwiseSeparable
+from revolver.models.blueprinted.densenet import ScopedDenseNet
+from revolver.models.blueprinted.densesumgroup import ScopedDenseSumGroup
+from revolver.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
+from revolver.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
+from revolver.utils import transformer, common
+from revolver.meta.blueprint import visualize
 from PIL import Image
 import glob
 

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import unittest
-from stacked.meta import masked_sketch
+from revolver.meta import masked_sketch
 from PIL import Image
 from torch.nn import Conv2d
-from stacked.utils import transformer
+from revolver.utils import transformer
 import glob
 import torch
 

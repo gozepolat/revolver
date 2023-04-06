@@ -3,11 +3,11 @@ import unittest
 
 import torch.cuda
 from PIL import Image
-from stacked.utils import transformer
-from stacked.modules.conv import Conv3d2d
-from stacked.modules.scoped_nn import ScopedConv3d2d, ScopedConv2d
-from stacked.models.blueprinted.convunit import ScopedConvUnit
-from stacked.meta.blueprint import make_module
+from revolver.utils import transformer
+from revolver.modules.conv import Conv3d2d
+from revolver.modules.scoped_nn import ScopedConv3d2d, ScopedConv2d
+from revolver.models.blueprinted.convunit import ScopedConvUnit
+from revolver.meta.blueprint import make_module
 from torch.nn import Conv2d
 import glob
 

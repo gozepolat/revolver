@@ -2,13 +2,13 @@ import unittest
 
 import torch.cuda
 from PIL import Image
-from stacked.models.blueprinted.resnet import ScopedResNet
-from stacked.utils import transformer
-from stacked.models.blueprinted.ensemble import ScopedEnsembleMean
-from stacked.utils.domain import ClosedList
-from stacked.meta.heuristics.operators import mutate, crossover, copyover
-from stacked.meta.blueprint import visit_modules, visualize
-from stacked.utils import common
+from revolver.models.blueprinted.resnet import ScopedResNet
+from revolver.utils import transformer
+from revolver.models.blueprinted.ensemble import ScopedEnsembleMean
+from revolver.utils.domain import ClosedList
+from revolver.meta.heuristics.operators import mutate, crossover, copyover
+from revolver.meta.blueprint import visit_modules, visualize
+from revolver.utils import common
 import glob
 import copy
 
@@ -107,8 +107,8 @@ class TestMetaOperators(unittest.TestCase):
         self.model_run(blueprint3)
         self.model_run(blueprint4)
 
-        visualize(ScopedResNet.describe_default('ResNet_d4_w1_c2', depth=4,
-                                                width=1, num_classes=2))
+        # uncomment below to see the modules
+        # visualize(blueprint1)
         common.GUI = None
         common.BLUEPRINT_GUI = False
 

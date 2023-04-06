@@ -1,7 +1,7 @@
 import unittest
-from stacked.models.blueprinted.optimizer import ScopedEpochEngine
-from stacked.meta.blueprint import make_module, Blueprint
-from stacked.utils.meanmodel import average_model
+from revolver.models.blueprinted.optimizer import ScopedEpochEngine
+from revolver.meta.blueprint import make_module, Blueprint
+from revolver.utils.meanmodel import average_model
 
 
 class TestMeanModel(unittest.TestCase):

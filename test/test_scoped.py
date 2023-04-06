@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from unittest import main
 from unittest import TestCase
-from stacked.meta.scope import Scoped, get_elements
+from revolver.meta.scope import Scoped, get_elements
 
 
 class ScopedChild(Scoped):

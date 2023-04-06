@@ -2,14 +2,14 @@ import unittest
 
 import torch.cuda
 
-from stacked.models.blueprinted.meta import ScopedMetaMasked
-from stacked.models.blueprinted.optimizer import ScopedEpochEngine
-from stacked.models.blueprinted.resnet import ScopedResNet
-from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
-from stacked.utils import transformer, common
-from stacked.meta.blueprint import visualize, Blueprint, make_module
-from stacked.modules.scoped_nn import ScopedConv2d
-from stacked.meta.blueprint import visit_modules
+from revolver.models.blueprinted.meta import ScopedMetaMasked
+from revolver.models.blueprinted.optimizer import ScopedEpochEngine
+from revolver.models.blueprinted.resnet import ScopedResNet
+from revolver.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
+from revolver.utils import transformer, common
+from revolver.meta.blueprint import visualize, Blueprint, make_module
+from revolver.modules.scoped_nn import ScopedConv2d
+from revolver.meta.blueprint import visit_modules
 from PIL import Image
 import glob
 from six.moves import cPickle as pickle

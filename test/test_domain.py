@@ -1,6 +1,6 @@
 from unittest import TestCase, main
-from stacked.utils.domain import ClosedInterval, ClosedList, is_element
-from stacked.utils.transformer import denormalize_index
+from revolver.utils.domain import ClosedInterval, ClosedList, is_element
+from revolver.utils.transformer import denormalize_index
 import numpy as np
 
 

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import unittest
 from PIL import Image
-from stacked.utils import transformer
-from stacked.models import scoped_resnet_sketch
-from stacked.utils import common
+from revolver.utils import transformer
+from revolver.models import scoped_resnet_sketch
+from revolver.utils import common
 import glob
 import copy
 import torch

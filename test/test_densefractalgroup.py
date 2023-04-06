@@ -2,12 +2,12 @@ import unittest
 
 import torch.cuda
 
-from stacked.models.blueprinted.meta import ScopedMetaMasked
-from stacked.models.blueprinted.resnet import ScopedResNet
-from stacked.models.blueprinted.convunit import ScopedConvUnit
-from stacked.models.blueprinted.densefractalgroup import ScopedDenseFractalGroup
-from stacked.utils import transformer, common
-from stacked.meta.blueprint import visualize
+from revolver.models.blueprinted.meta import ScopedMetaMasked
+from revolver.models.blueprinted.resnet import ScopedResNet
+from revolver.models.blueprinted.convunit import ScopedConvUnit
+from revolver.models.blueprinted.densefractalgroup import ScopedDenseFractalGroup
+from revolver.utils import transformer, common
+from revolver.meta.blueprint import visualize
 from PIL import Image
 import glob
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import torch
 import unittest
-from stacked.utils import transformer
+from revolver.utils import transformer
 from PIL import Image
 import glob
 

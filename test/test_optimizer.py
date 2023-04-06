@@ -1,13 +1,13 @@
 import unittest
-from stacked.modules.scoped_nn import ScopedFeatureSimilarityLoss, \
+from revolver.modules.scoped_nn import ScopedFeatureSimilarityLoss, \
     ScopedParameterSimilarityLoss
-from stacked.models.blueprinted.densesumgroup import ScopedDenseSumGroup
-from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
-from stacked.models.blueprinted.densenet import ScopedDenseNet
-from stacked.modules.loss import collect_features
-from stacked.models.blueprinted.optimizer import ScopedEpochEngine
-from stacked.meta.blueprint import make_module
-from stacked.utils import common
+from revolver.models.blueprinted.densesumgroup import ScopedDenseSumGroup
+from revolver.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
+from revolver.models.blueprinted.densenet import ScopedDenseNet
+from revolver.modules.loss import collect_features
+from revolver.models.blueprinted.optimizer import ScopedEpochEngine
+from revolver.meta.blueprint import make_module
+from revolver.utils import common
 
 
 class TestTrainer(unittest.TestCase):

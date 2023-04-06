@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
-from stacked.models.blueprinted.resnet import ScopedResNet
-from stacked.models.blueprinted.densenet import ScopedDenseNet
-from stacked.models.blueprinted.resgroup import ScopedResGroup
-# from stacked.models.blueprinted.tree import ScopedTreeGroup
-from stacked.models.blueprinted.resblock import ScopedResBlock
-from stacked.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
-from stacked.models.blueprinted.convdeconv import ScopedConv2dDeconv2d
-from stacked.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
-from stacked.modules.scoped_nn import ScopedCrossEntropyLoss, ScopedConv2d, ScopedConv2dDeconv2dConcat
-from stacked.models.blueprinted.meta import ScopedMetaMasked
-from stacked.utils.transformer import all_to_none
-from stacked.utils import common
-from stacked.utils.usage_helpers import train_single_network, \
+from revolver.models.blueprinted.resnet import ScopedResNet
+from revolver.models.blueprinted.densenet import ScopedDenseNet
+from revolver.models.blueprinted.resgroup import ScopedResGroup
+# from revolver.models.blueprinted.tree import ScopedTreeGroup
+from revolver.models.blueprinted.resblock import ScopedResBlock
+from revolver.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
+from revolver.models.blueprinted.convdeconv import ScopedConv2dDeconv2d
+from revolver.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
+from revolver.modules.scoped_nn import ScopedCrossEntropyLoss, ScopedConv2d, ScopedConv2dDeconv2dConcat
+from revolver.models.blueprinted.meta import ScopedMetaMasked
+from revolver.utils.transformer import all_to_none
+from revolver.utils import common
+from revolver.utils.usage_helpers import train_single_network, \
     adjust_options, create_single_engine, train_with_single_engine, \
     train_population
-from stacked.meta.heuristics.population import generate_net_blueprints, \
+from revolver.meta.heuristics.population import generate_net_blueprints, \
     get_phenotype_score, Population
 import argparse
 import os

@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 import unittest
 from PIL import Image
-from stacked.utils import transformer
-from stacked.models.simple_resnet import ResNet
-from stacked.models.blueprinted.resnet import ScopedResNet
-from stacked.meta.blueprint import visualize, collect_keys
-from stacked.models.blueprinted.ensemble import ScopedEnsembleMean
-from stacked.utils import common
+from revolver.utils import transformer
+from revolver.models.simple_resnet import ResNet
+from revolver.models.blueprinted.resnet import ScopedResNet
+from revolver.meta.blueprint import visualize, collect_keys
+from revolver.models.blueprinted.ensemble import ScopedEnsembleMean
+from revolver.utils import common
 import glob
 import torch
 
