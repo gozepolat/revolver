@@ -58,6 +58,8 @@ def parse_args():
     parser.add_argument('--lr_drop_at_stagnate', default=15, type=int,
                         help='Drop learning rate when no new top individual is emerged for a while')
     parser.add_argument('--lr_decay_ratio', default=0.1, type=float)
+    parser.add_argument('--p_initialize_with_unique', default=0.1, type=float,
+                        help='Probability that a component will be made unique when initialized or mutated')
     parser.add_argument('--single_engine', default=True, type=bool)
     parser.add_argument('--gpu_id', default='0', type=str,
                         help='id(s) for CUDA_VISIBLE_DEVICES')

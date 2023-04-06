@@ -290,7 +290,7 @@ def generate_net_blueprints(options, num_individuals=None, conv_extend=None, ske
         options.block_depth = block_depth.pick_random()[1]
 
         blueprint = make_net_blueprint(options, str(i))
-        visit_modules(blueprint, (0.001, False), [],
+        visit_modules(blueprint, (options.p_initialize_with_unique, False), [],
                       make_mutable_and_randomly_unique)
         blueprint.make_unique(refresh_unique_suffixes=False)
         blueprints.append(blueprint)
@@ -522,7 +522,7 @@ class Population(object):
         clone1 = copy.deepcopy(self.genotypes[index1])
         clone2 = copy.deepcopy(self.genotypes[index2])
 
-        p_unique = common.POPULATION_MUTATION_COEFFICIENT * 0.1
+        p_unique = common.POPULATION_MUTATION_COEFFICIENT * 0.5
         visit_modules(clone1, (p_unique, False), [],
                       make_mutable_and_randomly_unique)
 
