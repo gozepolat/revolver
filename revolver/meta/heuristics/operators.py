@@ -3,11 +3,11 @@ from revolver.meta.blueprint import Blueprint, \
 from revolver.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
 from revolver.models.blueprinted.densesumgroup import ScopedDenseSumGroup
 from revolver.utils import common
-from revolver.meta.scope import unregister
 from logging import warning, info
 import numpy as np
 import copy
 import inspect
+from collections import defaultdict
 
 
 def log(log_func, msg):
@@ -85,6 +85,10 @@ def mutate_current(blueprint, key, diameter, p):
 
     if 'mutation_history' not in blueprint['meta'][key]:
         blueprint['meta'][key]['mutation_history'] = []
+
+    if isinstance(blueprint[key], Blueprint):
+        blueprint[key]['parent'] = None
+        value['parent'] = blueprint
 
     blueprint['meta'][key]['mutation_history'].append(blueprint[key])
     blueprint[key] = value
@@ -165,7 +169,7 @@ def readjust_children(children, parent):
         readjust_child(c, parent)
 
 
-def swap_child(children1, children2, key1, key2):
+def swap_component(children1, children2, key1, key2):
     """Swap child in children1 with another in children2"""
     tmp = children1[key1]
     parent1 = tmp['parent']
@@ -338,12 +342,38 @@ def copy_children(children1, children2):
     return True
 
 
+def get_shape_dict(bp_modules):
+    bp_dict = defaultdict(list)
+    for bp in bp_modules:
+        if not inspect.isclass(bp['type']) or None in {bp['input_shape'], bp['output_shape']}:
+            continue
+        bp_dict[f"{bp['input_shape']}{bp['output_shape']}"].append(bp)
+    return bp_dict
+
+
+def op_over_single_child(blueprint1, blueprint2, p_items, p_children, fn_over, fn1, fn):
+    """Oick one child from each bp and try crossover / copyover again"""
+    if 'children' in blueprint1 and 'children' in blueprint2:
+        children1 = blueprint1['children']
+        children2 = blueprint2['children']
+        if np.random.random() < p_children:
+            c1_dict = get_shape_dict(children1)
+            c2_dict = get_shape_dict(children2)
+            intersection = set(c1_dict.keys()) & set(c2_dict.keys())
+            for key in intersection:
+                for c1 in c1_dict[key]:
+                    for c2 in c2_dict[key]:
+                        if op_over_children(c1, c2, p_items, p_children, fn_over, fn1, fn):
+                            return True
+    return False
+
+
 def op_over_children(blueprint1, blueprint2, p_items, p_children,
-                     fn_over, fn1=swap_child, fn=crossover_children):
+                     fn_over, fn1=swap_component, fn=crossover_children):
     """Crossover or copy over children (fn_over)"""
     if has_children_concat(blueprint1) or has_children_concat(blueprint2):
-        log(warning, "Skipping crossover for densesum or denseconcat")
-        return False
+        return op_over_single_child(blueprint1, blueprint2, p_items, p_children,
+                                    fn_over, fn1=swap_component, fn=fn)
 
     if 'children' in blueprint1 and 'children' in blueprint2:
         children1 = blueprint1['children']
@@ -373,10 +403,11 @@ def has_children_concat(blueprint):
     return False
 
 
-def op_over_item(blueprint1, blueprint2, key, fn=swap_child):
+def op_over_item(blueprint1, blueprint2, key, fn=swap_component):
     if key in blueprint1 and key in blueprint2:
         key1 = blueprint1[key]
         key2 = blueprint2[key]
+
         if (key1 is not None and key2 is not None
                 and key1['input_shape'] == key2['input_shape']
                 and key1['input_shape'] is not None
@@ -388,7 +419,7 @@ def op_over_item(blueprint1, blueprint2, key, fn=swap_child):
 
 
 def op_over(blueprint1, blueprint2, p_items=0.5, p_children=0.9,
-            fn1=swap_child, fn2=crossover_children):
+            fn1=swap_component, fn2=crossover_children):
     """In place, crossover like operation on conv, convdim, linear or children"""
     if np.random.random() < p_items:
         if op_over_item(blueprint1, blueprint2, 'conv', fn1):

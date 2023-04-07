@@ -522,7 +522,7 @@ class Population(object):
         clone1 = copy.deepcopy(self.genotypes[index1])
         clone2 = copy.deepcopy(self.genotypes[index2])
 
-        p_unique = common.POPULATION_MUTATION_COEFFICIENT * 0.5
+        p_unique = common.POPULATION_MUTATION_COEFFICIENT * 0.25
         visit_modules(clone1, (p_unique, False), [],
                       make_mutable_and_randomly_unique)
 
@@ -530,12 +530,12 @@ class Population(object):
                       make_mutable_and_randomly_unique)
 
         if np.random.random() < common.POPULATION_MUTATION_COEFFICIENT:
-            for i in range(15):
+            for i in range(50):
                 mutated = mutate(clone1, p=0.5)
                 if mutated:
                     log(warning, f"Mutated {mutated} after {i} tries")
                     break
-            for i in range(15):
+            for i in range(50):
                 mutated = mutate(clone2, p=0.5)
                 if mutated:
                     log(warning, f"Mutated {mutated} after {i} tries")
@@ -547,12 +547,17 @@ class Population(object):
             op = copyover
 
         op_type = "Cloned"
-        for i in range(50):
+        for i in range(100):
             successful = crossover(clone1, clone2)
             if successful:
                 op_type = f"{op} {successful}"
                 break
 
+        if op_type == "Cloned":
+            bp = self.maybe_pick_from_randomly_generated(score)
+            if bp is not None:
+                op_type = "Random"
+                clone1 = bp
         log(warning, f"{op_type} after {i} tries")
         clone1['meta']['score'] = get_genotype_fitness(clone1)
         clone2['meta']['score'] = get_genotype_fitness(clone2)

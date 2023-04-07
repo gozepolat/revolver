@@ -32,7 +32,7 @@ def parse_args():
     parser.add_argument('--depth', default=22, type=int)
     parser.add_argument('--sample_size', default=2, type=int)
     parser.add_argument('--population_size', default=100, type=int)
-    parser.add_argument('--max_skeleton_width', default=32, type=int)
+    parser.add_argument('--max_skeleton_width', default=48, type=int)
     parser.add_argument('--max_skeleton_depth', default=8, type=int)
     parser.add_argument('--warmup_x', default=10, type=int)
     parser.add_argument('--skeleton', default='[12,24,48]', type=str,
