@@ -9,6 +9,7 @@ from revolver.models.blueprinted.convunit import ScopedConvUnit, is_conv_simple
 from revolver.models.blueprinted.unit import set_pooling, set_convdim
 from six import add_metaclass
 from torch.nn.functional import dropout
+from revolver.utils import common
 
 
 @add_metaclass(ScopedMeta)
@@ -162,7 +163,7 @@ class ScopedBottleneckBlock(Sequential):
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True,
                          hidden_channels=0, hidden_scale=4,
-                         mutation_p=0.8, toggle_p=0.001, *_, **__):
+                         mutation_p=.8, toggle_p=common.UNIQUENESS_TOGGLE_P, *_, **__):
         """Create a default ScopedBottleneckBlock blueprint
 
         Args:

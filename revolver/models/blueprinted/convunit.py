@@ -14,6 +14,7 @@ from revolver.models.blueprinted.unit import set_conv, \
     set_batchnorm, set_pooling, set_activation, set_dropout
 from revolver.utils.transformer import all_to_none
 from six import add_metaclass
+from revolver.utils import common
 
 
 def is_conv_simple(conv_module):
@@ -147,7 +148,7 @@ class ScopedConvUnit(Module):
                          drop_kwargs=None, module_order=None,
                          pool_module=ScopedAvgPool2d, pool_kernel_size=2,
                          pool_stride=-1, pool_padding=0, pool_kwargs=None,
-                         mutation_p=0.8, toggle_p=0.02,
+                         mutation_p=0.8, toggle_p=common.UNIQUENESS_TOGGLE_P,
                          *_, **__):
         """Create a default ScopedConvUnit blueprint
 

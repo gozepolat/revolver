@@ -9,6 +9,7 @@ from revolver.modules.scoped_nn import ScopedBatchNorm2d, \
 from revolver.utils.transformer import all_to_none
 from six import add_metaclass
 from revolver.utils.common import time_to_drop
+from revolver.utils import common
 import numpy as np
 
 
@@ -54,7 +55,8 @@ class ScopedResGroup(Sequential):
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True, block_module=ScopedResBlock,
-                         group_depth=2, drop_p=0.0, mutation_p=0.8, toggle_p=0.02,
+                         group_depth=2, drop_p=0.0, mutation_p=0.8,
+                         toggle_p=common.UNIQUENESS_TOGGLE_P,
                          *_, **__):
         """Create a default ResGroup blueprint
 

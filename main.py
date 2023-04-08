@@ -29,10 +29,10 @@ def parse_args():
 
     parser.add_argument('--mode', default='single_train', type=str,
                         help="single, or population train mode")
-    parser.add_argument('--depth', default=22, type=int)
+    parser.add_argument('--depth', default=40, type=int)
     parser.add_argument('--sample_size', default=2, type=int)
     parser.add_argument('--population_size', default=100, type=int)
-    parser.add_argument('--max_skeleton_width', default=48, type=int)
+    parser.add_argument('--max_skeleton_width', default=64, type=int)
     parser.add_argument('--max_skeleton_depth', default=8, type=int)
     parser.add_argument('--warmup_x', default=10, type=int)
     parser.add_argument('--skeleton', default='[12,24,48]', type=str,
@@ -55,10 +55,11 @@ def parse_args():
                              ' Low test loss reduces the overall cost.')
     parser.add_argument('--lr_drop_epochs', default='[150,225]', type=str,
                         help='json list with epochs to drop lr on')
-    parser.add_argument('--lr_drop_at_stagnate', default=15, type=int,
-                        help='Drop learning rate when no new top individual is emerged for a while')
+    parser.add_argument('--min_lr', default=common.MINIMUM_LEARNING_RATE, type=float)
+    parser.add_argument('--gradual_lr_drop', default=100, type=int,
+                        help='Drop learning rate gradually')
     parser.add_argument('--lr_decay_ratio', default=0.1, type=float)
-    parser.add_argument('--p_initialize_with_unique', default=0.1, type=float,
+    parser.add_argument('--p_initialize_with_unique', default=0.5, type=float,
                         help='Probability that a component will be made unique when initialized or mutated')
     parser.add_argument('--single_engine', default=True, type=bool)
     parser.add_argument('--gpu_id', default='0', type=str,
@@ -120,7 +121,7 @@ def set_default_options_for_population(options):
 
     options.epoch_per_generation = 1
 
-    options.update_score_weight = 0.4
+    options.update_score_weight = 0.5
     options.max_iteration = options.epochs
 
     # default heuristics

@@ -620,6 +620,6 @@ def model_diagnostics(blueprint, input_tensor=None):
             input_tensor = torch.rand(*blueprint['input_shape'])
 
         net(input_tensor)
-        print("end of diagnostics")
+        # print("end of diagnostics")
     except:
         exception("Could not run the full thing due to exception")

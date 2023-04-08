@@ -43,7 +43,7 @@ class ScopedConv2d(Conv2d):
                          input_shape=None, in_channels=3, out_channels=3,
                          kernel_size=3, stride=1, padding=1,
                          dilation=1, groups=1, bias=True,
-                         mutation_p=0.8, toggle_p=0.02, *_, **__):
+                         mutation_p=0.8, toggle_p=common.UNIQUENESS_TOGGLE_P, *_, **__):
         """Create a default ScopedConv2d blueprint
 
         Args:

@@ -65,7 +65,7 @@ def mutate_current(blueprint, key, diameter, p):
     if key == 'depth' and has_children_concat(blueprint):
         return False
 
-    if np.random.random() > blueprint.get('mutate_p', p):
+    if np.random.random() > blueprint.get('mutation_p', p):
         return False
 
     def compare(bp1, bp2):

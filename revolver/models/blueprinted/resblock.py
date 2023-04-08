@@ -9,6 +9,7 @@ from revolver.models.blueprinted.convunit import ScopedConvUnit, is_conv_simple
 from revolver.models.blueprinted.unit import set_convdim
 from six import add_metaclass
 from torch.nn.functional import dropout
+from revolver.utils import common
 
 
 @add_metaclass(ScopedMeta)
@@ -159,7 +160,7 @@ class ScopedResBlock(Sequential):
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True, mutation_p=0.8,
-                         toggle_p=0.02, *_, **__):
+                         toggle_p=common.UNIQUENESS_TOGGLE_P, *_, **__):
         """Create a default ScopedResBlock blueprint
 
         Args:
@@ -226,7 +227,7 @@ class ScopedResBlock(Sequential):
                                 bn_kwargs=None, act_kwargs=None,
                                 unit_module=ScopedConvUnit,
                                 dropout_p=0.0, residual=True,
-                                mutation_p=0.8, toggle_p=0.02):
+                                mutation_p=0.8, toggle_p=common.UNIQUENESS_TOGGLE_P):
 
         kwargs = blueprint['kwargs']
         input_shape = blueprint['input_shape']

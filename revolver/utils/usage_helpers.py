@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import math
+
 import numpy as np
 
 from revolver.models.blueprinted.optimizer import ScopedEpochEngine
@@ -306,32 +308,24 @@ def train_population(population, options, default_resnet_shape, default_densenet
     population.update_scores()
     search_mode = "random" if options.search_mode in {"random", "random_warmup", "evolve_warmup_random"} else "evolve"
     prev_top_index = -1
-    stagnated_ctr = 0
-    prev_score = np.inf
+
+    # drop lr every iteration, so it goes from options.lr to options.min_lr
+    exp = (options.max_iteration - options.gradual_lr_drop)
+    lr_drop = 2**((math.log2(options.min_lr) - math.log2(options.lr)) / exp)
+
     for i in range(options.max_iteration):
         log(warning, 'Population generation: %d' % i)
-
-        if prev_score == common.POPULATION_TOP_VALIDATION_SCORE:
-            stagnated_ctr += 1
-        else:
-            stagnated_ctr = 0
-            prev_score = common.POPULATION_TOP_VALIDATION_SCORE
-
         gpu_usage_dict = common.get_gpu_memory_info()
         log(warning, "Overall gpu info: {}".format(gpu_usage_dict))
         (used, total) = gpu_usage_dict[options.gpu_id]
 
         common.POPULATION_RANDOM_PICK_P = (total - used) / total * .5 + .1
 
-        if options.lr_drop_at_stagnate > 0:
-            if stagnated_ctr > options.lr_drop_at_stagnate:
-                options.lr *= .8
-                stagnated_ctr = 0
-            if i > options.max_iteration * .9:
-                common.POPULATION_FOCUS_PICK_RATIO = 1. - float(i) / options.max_iteration
-                common.POPULATION_RANDOM_PICK_P = .0
-        elif i in options.lr_drop_epochs:
-            options.lr *= options.lr_decay_ratio
+        if i > options.max_iteration * .8:
+            common.POPULATION_FOCUS_PICK_RATIO = 1. - float(i) / options.max_iteration
+            common.POPULATION_RANDOM_PICK_P = .0
+            # Train top individuals more for the final scores
+            common.POPULATION_NUM_BATCH_PER_INDIVIDUAL = 512
 
         # attempt search 3 times
         indices = set()
@@ -343,13 +337,17 @@ def train_population(population, options, default_resnet_shape, default_densenet
                 break
 
         population.update_scores(additional_indices=list(indices))
+        if i > options.gradual_lr_drop:
+            options.lr *= lr_drop
+
         index = population.get_the_best_index()
 
         net_blueprint = population.genotypes[index]
         best_score = net_blueprint['meta']['score']
+        common.POPULATION_AVERAGE_SCORE = average_score = population.get_average_score()
         log(warning, "{} Current top score: {}, id: {}, name {}".format(i, best_score, id(net_blueprint),
                                                                         net_blueprint['name']))
-        log(warning, f"Current mean score {population.get_average_score()}, size {len(population.genotypes)}")
+        log(warning, f"Current mean score {average_score}, size {len(population.genotypes)}")
 
         if prev_top_index != index:
             log(warning, f"New top individual detected. Updated ranking: \n{population.get_all_sorted_scores_dict()}")

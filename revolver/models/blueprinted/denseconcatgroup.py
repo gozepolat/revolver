@@ -9,6 +9,7 @@ from revolver.modules.scoped_nn import ScopedBatchNorm2d, \
     ScopedReLU, ScopedConv2d
 from revolver.utils.transformer import all_to_none
 from six import add_metaclass
+from revolver.utils import common
 
 
 @add_metaclass(ScopedMeta)
@@ -69,7 +70,7 @@ class ScopedDenseConcatGroup(Sequential):
                          unit_module=ScopedConvUnit, block_depth=2,
                          dropout_p=0.0, residual=True, block_module=ScopedResBlock,
                          group_depth=2, drop_p=0.0, dense_unit_module=ScopedConvUnit,
-                         mutation_p=0.8, toggle_p=0.02,
+                         mutation_p=0.8, toggle_p=common.UNIQUENESS_TOGGLE_P,
                          *_, **__):
         """Create a default DenseGroup blueprint
 

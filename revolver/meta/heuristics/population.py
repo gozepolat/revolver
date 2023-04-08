@@ -115,7 +115,9 @@ def get_phenotype_score(genotype, options):
     """Estimate score by training / testing the model"""
     engine_maker = options.engine_maker
 
-    n_batches_per_phenotype = max(options.num_samples // (options.batch_size * options.sample_size), 200)
+    training_budget = max((common.POPULATION_AVERAGE_SCORE / genotype['meta']['score'])**3, 0.2)
+    n_batches_per_phenotype = common.POPULATION_NUM_BATCH_PER_INDIVIDUAL * training_budget
+
     epoch = options.epoch_per_generation
     favor_params = options.params_favor_rate
     engine = engine_maker(genotype, options)
@@ -253,14 +255,15 @@ def generate_net_blueprints(options, num_individuals=None, conv_extend=None, ske
     widths = ClosedList(list(range(1, max_width + 1)))
     conv_list = [ScopedConv2d, ScopedConv2dDeconv2d, ScopedEnsembleMean, ScopedBottleneckBlock,
                  ScopedResBlock, ScopedDepthwiseSeparable]
-    conv_list.extend([ScopedConv2d] * 20)
+    conv_list.extend([ScopedConv2d] * 10)
 
     if conv_extend:
         conv_list.extend(conv_extend)
 
     conv_module = ClosedList(conv_list)
     residual = ClosedList([True, False])
-    skeleton_list = [(8, 8, 8), (8, 8, 16), (8, 16, 32), (8, 16, 32, 32), (16, 16, 32), (16, 32, 64), (16, 32, 64, 64)]
+    skeleton_list = [(8, 8, 8), (8, 8, 16), (8, 16, 32), (8, 16, 32, 32), (8, 32, 64),
+                     (16, 16, 32), (16, 8, 32), (16, 32, 64), (16, 32, 64, 64)]
     if skeleton_extend:
         skeleton_list.extend(skeleton_extend)
 
@@ -269,7 +272,7 @@ def generate_net_blueprints(options, num_individuals=None, conv_extend=None, ske
     skeleton = ClosedList(skeleton_list)
     block_module = ClosedList([ScopedBottleneckBlock, ScopedResBlock])
     group_module = ClosedList([ScopedDenseConcatGroup, ScopedDenseSumGroup, ScopedResGroup])
-    drop_p = ClosedList([0, 0.1, 0.25, 0.5])
+    drop_p = ClosedList([0, .1, .1, .25, .25, .25, .35, .35, .5])
     block_depth = ClosedList([1, 2])
     nets = ClosedList([ScopedResNet, ScopedDenseNet])
 
@@ -450,7 +453,7 @@ class Population(object):
                 continue
             except (RuntimeError, ValueError, RecursionError):
                 exception("Population.update_scores: Caught exception when scoring the model")
-                model_diagnostics(bp)
+                # model_diagnostics(bp)
                 self.handle_bad_individual(i)
 
             # second try in case training failed
@@ -460,7 +463,7 @@ class Population(object):
                 update_score(bp, new_score, weight=weight)
             except (RuntimeError, ValueError, RecursionError):
                 exception("Population.update_scores: Caught exception again when scoring new model")
-                model_diagnostics(bp)
+                # model_diagnostics(bp)
                 self.handle_bad_individual(i)
 
     def get_average_score(self):
@@ -522,7 +525,7 @@ class Population(object):
         clone1 = copy.deepcopy(self.genotypes[index1])
         clone2 = copy.deepcopy(self.genotypes[index2])
 
-        p_unique = common.POPULATION_MUTATION_COEFFICIENT * 0.25
+        p_unique = common.POPULATION_MUTATION_COEFFICIENT * common.UNIQUENESS_TOGGLE_P
         visit_modules(clone1, (p_unique, False), [],
                       make_mutable_and_randomly_unique)
 
@@ -553,19 +556,21 @@ class Population(object):
                 op_type = f"{op} {successful}"
                 break
 
-        if op_type == "Cloned":
+        if op_type == "Cloned" and np.random.random() > .5:
             bp = self.maybe_pick_from_randomly_generated(score)
             if bp is not None:
                 op_type = "Random"
                 clone1 = bp
+
         log(warning, f"{op_type} after {i} tries")
         clone1['meta']['score'] = get_genotype_fitness(clone1)
         clone2['meta']['score'] = get_genotype_fitness(clone2)
 
-        if clone1['meta']['score'] > clone2['meta']['score']:
+        if clone1['meta']['score'] > clone2['meta']['score'] and np.random.random() > .5:
             clone1, clone2 = clone2, clone1
 
-        if clone1['meta']['score'] < score:
+        # do not trust genotype fitness too much
+        if clone1['meta']['score'] < score or np.random.random() > .5:
             return clone1
 
         return None
