@@ -426,9 +426,12 @@ class Population(object):
         bp.dump_pickle(f"../errored_{bp['name']}.pkl")
 
         # time to kill it
-        clone = self.maybe_pick_from_randomly_generated(score=bp['meta']['score'] * 1.5)
-        if clone is not None:
-            self.replace_individual(i, clone)
+        score = bp['meta']['score']
+        while clone is None:
+            score *= 1.2
+            clone = self.maybe_pick_from_randomly_generated(score=score)
+            if clone is not None:
+                self.replace_individual(i, clone)
 
     def update_scores(self, calculate_phenotype_fitness=True, additional_indices=None):
         """Evaluate and improve a portion of the population, according to the scores"""
@@ -572,6 +575,9 @@ class Population(object):
         # do not trust genotype fitness too much
         if clone1['meta']['score'] < score or np.random.random() > .5:
             return clone1
+
+        if clone2['meta']['score'] < score or np.random.random() > .25:
+            return clone2
 
         return None
 

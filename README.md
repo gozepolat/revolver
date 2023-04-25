@@ -1,8 +1,8 @@
 # Revolver
 
-A PyTorch based library to simultaneously train a population of diverse models and search for reusable modules.
+A PyTorch based library to simultaneously train a population of diverse models and analyze reusable modules.
 
-Revolver relies on global parameter sharing, and estimate reusability scores on all modules. 
+Revolver relies on global parameter sharing and estimate scores for all modules. 
 
 Revolver allows model components to be:
 

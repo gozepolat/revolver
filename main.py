@@ -50,7 +50,7 @@ def parse_args():
                         help='number of fine tuning epochs to run after evolving')
     parser.add_argument('--finetune_after_evolving', default="y", type=str)
     parser.add_argument('--weight_decay', default=0.0001, type=float)
-    parser.add_argument('--genotype_cost', default=72, type=float,
+    parser.add_argument('--genotype_cost', default=32, type=float,
                         help='Coefficient to increase genotype cost.'
                              ' Low test loss reduces the overall cost.')
     parser.add_argument('--lr_drop_epochs', default='[150,225]', type=str,
