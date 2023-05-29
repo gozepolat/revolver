@@ -6,8 +6,8 @@ Revolver relies on global parameter sharing and estimate scores for all modules.
 
 Revolver allows model components to be:
 
-* described hierarchically using a \textit{blueprinting approach}
-* shared within a model (e.g. cross layer parameter sharing), between models, and across generations in a population by relying on \textit{scopes},
+* described hierarchically using a _blueprinting approach_
+* shared within a model (e.g. cross layer parameter sharing), between models, and across generations in a population by relying on _scopes_,
 * and modified by search algorithms. 
 
 ## Getting Started
