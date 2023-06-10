@@ -97,7 +97,7 @@ class ScopedDenseNet(Sequential):
                                             conv_module=conv_module,
                                             callback=callback, conv_kwargs=conv_kwargs,
                                             bn_kwargs=None, act_kwargs=None,
-                                            dropout_p=0.0, drop_kwargs=None,
+                                            dropout_p=0.5, drop_kwargs=None,
                                             module_order=module_order,
                                             pool_module=ScopedMaxPool2d,
                                             pool_kernel_size=pool_kernel_size,
@@ -111,8 +111,8 @@ class ScopedDenseNet(Sequential):
                        padding=1, dilation=1, groups=1, bias=False, act_module=ScopedReLU,
                        bn_module=ScopedBatchNorm2d, conv_module=ScopedConv2d, callback=all_to_none,
                        conv_kwargs=None, bn_kwargs=None, act_kwargs=None, unit_module=ScopedConvUnit,
-                       block_depth=2, dropout_p=0.0, residual=False, block_module=ScopedBottleneckBlock,
-                       drop_p=0.0, dense_unit_module=ScopedBottleneckBlock, fractal_depth=1,
+                       block_depth=2, dropout_p=0.5, residual=False, block_module=ScopedBottleneckBlock,
+                       drop_p=0.5, dense_unit_module=ScopedBottleneckBlock, fractal_depth=1,
                        group_module=ScopedDenseSumGroup, weight_sum=False):
         """Set dense groups for the default DenseNet blueprint"""
         num_groups = len(widths)
@@ -217,7 +217,7 @@ class ScopedDenseNet(Sequential):
                          bn_module=ScopedBatchNorm2d, linear_module=ScopedLinear,
                          act_module=ScopedReLU, kernel_size=3, padding=1,
                          input_shape=None, dilation=1, groups=1, bias=False,
-                         callback=all_to_none, drop_p=0.0, dropout_p=0.0,
+                         callback=all_to_none, drop_p=0.5, dropout_p=0.5,
                          residual=True, conv_kwargs=None, bn_kwargs=None,
                          act_kwargs=None, unit_module=ScopedConvUnit,
                          group_module=ScopedResGroup, fractal_depth=1,

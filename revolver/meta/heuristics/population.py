@@ -40,7 +40,7 @@ def get_layer_cost(blueprint):
     """Input and output shape dependent cost for convolution"""
     input_shape = blueprint['input_shape']
     output_shape = blueprint['output_shape']
-    return math.log2(math.sqrt(np.prod(input_shape) * np.prod(output_shape)))
+    return (math.log2(np.prod(input_shape)+1) + math.log2(np.prod(output_shape))+1) * 0.5
 
 
 def get_ensemble_cost(blueprint):
@@ -87,7 +87,7 @@ def estimate_rough_contexts(blueprint):
         # print(f"Zero : {blueprint[]}")
         return 0.01
 
-    if total_weights > 16000000:
+    if total_weights > 108000000:
         return 0.01
 
     return math.log2(total_params * cost / total_weights)
@@ -114,6 +114,7 @@ def get_genotype_fitness(genotype, verbose=False, *_, **__):
 def get_phenotype_score(genotype, options):
     """Estimate score by training / testing the model"""
     engine_maker = options.engine_maker
+    use_test_set = options.use_test_set
 
     training_budget = max((common.POPULATION_AVERAGE_SCORE / genotype['meta']['score'])**3, 0.2)
     n_batches_per_phenotype = common.POPULATION_NUM_BATCH_PER_INDIVIDUAL * training_budget
@@ -137,11 +138,13 @@ def get_phenotype_score(genotype, options):
             engine.state['epoch'] += 1
 
     score = engine.state['score']
-    if score < common.POPULATION_TOP_VALIDATION_SCORE:
+    if use_test_set or score < common.POPULATION_TOP_VALIDATION_SCORE:
         common.POPULATION_TOP_VALIDATION_SCORE = score
         # Also show the test_acc
         engine.hook('on_end', engine.state)
         genotype['meta']['_test_loss'] = engine.state['score']
+        if use_test_set:
+            score = engine.state['score']
         genotype['meta']['_test_acc'] = engine.state['test_acc']
 
     # favor lower number of parameters
@@ -152,8 +155,12 @@ def get_phenotype_score(genotype, options):
     print(f"phenotype score: {score}")
 
     # delete the engine each time to save a tiny amount of memory as it is a unique obj
-    # this does not delete the data_loaders as they will be reused
+    # delete the train/validation data loaders to have a different validation set each time
+    # reuse the test loader as the same
+    # unregister(engine.blueprint['train_loader']['name'])
+    # unregister(engine.blueprint['validation_loader']['name'])
     unregister(engine.blueprint['name'])
+
     if np.isnan(score):
         raise ValueError("Score is nan")
 
@@ -427,6 +434,7 @@ class Population(object):
 
         # time to kill it
         score = bp['meta']['score']
+        clone = None
         while clone is None:
             score *= 1.2
             clone = self.maybe_pick_from_randomly_generated(score=score)

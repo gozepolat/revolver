@@ -60,7 +60,7 @@ def create_tiny_imagenet_dataset(dataset="tiny-imagenet-200",
 
 def create_dataset(dataset="CIFAR10", data_root=".",
                    train_mode=True, is_validation=False,
-                   crop_size=32, padding=4):
+                   crop_size=32, padding=4, horizontal_flip=False):
     if dataset == 'ILSVRC2012':
         # TODO handle validation set as well
         return create_imagenet_dataset(dataset, data_root,
@@ -78,7 +78,7 @@ def create_dataset(dataset="CIFAR10", data_root=".",
     if train_mode:
         ops = [T.RandomCrop(crop_size), convert]
 
-        if dataset != 'MNIST':
+        if horizontal_flip and dataset != 'MNIST':
             ops = [T.RandomHorizontalFlip()] + ops
 
         convert = T.Compose(ops)

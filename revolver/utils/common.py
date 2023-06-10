@@ -28,7 +28,7 @@ BLUEPRINT_GUI = True
 GUI = None
 
 SCOPE_DICTIONARY = dict()
-AGGRESSIVELY_SHARE = True
+AGGRESSIVELY_SHARE = False
 CURRENT_EPOCH = 1
 
 PREVIOUS_PARAMETERS = dict()
@@ -60,7 +60,7 @@ POPULATION_RANDOM_SEARCH_ITERATIONS = 30
 POPULATION_COMPONENT_SCORES_DICT = {}
 YES_SET = {"y", "Y", "yes", "YES", "Yes", "true", "True", "TRUE", True}
 NO_SET = {"n", "N", "no", "NO", "No", "None", "false", "False", "FALSE", False}
-
+SEED = 42
 
 def log(log_func, msg):
     if DEBUG_COMMON:

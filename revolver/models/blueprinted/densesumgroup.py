@@ -122,8 +122,8 @@ class ScopedDenseSumGroup(Sequential):
                          conv_module=ScopedConv2d, callback=all_to_none,
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,
-                         dropout_p=0.0, residual=True, block_module=ScopedResBlock,
-                         group_depth=2, drop_p=0.0, dense_unit_module=ScopedConvUnit,
+                         dropout_p=0.5, residual=True, block_module=ScopedResBlock,
+                         group_depth=2, drop_p=0.5, dense_unit_module=ScopedConvUnit,
                          scalar_container=ScopedParameterList, weight_sum=False,
                          mutation_p=0.8,
                          *_, **__):

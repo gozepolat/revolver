@@ -1,19 +1,11 @@
 # -*- coding: utf-8 -*-
-from revolver.models.blueprinted.resnet import ScopedResNet
+from revolver.meta.blueprint import Blueprint
 from revolver.models.blueprinted.densenet import ScopedDenseNet
-from revolver.models.blueprinted.resgroup import ScopedResGroup
-# from revolver.models.blueprinted.tree import ScopedTreeGroup
-from revolver.models.blueprinted.resblock import ScopedResBlock
-from revolver.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
-from revolver.models.blueprinted.convdeconv import ScopedConv2dDeconv2d
-from revolver.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
-from revolver.modules.scoped_nn import ScopedCrossEntropyLoss, ScopedConv2d, ScopedConv2dDeconv2dConcat
-from revolver.models.blueprinted.meta import ScopedMetaMasked
-from revolver.utils.transformer import all_to_none
+from revolver.modules.scoped_nn import ScopedConv2d
 from revolver.utils import common
 from revolver.utils.usage_helpers import train_single_network, \
     adjust_options, create_single_engine, train_with_single_engine, \
-    train_population
+    train_population, set_default_options_for_single_network
 from revolver.meta.heuristics.population import generate_net_blueprints, \
     get_phenotype_score, Population
 import argparse
@@ -46,6 +38,10 @@ def parse_args():
     parser.add_argument('--lr', default=0.1, type=float)
     parser.add_argument('--epochs', default=300, type=int, metavar='N',
                         help='number of total epochs to run')
+    parser.add_argument("--use_test_set", default="", type=str)
+    parser.add_argument("--validation_ratio", default=0.01, type=float,
+                        help="the split ratio from the training set for the validation set."
+                             "if use_test_set is not set, then this must be a reasonable size (e.g. 0.1-0.2)")
     parser.add_argument('--finetune_epochs', default=10, type=int, metavar='N',
                         help='number of fine tuning epochs to run after evolving')
     parser.add_argument('--finetune_after_evolving', default="y", type=str)
@@ -62,6 +58,7 @@ def parse_args():
     parser.add_argument('--p_initialize_with_unique', default=0.5, type=float,
                         help='Probability that a component will be made unique when initialized or mutated')
     parser.add_argument('--single_engine', default=True, type=bool)
+    parser.add_argument('--model_bp', default='', type=str)
     parser.add_argument('--gpu_id', default='0', type=str,
                         help='id(s) for CUDA_VISIBLE_DEVICES')
     parser.add_argument('--save_folder', default='.', type=str,
@@ -82,42 +79,15 @@ def parse_args():
     return parsed_args
 
 
-def set_default_options_for_single_network(options):
-    """Default options for the single network training"""
-    options.conv_module = ScopedConv2dDeconv2d
-    options.dropout_p = 0.0
-    options.drop_p = 0.5
-    options.fractal_depth = 4
-    options.net = ScopedResNet
-    options.callback = all_to_none
-    options.criterion = ScopedCrossEntropyLoss
-    options.residual = True
-    options.group_module = ScopedResGroup
-    options.block_module = ScopedResBlock
-    options.dense_unit_module = ScopedBottleneckBlock
-    options.head_kernel = 3
-    options.head_stride = 1
-    options.head_padding = 1
-    options.head_pool_kernel = 3
-    options.head_pool_stride = 2
-    options.head_pool_padding = 1
-    options.head_modules = ('conv',)
-    options.unique = ('bn', 'convdim')
-    options.use_tqdm = True
-    options.test_every_nth = 1
-    options.keep_last_n = 5
-    options.load_latest_checkpoint = True
-    options.engine_pkl = None
-
-
 def set_default_options_for_population(options):
-    """Default options for the single network training"""
+    """Default options for population training"""
     set_default_options_for_single_network(options)
-
     options.net = ScopedDenseNet
     options.conv_module = ScopedConv2d
+    options.dropout_p = 0.5
+    options.drop_p = 0.5
     # log base for the number of parameters
-    options.params_favor_rate = 100
+    options.params_favor_rate = 1000
 
     options.epoch_per_generation = 1
 
@@ -183,7 +153,10 @@ if __name__ == '__main__':
                                   f"{parsed.genotype_cost}_{parsed.search_mode}_{parsed.dataset}.pkl")
     else:
         set_default_options_for_single_network(parsed)
-        train_single_network(parsed)
+        net = None
+        if os.path.isfile(parsed.model_bp):
+            net_bp = Blueprint.load_pickle(parsed.model_bp)
+        train_single_network(parsed, net_bp)
 
     # dump all options
     print(parsed)

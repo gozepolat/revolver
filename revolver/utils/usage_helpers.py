@@ -1,20 +1,24 @@
 # -*- coding: utf-8 -*-
 import math
 
-import numpy as np
-
+from revolver.meta.scope import unregister
+from revolver.models.blueprinted.convdeconv import ScopedConv2dDeconv2d
 from revolver.models.blueprinted.optimizer import ScopedEpochEngine
+from revolver.models.blueprinted.resblock import ScopedResBlock
+from revolver.models.blueprinted.resgroup import ScopedResGroup
 from revolver.models.blueprinted.resnet import ScopedResNet
 from revolver.models.blueprinted.densenet import ScopedDenseNet
 from revolver.models.blueprinted.denseconcatgroup import ScopedDenseConcatGroup
 from revolver.models.blueprinted.bottleneckblock import ScopedBottleneckBlock
 from revolver.modules.scoped_nn import ScopedConv2d, ScopedBatchNorm2d, \
-    ScopedFeatureSimilarityLoss
+    ScopedFeatureSimilarityLoss, ScopedCrossEntropyLoss
 from revolver.modules.loss import collect_features
-from revolver.meta.blueprint import make_module, visit_modules
+from revolver.meta.blueprint import make_module, visit_modules, collect_modules
 from revolver.utils import common
 import json
 import os
+
+from revolver.utils.transformer import all_to_none
 from revolver.utils.visualize import plot_model
 from logging import warning, info
 import glob
@@ -73,7 +77,8 @@ def create_single_engine(net_blueprint, options):
                                                               use_tqdm=options.use_tqdm,
                                                               crop_size=options.crop_size,
                                                               weight_decay=options.weight_decay,
-                                                              test_mode=options.mode == "test")
+                                                              test_mode=options.mode == "test",
+                                                              validation_ratio=options.validation_ratio)
     else:
         log(warning, f'Loading the engine blueprint from {options.engine_pkl} and disregarding all the other options')
         engine_blueprint = pd.read_pickle(options.engine_pkl)
@@ -107,6 +112,9 @@ def remove_older_checkpoints(path, epoch, keep_last_n, oldest_kept):
 
 def train_with_single_engine(model, options):
     print("=================", options.mode)
+    if not os.path.isdir("ckpt"):
+        os.mkdir("ckpt")
+
     if options.mode == 'test':
         options.lr = 0.000000001
 
@@ -157,9 +165,10 @@ def train_with_single_engine(model, options):
             engine.train_n_batches(options.num_samples)
             if j % test_every_nth == test_every_nth - 1:
                 engine.end_epoch()
-                ckpt_name = make_checkpoint_path(name, j)
-                engine.dump_state(ckpt_name)
-                oldest_kept = remove_older_checkpoints(name, j, keep_last_n, oldest_kept)
+                engine.hook('on_end', engine.state)
+                # ckpt_name = make_checkpoint_path(os.path.join("ckpt", name), j)
+                # engine.dump_state(ckpt_name)
+                # oldest_kept = remove_older_checkpoints(name, j, keep_last_n, oldest_kept)
             else:
                 engine.state['epoch'] += 1
     else:
@@ -305,6 +314,27 @@ def train_population(population, options, default_resnet_shape, default_densenet
                          f"size {len(population.genotypes)} "
                          f"name {bp['name']}")
 
+    if "warmup_single_train" in options.search_mode:
+        indices = population.get_sorted_indices()
+        new_options = options
+        set_default_options_for_single_network(new_options)
+        for i, index in enumerate(indices):
+            net_blueprint = population.genotypes[index]
+            net_blueprint.dump_pickle(f"../top_{i}_single_train.pkl")
+            try:
+                print(f"============ Training top {i}th blueprint ============")
+                train_single_network(new_options, net_blueprint)
+                break
+            except (RuntimeError, ValueError, RecursionError):
+                print("Caught exception when trying to train the {i}th top genotype. Skipping...")
+                for bp in collect_modules(net_blueprint):
+                    if bp['unique']:
+                        unregister(bp['name'])
+
+                unregister(net_blueprint['name'])
+
+        return net_blueprint
+
     population.update_scores()
     search_mode = "random" if options.search_mode in {"random", "random_warmup", "evolve_warmup_random"} else "evolve"
     prev_top_index = -1
@@ -363,7 +393,8 @@ def train_population(population, options, default_resnet_shape, default_densenet
 
 
 def train_single_network(options, net=None):
-    net = make_net_blueprint(options)
+    if net is None:
+        net = make_net_blueprint(options)
 
     adjust_uniqueness(net, options)
 
@@ -504,3 +535,32 @@ def train_with_double_engine(model, options, epochs, crop, n_samples=50000):
 
     common_engine.hook('on_end', common_engine.state)
     generator_engine.hook('on_end', generator_engine.state)
+
+
+def set_default_options_for_single_network(options):
+    """Default options for the single network training"""
+    options.conv_module = ScopedConv2dDeconv2d
+    options.dropout_p = 0.5
+    options.drop_p = 0.5
+    options.fractal_depth = 4
+    options.net = ScopedResNet
+    options.callback = all_to_none
+    options.criterion = ScopedCrossEntropyLoss
+    options.residual = True
+    options.group_module = ScopedResGroup
+    options.block_module = ScopedResBlock
+    options.dense_unit_module = ScopedBottleneckBlock
+    options.head_kernel = 3
+    options.head_stride = 1
+    options.head_padding = 1
+    options.head_pool_kernel = 3
+    options.head_pool_stride = 2
+    options.head_pool_padding = 1
+    options.head_modules = ('conv',)
+    options.unique = ('bn', 'convdim')
+    options.use_tqdm = True
+    options.test_every_nth = 1
+    options.keep_last_n = 3
+    options.load_latest_checkpoint = True
+    options.engine_pkl = None
+    options.validation_ratio = 0.01

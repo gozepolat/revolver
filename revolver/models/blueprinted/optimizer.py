@@ -89,8 +89,10 @@ class ScopedDataLoader(DataLoader):
     @staticmethod
     def describe_default(prefix, suffix, parent,
                          dataset, train_mode, batch_size, num_thread, crop_size,
-                         is_validation=False, validation_ratio=.1):
-        default = Blueprint(prefix, suffix, parent, False, ScopedDataLoader)
+                         is_validation=False, validation_ratio=.1, is_unique=False):
+        default = Blueprint(prefix, suffix, parent, is_unique, ScopedDataLoader)
+        if is_unique:
+            default.refresh_name()
 
         default['dataset'] = dataset
         default['batch_size'] = batch_size
@@ -154,10 +156,12 @@ class ScopedNetRunner:
         return default
 
 
-def split_dataset(train_set, validation_ratio=.1, seed=42):
+def split_dataset(train_set, validation_ratio=.1, seed=None):
     valid_set_size = int(len(train_set) * validation_ratio)
     train_set_size = len(train_set) - valid_set_size
-
+    if seed is None:
+        seed = common.SEED
+        common.SEED += 1
     seed = torch.Generator().manual_seed(seed)
     train, validation = data.random_split(train_set,
                                           [train_set_size, valid_set_size],
@@ -187,7 +191,7 @@ class ScopedEpochEngine(EpochEngine):
         if torch.cuda.is_available():
             net.cuda()
         # TODO remove
-        torch.autograd.set_detect_anomaly(True)
+        # torch.autograd.set_detect_anomaly(True)
         self.net = net
         net_runner = make_module(blueprint['net_runner'])
         net_runner.set_model(engine, net)
@@ -291,7 +295,7 @@ class ScopedEpochEngine(EpochEngine):
                          crop_size=32, num_thread=4, net_runner=ScopedNetRunner,
                          criterion=ScopedCrossEntropyLoss,
                          loss_func=ScopedCriterion, callback=all_to_none,
-                         use_tqdm=False, momentum=0.9, weight_decay=0.0005,
+                         use_tqdm=False, momentum=0.9, weight_decay=0.0001,
                          validation_ratio=.1, test_mode=False):
         """Create a default ResBlock blueprint
 

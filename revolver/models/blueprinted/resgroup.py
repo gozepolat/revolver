@@ -54,8 +54,8 @@ class ScopedResGroup(Sequential):
                          conv_module=ScopedConv2d, callback=all_to_none,
                          conv_kwargs=None, bn_kwargs=None, act_kwargs=None,
                          unit_module=ScopedConvUnit, block_depth=2,
-                         dropout_p=0.0, residual=True, block_module=ScopedResBlock,
-                         group_depth=2, drop_p=0.0, mutation_p=0.8,
+                         dropout_p=0.5, residual=True, block_module=ScopedResBlock,
+                         group_depth=2, drop_p=0.5, mutation_p=0.8,
                          toggle_p=common.UNIQUENESS_TOGGLE_P,
                          *_, **__):
         """Create a default ResGroup blueprint
